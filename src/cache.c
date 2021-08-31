@@ -5,6 +5,7 @@
  */
 #include <postgres.h>
 #include <access/xact.h>
+#include <knl/knl_session.h>
 
 #include "cache.h"
 
@@ -25,8 +26,10 @@ cache_reset_pinned_caches(void)
 	if (NULL != pinned_caches_mctx)
 		MemoryContextDelete(pinned_caches_mctx);
 
-	pinned_caches_mctx =
-		AllocSetContextCreate(CacheMemoryContext, "Cache pins", ALLOCSET_DEFAULT_SIZES);
+        struct knl_session_context knl_session_cxt;
+	// pinned_caches_mctx =
+	//	AllocSetContextCreate(CacheMemoryContext, "Cache pins", ALLOCSET_DEFAULT_SIZES);
+        pinned_caches_mctx = AllocSetContextCreate(knl_session_cxt.cache_mem_cxt, "Cache pins", ALLOCSET_DEFAULT_SIZES);
 
 	pinned_caches = NIL;
 }
@@ -273,7 +276,7 @@ cache_xact_end(XactEvent event, void *arg)
 	switch (event)
 	{
 		case XACT_EVENT_ABORT:
-		case XACT_EVENT_PARALLEL_ABORT:
+	//	case XACT_EVENT_PARALLEL_ABORT:
 			release_all_pinned_caches();
 			break;
 		default:
@@ -329,7 +332,7 @@ cache_subxact_abort(SubXactEvent event, SubTransactionId subtxn_id, SubTransacti
 	switch (event)
 	{
 		case SUBXACT_EVENT_START_SUB:
-		case SUBXACT_EVENT_PRE_COMMIT_SUB:
+	//	case SUBXACT_EVENT_PRE_COMMIT_SUB:
 			/* do nothing */
 			break;
 		case SUBXACT_EVENT_COMMIT_SUB:

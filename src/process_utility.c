@@ -3589,7 +3589,7 @@ process_utility_xact_abort(XactEvent event, void *arg)
 	switch (event)
 	{
 		case XACT_EVENT_ABORT:
-		case XACT_EVENT_PARALLEL_ABORT:
+		//case XACT_EVENT_PARALLEL_ABORT:
 
 			/*
 			 * Reset the expect_chunk_modification flag because it this is an

@@ -8,7 +8,8 @@
 
 #include <postgres.h>
 #include <access/attnum.h>
-#include <access/htup_details.h>
+// #include <access/htup_details.h>
+#include <access/htup.h>
 #include <executor/tuptable.h>
 #include <catalog/pg_type.h>
 

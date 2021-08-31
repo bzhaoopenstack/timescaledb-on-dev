@@ -245,7 +245,6 @@ get_input_types(ArrayType *input_types, size_t *number_types)
 
 		schema_oid = get_namespace_oid(NameStr(*schema), false);
 		type_oid = GetSysCacheOid2Compat(TYPENAMENSP,
-										 Anum_pg_type_oid,
 										 PointerGetDatum(NameStr(*type_name)),
 										 ObjectIdGetDatum(schema_oid));
 		if (!OidIsValid(type_oid))

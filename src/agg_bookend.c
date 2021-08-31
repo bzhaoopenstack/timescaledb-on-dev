@@ -5,7 +5,7 @@
  */
 #include <postgres.h>
 #include <fmgr.h>
-#include <access/htup_details.h>
+#include <access/htup.h>
 #include <catalog/namespace.h>
 #include <catalog/pg_type.h>
 #include <libpq/pqformat.h>
@@ -120,9 +120,8 @@ polydatum_deserialize_type(StringInfo buf)
 {
 	const char *schema_name = pq_getmsgstring(buf);
 	const char *type_name = pq_getmsgstring(buf);
-	Oid schema_oid = LookupExplicitNamespace(schema_name, false);
+	Oid schema_oid = LookupExplicitNamespace(schema_name);
 	Oid type_oid = GetSysCacheOid2Compat(TYPENAMENSP,
-										 Anum_pg_type_oid,
 										 PointerGetDatum(type_name),
 										 ObjectIdGetDatum(schema_oid));
 	if (!OidIsValid(type_oid))

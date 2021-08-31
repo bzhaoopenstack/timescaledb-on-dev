@@ -508,7 +508,7 @@ Oid
 ts_lookup_proc_filtered(const char *schema, const char *funcname, Oid *rettype, proc_filter filter,
 						void *filter_arg)
 {
-	Oid namespace_oid = LookupExplicitNamespace(schema, false);
+	Oid namespace_oid = LookupExplicitNamespace(schema);
 	regproc func = InvalidOid;
 	CatCList *catlist;
 	int i;
@@ -548,11 +548,11 @@ ts_lookup_proc_filtered(const char *schema, const char *funcname, Oid *rettype, 
 /*
  * ts_get_operator
  *
- *    finds an operator given an exact specification (name, namespace,
+ *    finds an operator given an exact specification (name, namespaceId,
  *    left and right type IDs).
  */
 Oid
-ts_get_operator(const char *name, Oid namespace, Oid left, Oid right)
+ts_get_operator(const char *name, Oid namespaceId, Oid left, Oid right)
 {
 	HeapTuple tup;
 	Oid opoid = InvalidOid;
@@ -561,7 +561,7 @@ ts_get_operator(const char *name, Oid namespace, Oid left, Oid right)
 						  PointerGetDatum(name),
 						  ObjectIdGetDatum(left),
 						  ObjectIdGetDatum(right),
-						  ObjectIdGetDatum(namespace));
+						  ObjectIdGetDatum(namespaceId));
 	if (HeapTupleIsValid(tup))
 	{
 #if PG12_LT

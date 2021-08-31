@@ -184,13 +184,16 @@ execute_process(
   OUTPUT_VARIABLE PG_VERSION_STRING
   OUTPUT_STRIP_TRAILING_WHITESPACE)
 
-if (NOT ${PG_VERSION_STRING} MATCHES "^PostgreSQL[ ]+([0-9]+)\\.([0-9]+)(\\.([0-9]+))*")
-  message(FATAL_ERROR "Could not parse PostgreSQL version ${PG_VERSION_STRING}")
-endif ()
+#if (NOT ${PG_VERSION_STRING} MATCHES "^PostgreSQL[ ]+([0-9]+)\\.([0-9]+)(\\.([0-9]+))*")
+#  message(FATAL_ERROR "Could not parse PostgreSQL version ${PG_VERSION_STRING}")
+#endif ()
 
 set(PG_VERSION_MAJOR ${CMAKE_MATCH_1})
 set(PG_VERSION_MINOR ${CMAKE_MATCH_2})
 set(PG_VERSION_PATCH ${CMAKE_MATCH_4})
+
+set(PG_VERSION_MAJOR 9)
+set(PG_VERSION_MINOR 4)
 
 if (NOT ${PG_VERSION_PATCH} OR ${PG_VERSION_PATCH} EQUAL "")
   set(PG_VERSION "${PG_VERSION_MAJOR}.${PG_VERSION_MINOR}")
@@ -202,12 +205,12 @@ message(STATUS "Compiling against PostgreSQL version ${PG_VERSION}")
 
 # Ensure that PostgreSQL version is supported and consistent
 # with src/compat.h version check
-if ((${PG_VERSION_MAJOR} LESS "9") OR
-    (${PG_VERSION_MAJOR} EQUAL "9" AND ${PG_VERSION} VERSION_LESS "9.6.3") OR
-    (${PG_VERSION_MAJOR} EQUAL "10" AND ${PG_VERSION} VERSION_LESS "10.2") OR
-    (${PG_VERSION_MAJOR} GREATER "12"))
-  message(FATAL_ERROR "TimescaleDB only supports PostgreSQL 9.6.3+, 10.2+, 11 or 12")
-endif()
+#if ((${PG_VERSION_MAJOR} LESS "9") OR
+#    (${PG_VERSION_MAJOR} EQUAL "9" AND ${PG_VERSION} VERSION_LESS "9.6.3") OR
+#    (${PG_VERSION_MAJOR} EQUAL "10" AND ${PG_VERSION} VERSION_LESS "10.2") OR
+#    (${PG_VERSION_MAJOR} GREATER "12"))
+#  message(FATAL_ERROR "TimescaleDB only supports PostgreSQL 9.6.3+, 10.2+, 11 or 12")
+#endif()
 
 # Get PostgreSQL configuration from pg_config
 get_pg_config(PG_INCLUDEDIR --includedir)
@@ -311,9 +314,9 @@ else()
   message(WARNING "Did not find clang-tidy, not defining clang-tidy target.")
 endif()
 
-option(USE_OPENSSL "Enable use of OpenSSL if available" ON)
+option(USE_OPENSSL "Enable use of OpenSSL if available" OFF)
 option(SEND_TELEMETRY_DEFAULT "The default value for whether to send telemetry" ON)
-option(REGRESS_CHECKS "PostgreSQL regress checks through installcheck" ON)
+option(REGRESS_CHECKS "PostgreSQL regress checks through installcheck" OFF)
 
 # Check if PostgreSQL has OpenSSL enabled by inspecting pg_config --configure.
 # Right now, a Postgres header will redefine an OpenSSL function if Postgres is not installed --with-openssl,

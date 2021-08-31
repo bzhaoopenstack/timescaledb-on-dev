@@ -11,6 +11,7 @@
 #include <pgstat.h>
 #include <utils/lsyscache.h>
 #include <utils/rel.h>
+#include <utils/syscache.h>
 #include <executor/executor.h>
 #include <executor/tuptable.h>
 #include <nodes/execnodes.h>
@@ -41,10 +42,15 @@
 
 #define PG12_LT (PG96 || PG10 || PG11)
 #define PG12_GE !(PG12_LT)
+#define PG12_LT True
+#define PG10_LT True
+#define PG11_LT True
 
-#if !(is_supported_pg_version(PG_VERSION_NUM))
-#error "Unsupported PostgreSQL version"
-#endif
+/*
+ *#if !(is_supported_pg_version(PG_VERSION_NUM))
+ *#error "Unsupported PostgreSQL version"
+ *#endif
+ */
 
 /*
  * The following are compatibility functions for different versions of
@@ -804,14 +810,15 @@ extern int oid_cmp(const void *p1, const void *p2);
 #endif
 
 /* Compatibility functions for table access method API introduced in PG12 */
-#if PG12_LT
+//#if PG12_LT
 #include "compat/tupconvert.h"
 #include "compat/tuptable.h"
 #include "compat/tableam.h"
 
-#else
-#define ts_tuptableslot_set_table_oid(slot, table_oid) (slot)->tts_tableOid = table_oid
-#endif
+/*#else
+ *#define ts_tuptableslot_set_table_oid(slot, table_oid) (slot)->tts_tableOid = table_oid
+ *#endif
+ */
 
 #if PG12_GE
 #define ExecTypeFromTLCompat(tlist, hasoid) ExecTypeFromTL(tlist)

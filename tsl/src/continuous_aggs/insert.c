@@ -335,7 +335,7 @@ continuous_agg_xact_invalidation_callback(XactEvent event, void *arg)
 			cache_inval_cleanup();
 			break;
 		case XACT_EVENT_ABORT:
-		case XACT_EVENT_PARALLEL_ABORT:
+		//case XACT_EVENT_PARALLEL_ABORT:
 			cache_inval_cleanup();
 			break;
 		default:

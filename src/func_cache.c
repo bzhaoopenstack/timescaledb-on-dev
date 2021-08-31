@@ -17,16 +17,18 @@
 #include <utils/selfuncs.h>
 #include <utils/builtins.h>
 #include <utils/rel.h>
+#include <knl/knl_session.h>
 
 #include "compat.h"
-#if PG12_LT
+/* #if PG12_LT */
 #include <nodes/relation.h>
 #include <optimizer/cost.h>
 #include <optimizer/clauses.h>
-#else
-#include <nodes/pathnodes.h>
-#include <optimizer/optimizer.h>
-#endif
+/*#else
+ *#include <nodes/pathnodes.h>
+ *#include <optimizer/optimizer.h>
+ *#endif
+ */
 
 #include "utils.h"
 #include "cache.h"
@@ -167,130 +169,130 @@ typedef struct FuncEntry
 /* Information about functions that we put in the cache */
 static FuncInfo funcinfo[] = {
 	{
-		.is_timescaledb_func = true,
-		.is_bucketing_func = true,
-		.funcname = "time_bucket",
-		.nargs = 2,
-		.arg_types = { INTERVALOID, TIMESTAMPOID },
-		.group_estimate = time_bucket_group_estimate,
-		.sort_transform = time_bucket_sort_transform,
+		funcname : "time_bucket",
+		is_timescaledb_func : true,
+		is_bucketing_func : true,
+		nargs : 2,
+		arg_types : { INTERVALOID, TIMESTAMPOID },
+		group_estimate : time_bucket_group_estimate,
+		sort_transform : time_bucket_sort_transform,
 	},
 	{
-		.is_timescaledb_func = true,
-		.is_bucketing_func = true,
-		.funcname = "time_bucket",
-		.nargs = 3,
-		.arg_types = { INTERVALOID, TIMESTAMPOID, TIMESTAMPOID },
-		.group_estimate = time_bucket_group_estimate,
-		.sort_transform = time_bucket_sort_transform,
+		funcname : "time_bucket",
+		is_timescaledb_func : true,
+		is_bucketing_func : true,
+		nargs : 3,
+		arg_types : { INTERVALOID, TIMESTAMPOID, TIMESTAMPOID },
+		group_estimate : time_bucket_group_estimate,
+		sort_transform : time_bucket_sort_transform,
 	},
 	{
-		.is_timescaledb_func = true,
-		.is_bucketing_func = true,
-		.funcname = "time_bucket",
-		.nargs = 2,
-		.arg_types = { INTERVALOID, TIMESTAMPTZOID },
-		.group_estimate = time_bucket_group_estimate,
-		.sort_transform = time_bucket_sort_transform,
+		funcname : "time_bucket",
+		is_timescaledb_func : true,
+		is_bucketing_func : true,
+		nargs : 2,
+		arg_types : { INTERVALOID, TIMESTAMPTZOID },
+		group_estimate : time_bucket_group_estimate,
+		sort_transform : time_bucket_sort_transform,
 	},
 	{
-		.is_timescaledb_func = true,
-		.is_bucketing_func = true,
-		.funcname = "time_bucket",
-		.nargs = 3,
-		.arg_types = { INTERVALOID, TIMESTAMPTZOID, TIMESTAMPTZOID },
-		.group_estimate = time_bucket_group_estimate,
-		.sort_transform = time_bucket_sort_transform,
+		funcname : "time_bucket",
+		is_timescaledb_func : true,
+		is_bucketing_func : true,
+		nargs : 3,
+		arg_types : { INTERVALOID, TIMESTAMPTZOID, TIMESTAMPTZOID },
+		group_estimate : time_bucket_group_estimate,
+		sort_transform : time_bucket_sort_transform,
 	},
 	{
-		.is_timescaledb_func = true,
-		.is_bucketing_func = true,
-		.funcname = "time_bucket",
-		.nargs = 2,
-		.arg_types = { INTERVALOID, DATEOID },
-		.group_estimate = time_bucket_group_estimate,
-		.sort_transform = time_bucket_sort_transform,
+		funcname : "time_bucket",
+		is_timescaledb_func : true,
+		is_bucketing_func : true,
+		nargs : 2,
+		arg_types : { INTERVALOID, DATEOID },
+		group_estimate : time_bucket_group_estimate,
+		sort_transform : time_bucket_sort_transform,
 	},
 	{
-		.is_timescaledb_func = true,
-		.is_bucketing_func = true,
-		.funcname = "time_bucket",
-		.nargs = 3,
-		.arg_types = { INTERVALOID, DATEOID, DATEOID },
-		.group_estimate = time_bucket_group_estimate,
-		.sort_transform = time_bucket_sort_transform,
+		funcname : "time_bucket",
+		is_timescaledb_func : true,
+		is_bucketing_func : true,
+		nargs : 3,
+		arg_types : { INTERVALOID, DATEOID, DATEOID },
+		group_estimate : time_bucket_group_estimate,
+		sort_transform : time_bucket_sort_transform,
 	},
 	{
-		.is_timescaledb_func = true,
-		.is_bucketing_func = true,
-		.funcname = "time_bucket",
-		.nargs = 2,
-		.arg_types = { INT2OID, INT2OID },
-		.group_estimate = time_bucket_group_estimate,
-		.sort_transform = time_bucket_sort_transform,
+		funcname : "time_bucket",
+		is_timescaledb_func : true,
+		is_bucketing_func : true,
+		nargs : 2,
+		arg_types : { INT2OID, INT2OID },
+		group_estimate : time_bucket_group_estimate,
+		sort_transform : time_bucket_sort_transform,
 	},
 	{
-		.is_timescaledb_func = true,
-		.is_bucketing_func = true,
-		.funcname = "time_bucket",
-		.nargs = 3,
-		.arg_types = { INT2OID, INT2OID, INT2OID },
-		.group_estimate = time_bucket_group_estimate,
-		.sort_transform = time_bucket_sort_transform,
+		funcname : "time_bucket",
+		is_timescaledb_func : true,
+		is_bucketing_func : true,
+		nargs : 3,
+		arg_types : { INT2OID, INT2OID, INT2OID },
+		group_estimate : time_bucket_group_estimate,
+		sort_transform : time_bucket_sort_transform,
 	},
 	{
-		.is_timescaledb_func = true,
-		.is_bucketing_func = true,
-		.funcname = "time_bucket",
-		.nargs = 2,
-		.arg_types = { INT4OID, INT4OID },
-		.group_estimate = time_bucket_group_estimate,
-		.sort_transform = time_bucket_sort_transform,
+		funcname : "time_bucket",
+		is_timescaledb_func : true,
+		is_bucketing_func : true,
+		nargs : 2,
+		arg_types : { INT4OID, INT4OID },
+		group_estimate : time_bucket_group_estimate,
+		sort_transform : time_bucket_sort_transform,
 	},
 	{
-		.is_timescaledb_func = true,
-		.is_bucketing_func = true,
-		.funcname = "time_bucket",
-		.nargs = 3,
-		.arg_types = { INT4OID, INT4OID, INT4OID },
-		.group_estimate = time_bucket_group_estimate,
-		.sort_transform = time_bucket_sort_transform,
+		funcname : "time_bucket",
+		is_timescaledb_func : true,
+		is_bucketing_func : true,
+		nargs : 3,
+		arg_types : { INT4OID, INT4OID, INT4OID },
+		group_estimate : time_bucket_group_estimate,
+		sort_transform : time_bucket_sort_transform,
 	},
 	{
-		.is_timescaledb_func = true,
-		.is_bucketing_func = true,
-		.funcname = "time_bucket",
-		.nargs = 2,
-		.arg_types = { INT8OID, INT8OID },
-		.group_estimate = time_bucket_group_estimate,
-		.sort_transform = time_bucket_sort_transform,
+		funcname : "time_bucket",
+		is_timescaledb_func : true,
+		is_bucketing_func : true,
+		nargs : 2,
+		arg_types : { INT8OID, INT8OID },
+		group_estimate : time_bucket_group_estimate,
+		sort_transform : time_bucket_sort_transform,
 	},
 	{
-		.is_timescaledb_func = true,
-		.is_bucketing_func = true,
-		.funcname = "time_bucket",
-		.nargs = 3,
-		.arg_types = { INT8OID, INT8OID, INT8OID },
-		.group_estimate = time_bucket_group_estimate,
-		.sort_transform = time_bucket_sort_transform,
+		funcname : "time_bucket",
+		is_timescaledb_func : true,
+		is_bucketing_func : true,
+		nargs : 3,
+		arg_types : { INT8OID, INT8OID, INT8OID },
+		group_estimate : time_bucket_group_estimate,
+		sort_transform : time_bucket_sort_transform,
 	},
 	{
-		.is_timescaledb_func = false,
-		.is_bucketing_func = true,
-		.funcname = "date_trunc",
-		.nargs = 2,
-		.arg_types = { TEXTOID, TIMESTAMPOID },
-		.group_estimate = date_trunc_group_estimate,
-		.sort_transform = date_trunc_sort_transform,
+		funcname : "date_trunc",
+		is_timescaledb_func : false,
+		is_bucketing_func : true,
+		nargs : 2,
+		arg_types : { TEXTOID, TIMESTAMPOID },
+		group_estimate : date_trunc_group_estimate,
+		sort_transform : date_trunc_sort_transform,
 	},
 	{
-		.is_timescaledb_func = false,
-		.is_bucketing_func = true,
-		.funcname = "date_trunc",
-		.nargs = 2,
-		.arg_types = { TEXTOID, TIMESTAMPTZOID },
-		.group_estimate = date_trunc_group_estimate,
-		.sort_transform = date_trunc_sort_transform,
+		funcname : "date_trunc",
+		is_timescaledb_func : false,
+		is_bucketing_func : true,
+		nargs : 2,
+		arg_types : { TEXTOID, TIMESTAMPTZOID },
+		group_estimate : date_trunc_group_estimate,
+		sort_transform : date_trunc_sort_transform,
 	},
 };
 
@@ -301,22 +303,31 @@ static HTAB *func_hash = NULL;
 static Oid
 proc_get_oid(HeapTuple tuple)
 {
-#if PG12_LT
+//#if PG12_LT
 	return HeapTupleGetOid(tuple);
-#else
-	Form_pg_proc form = (Form_pg_proc) GETSTRUCT(tuple);
-	return form->oid;
-#endif
+/*#else
+ *	Form_pg_proc form = (Form_pg_proc) GETSTRUCT(tuple);
+ *	return form->oid;
+ *#endif
+ */
 }
 
 static void
 initialize_func_info()
 {
-	HASHCTL hashctl = {
-		.keysize = sizeof(Oid),
-		.entrysize = sizeof(FuncEntry),
-		.hcxt = CacheMemoryContext,
-	};
+        struct knl_session_context knl_session_cxt;
+	/*HASHCTL hashctl = {
+	 *	keysize : sizeof(Oid),
+	 *	entrysize : sizeof(FuncEntry),
+	 *	// hcxt : CacheMemoryContext,
+         *       // hcxt : knl_session_context.cache_mem_cxt,
+         *       hcxt : knl_session_cxt,
+	 *};
+         */
+        struct HASHCTL hashctl;
+        hashctl.keysize = sizeof(Oid);
+        hashctl.entrysize = sizeof(FuncEntry);
+        hashctl.hcxt = knl_session_cxt.cache_mem_cxt;
 	Oid extension_nsp = get_namespace_oid(ts_extension_schema_name(), false);
 	Oid pg_nsp = get_namespace_oid("pg_catalog", false);
 	HeapTuple tuple;

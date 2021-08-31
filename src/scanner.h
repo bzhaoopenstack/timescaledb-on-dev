@@ -10,18 +10,19 @@
 
 #include <access/genam.h>
 #include <access/heapam.h>
-#include <nodes/lockoptions.h>
+// #include <nodes/lockoptions.h>
 #include <utils.h>
 #include <utils/fmgroids.h>
 
 #include "compat.h"
 
-typedef struct ScanTupLock
-{
-	LockTupleMode lockmode;
-	LockWaitPolicy waitpolicy;
-	bool follow_updates;
-} ScanTupLock;
+/*typedef struct ScanTupLock
+ *{
+ *	LockTupleMode lockmode;
+ *	LockWaitPolicy waitpolicy;
+ *	bool follow_updates;
+ *} ScanTupLock;
+ */
 
 /* Tuple information passed on to handlers when scanning for tuples. */
 typedef struct TupleInfo
@@ -78,7 +79,7 @@ typedef struct ScannerCtx
 	LOCKMODE lockmode;
 	MemoryContext result_mctx; /* The memory context to allocate the result
 								* on */
-	ScanTupLock *tuplock;
+	// ScanTupLock *tuplock;
 	ScanDirection scandirection;
 	void *data; /* User-provided data passed on to filter()
 				 * and tuple_found() */
