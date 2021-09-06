@@ -10,7 +10,8 @@
 
 #include <postgres.h>
 #include <access/attnum.h>
-#include <access/htup_details.h>
+//#include <access/htup_details.h>
+#include <access/htup.h>
 #include <utils/typcache.h>
 #include <fmgr.h>
 

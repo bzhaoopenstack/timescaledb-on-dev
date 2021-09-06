@@ -7,8 +7,9 @@
 #define BGW_JOB_H
 
 #include <postgres.h>
-#include <storage/lock.h>
-#include <postmaster/bgworker.h>
+//#include <storage/lock.h>
+#include <storage/lock/lock.h>
+//#include <postmaster/bgworker.h>
 
 #include "export.h"
 #include "catalog.h"
@@ -35,7 +36,7 @@ typedef bool job_main_func(void);
 typedef bool (*unknown_job_type_hook_type)(BgwJob *job);
 typedef Oid (*unknown_job_type_owner_hook_type)(BgwJob *job);
 
-extern BackgroundWorkerHandle *ts_bgw_job_start(BgwJob *job, Oid user_oid);
+// extern BackgroundWorkerHandle *ts_bgw_job_start(BgwJob *job, Oid user_oid);
 
 extern List *ts_bgw_job_get_all(size_t alloc_size, MemoryContext mctx);
 

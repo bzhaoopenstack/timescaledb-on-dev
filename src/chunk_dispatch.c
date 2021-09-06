@@ -5,7 +5,7 @@
  */
 #include <postgres.h>
 #include <nodes/nodes.h>
-#include <nodes/extensible.h>
+//#include <nodes/extensible.h>
 #include <nodes/makefuncs.h>
 #include <nodes/nodeFuncs.h>
 #include <utils/rel.h>
@@ -68,25 +68,29 @@ ts_chunk_dispatch_get_arbiter_indexes(const ChunkDispatch *dispatch)
 	return dispatch->dispatch_state->arbiter_indexes;
 }
 
-OnConflictAction
-ts_chunk_dispatch_get_on_conflict_action(const ChunkDispatch *dispatch)
-{
-	if (NULL == dispatch->dispatch_state)
-		return ONCONFLICT_NONE;
-	return get_modifytable(dispatch)->onConflictAction;
-}
+//OnConflictAction
+//ts_chunk_dispatch_get_on_conflict_action(const ChunkDispatch *dispatch)
+//{
+//	if (NULL == dispatch->dispatch_state)
+//		return ONCONFLICT_NONE;
+//	return get_modifytable(dispatch)->onConflictAction;
+//}
 
 List *
 ts_chunk_dispatch_get_on_conflict_set(const ChunkDispatch *dispatch)
 {
-	return get_modifytable(dispatch)->onConflictSet;
+	//return get_modifytable(dispatch)->onConflictSet;
+	//ERROR
+	return get_modifytable(dispatch)->exclRelTlist;
 }
 
-Node *
-ts_chunk_dispatch_get_on_conflict_where(const ChunkDispatch *dispatch)
-{
-	return get_modifytable(dispatch)->onConflictWhere;
-}
+//Node *
+//ts_chunk_dispatch_get_on_conflict_where(const ChunkDispatch *dispatch)
+//{
+//	//return get_modifytable(dispatch)->onConflictWhere;
+//	//ERROR
+//	return get_modifytable(dispatch)->exclRelTlist;
+//}
 
 CmdType
 ts_chunk_dispatch_get_cmd_type(const ChunkDispatch *dispatch)

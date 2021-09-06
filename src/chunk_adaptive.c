@@ -14,6 +14,7 @@
 #include <utils/array.h>
 #include <utils/snapmgr.h>
 #include <utils/typcache.h>
+#include <utils/acl.h>
 #include <funcapi.h>
 #include <math.h>
 #include <parser/parse_func.h>
@@ -151,7 +152,8 @@ minmax_heapscan(Relation rel, Oid atttype, AttrNumber attnum, Datum minmax[2])
 	while (table_scan_getnextslot(scan, ForwardScanDirection, slot))
 	{
 		bool isnull;
-		Datum value = slot_getattr(slot, attnum, &isnull);
+		//Datum value = slot_getattr(slot, attnum, &isnull);
+		Datum value = NULL;
 
 		if (isnull)
 			continue;
@@ -200,7 +202,7 @@ minmax_indexscan(Relation rel, Relation idxrel, AttrNumber attnum, Datum minmax[
 		if (!found_tuple)
 			break;
 
-		minmax[i] = slot_getattr(slot, attnum, &isnull);
+		//minmax[i] = slot_getattr(slot, attnum, &isnull);
 		nulls[i] = isnull;
 	}
 
@@ -736,8 +738,8 @@ ts_chunk_adaptive_set(PG_FUNCTION_ARGS)
 {
 	ChunkSizingInfo info = {
 		.table_relid = PG_GETARG_OID(0),
-		.target_size = PG_ARGISNULL(1) ? NULL : PG_GETARG_TEXT_P(1),
 		.func = PG_ARGISNULL(2) ? InvalidOid : PG_GETARG_OID(2),
+		.target_size = PG_ARGISNULL(1) ? NULL : PG_GETARG_TEXT_P(1),
 		.colname = NULL,
 		.check_for_index = true,
 	};
@@ -827,8 +829,8 @@ ts_chunk_sizing_info_get_default_disabled(Oid table_relid)
 	ChunkSizingInfo *chunk_sizing_info = palloc(sizeof(*chunk_sizing_info));
 	*chunk_sizing_info = (ChunkSizingInfo){
 		.table_relid = table_relid,
-		.target_size = NULL,
 		.func = get_default_chunk_sizing_fn_oid(),
+		.target_size = NULL,
 		.colname = NULL,
 		.check_for_index = false,
 	};

@@ -50,9 +50,9 @@ ts_chunk_dispatch_get_chunk_insert_state(ChunkDispatch *dispatch, Point *p,
 extern bool ts_chunk_dispatch_has_returning(const ChunkDispatch *dispatch);
 extern List *ts_chunk_dispatch_get_returning_clauses(const ChunkDispatch *dispatch);
 extern List *ts_chunk_dispatch_get_arbiter_indexes(const ChunkDispatch *dispatch);
-extern OnConflictAction ts_chunk_dispatch_get_on_conflict_action(const ChunkDispatch *dispatch);
+//extern OnConflictAction ts_chunk_dispatch_get_on_conflict_action(const ChunkDispatch *dispatch);
 extern List *ts_chunk_dispatch_get_on_conflict_set(const ChunkDispatch *dispatch);
-extern Node *ts_chunk_dispatch_get_on_conflict_where(const ChunkDispatch *dispatch);
+//extern Node *ts_chunk_dispatch_get_on_conflict_where(const ChunkDispatch *dispatch);
 extern CmdType ts_chunk_dispatch_get_cmd_type(const ChunkDispatch *dispatch);
 
 #endif /* TIMESCALEDB_CHUNK_DISPATCH_H */

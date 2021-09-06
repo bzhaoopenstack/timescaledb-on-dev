@@ -25,8 +25,8 @@ typedef struct ScanIterator
 		.ctx = {                                                                                   \
 			.table = catalog_get_table_id(ts_catalog_get(), catalog_table_id),                     \
 			.nkeys = 0,                                                                            \
-			.scandirection = ForwardScanDirection,                                                 \
 			.lockmode = lock_mode,                                                                 \
+			.scandirection = ForwardScanDirection,                                                 \
 			.result_mctx = mctx,                                                                   \
 		}                                                                                          \
 	}

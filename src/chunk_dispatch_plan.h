@@ -9,7 +9,7 @@
 #include <postgres.h>
 #include <nodes/plannodes.h>
 #include <nodes/parsenodes.h>
-#include <nodes/extensible.h>
+//#include <nodes/extensible.h>
 
 typedef struct ChunkDispatchPath
 {

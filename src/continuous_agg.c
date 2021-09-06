@@ -11,7 +11,9 @@
 
 #include <postgres.h>
 #include <fmgr.h>
-#include <access/htup_details.h>
+//#include <access/htup_details.h>
+#include <access/htup.h>
+
 #include <catalog/dependency.h>
 #include <catalog/namespace.h>
 #include <storage/lmgr.h>
@@ -27,9 +29,11 @@
 #include "hypertable.h"
 #include "scan_iterator.h"
 
-#if !PG96
-#include <utils/fmgrprotos.h>
-#endif
+/*
+ *#if !PG96
+ *#include <utils/fmgrprotos.h>
+ *#endif
+ */
 
 #define CHECK_NAME_MATCH(name1, name2) (namestrcmp(name1, name2) == 0)
 
@@ -39,13 +43,13 @@ static const WithClauseDefinition continuous_aggregate_with_clause_def[] = {
 			.type_id = BOOLOID,
 			.default_val = BoolGetDatum(false),
 		},
+                [ContinuousViewOptionRefreshLag] = {
+                         .arg_name = "refresh_lag",
+                         .type_id = TEXTOID,
+                },
 		[ContinuousViewOptionRefreshInterval] = {
 			.arg_name = "refresh_interval",
 			.type_id = INTERVALOID,
-		},
-		[ContinuousViewOptionRefreshLag] = {
-			 .arg_name = "refresh_lag",
-			 .type_id = TEXTOID,
 		},
 		[ContinuousViewOptionMaxIntervalPerRun] = {
 			.arg_name = "max_interval_per_job",
@@ -484,8 +488,8 @@ drop_continuous_agg(ContinuousAgg *agg, bool drop_user_view)
 	ScanIterator iterator =
 		ts_scan_iterator_create(CONTINUOUS_AGG, RowExclusiveLock, CurrentMemoryContext);
 	Catalog *catalog = ts_catalog_get();
-	ObjectAddress user_view = { .objectId = InvalidOid }, partial_view = { .objectId = InvalidOid },
-				  rawht_trig = { .objectId = InvalidOid }, direct_view = { .objectId = InvalidOid };
+	ObjectAddress user_view = { .classId = NULL, .objectId = InvalidOid }, partial_view = { .classId = NULL, .objectId = InvalidOid },
+				  rawht_trig = { .classId = NULL, .objectId = InvalidOid }, direct_view = { .classId = NULL, .objectId = InvalidOid };
 	Hypertable *mat_hypertable, *raw_hypertable;
 	int32 count = 0;
 	bool raw_hypertable_has_other_caggs = true;

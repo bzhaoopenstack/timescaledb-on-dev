@@ -13,7 +13,7 @@
 #include <access/heapam.h>
 #include <access/genam.h>
 
-#define TableScanDesc HeapScanDesc
+//#define TableScanDesc HeapScanDesc
 
 #define table_open(r, l) heap_open(r, l)
 #define table_openrv(r, l) heap_openrv(r, l)

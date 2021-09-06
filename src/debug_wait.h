@@ -9,7 +9,8 @@
 
 #include <postgres.h>
 
-#include <storage/lock.h>
+//#include <storage/lock.h>
+#include <storage/lock/lock.h>
 
 /* Tag for debug waitpoints.
  *

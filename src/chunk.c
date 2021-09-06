@@ -15,7 +15,8 @@
 #include <commands/defrem.h>
 #include <tcop/tcopprot.h>
 #include <access/htup.h>
-#include <access/htup_details.h>
+//#include <access/htup_details.h>
+#include <access/htup.h>
 #include <access/xact.h>
 #include <access/reloptions.h>
 #include <nodes/makefuncs.h>
@@ -33,6 +34,9 @@
 #include <nodes/execnodes.h>
 #include <executor/executor.h>
 #include <access/tupdesc.h>
+
+#include <catalog/toasting.h>
+#include <utils/acl.h>
 
 #include "export.h"
 #include "debug_wait.h"
@@ -592,32 +596,35 @@ create_toast_table(CreateStmt *stmt, Oid chunk_oid)
 
 	(void) heap_reloptions(RELKIND_TOASTVALUE, toast_options, true);
 
-	NewRelationCreateToastTable(chunk_oid, toast_options);
+	// NewRelationCreateToastTable(chunk_oid, toast_options);
+	AlterTableCreateToastTable(chunk_oid, toast_options);
 }
 
-#if PG12_GE
 /*
+ *#if PG12_GE
+ *
  * Get the access method name for a relation.
+ * 
+ *static char *
+ *get_am_name_for_rel(Oid relid)
+ *{
+ *	HeapTuple tuple;
+ *	Form_pg_class cform;
+ *	Oid amoid;
+ *
+ *	tuple = SearchSysCache1(RELOID, ObjectIdGetDatum(relid));
+ *
+ *	if (!HeapTupleIsValid(tuple))
+ *		elog(ERROR, "cache lookup failed for relation %u", relid);
+ *
+ *	cform = (Form_pg_class) GETSTRUCT(tuple);
+ *	amoid = cform->relam;
+ *	ReleaseSysCache(tuple);
+ *
+ *	return get_am_name(amoid);
+ *}
+ * endif
  */
-static char *
-get_am_name_for_rel(Oid relid)
-{
-	HeapTuple tuple;
-	Form_pg_class cform;
-	Oid amoid;
-
-	tuple = SearchSysCache1(RELOID, ObjectIdGetDatum(relid));
-
-	if (!HeapTupleIsValid(tuple))
-		elog(ERROR, "cache lookup failed for relation %u", relid);
-
-	cform = (Form_pg_class) GETSTRUCT(tuple);
-	amoid = cform->relam;
-	ReleaseSysCache(tuple);
-
-	return get_am_name(amoid);
-}
-#endif
 
 static void
 copy_hypertable_acl_to_relid(Hypertable *ht, Oid relid)
@@ -694,17 +701,24 @@ ts_chunk_create_table(Chunk *chunk, Hypertable *ht, const char *tablespacename)
 	Relation rel;
 	ObjectAddress objaddr;
 	int sec_ctx;
-	char *namespace = NameStr(ht->fd.schema_name);
+	char *tsnamespace = NameStr(ht->fd.schema_name);
 	char *hyper_name = NameStr(ht->fd.table_name);
 	CreateStmt stmt = {
 		.type = T_CreateStmt,
 		.relation = makeRangeVar(NameStr(chunk->fd.schema_name), NameStr(chunk->fd.table_name), 0),
-		.inhRelations = list_make1(makeRangeVar(namespace, hyper_name, 0)),
-		.tablespacename = tablespacename ? pstrdup(tablespacename) : NULL,
+		.tableElts = NULL,
+		.inhRelations = list_make1(makeRangeVar(tsnamespace, hyper_name, 0)),
+		.ofTypename = NULL,
+		.constraints = NULL,
 		.options = get_reloptions(ht->main_table_relid),
-#if PG12_GE
-		.accessMethod = get_am_name_for_rel(ht->main_table_relid),
-#endif
+		.clusterKeys = NULL,
+		.oncommit = NULL,
+		.tablespacename = tablespacename ? pstrdup(tablespacename) : NULL,
+/*
+ *   #if PG12_GE
+ *		.accessMethod = get_am_name_for_rel(ht->main_table_relid),
+ *   #endif
+ */
 	};
 	Oid uid, saved_uid;
 
@@ -726,37 +740,42 @@ ts_chunk_create_table(Chunk *chunk, Hypertable *ht, const char *tablespacename)
 	if (uid != saved_uid)
 		SetUserIdAndSecContext(uid, sec_ctx | SECURITY_LOCAL_USERID_CHANGE);
 
-	objaddr = DefineRelation(&stmt,
-							 RELKIND_RELATION,
-							 rel->rd_rel->relowner,
-							 NULL
-#if !PG96
-							 ,
-							 NULL
-#endif
-	);
+	// objaddr = DefineRelation(&stmt,
+	//  						 RELKIND_RELATION, 
+	//						 InvalidOid
+	//);
+	//							 rel->rd_rel->relowner
+	//						 NULL
+/*
+ *#if !PG96
+ *							 ,
+ *							 NULL
+ *#endif
+ */
+ //	);
 
 	/* Make the newly defined relation visible so that we can update the
 	 * ACL. */
 	CommandCounterIncrement();
 
 	/* Copy acl from hypertable to chunk relation record */
-	copy_hypertable_acl_to_relid(ht, objaddr.objectId);
+	// copy_hypertable_acl_to_relid(ht, objaddr.objectId);
 
 	/*
 	 * need to create a toast table explicitly for some of the option setting
 	 * to work
 	 */
-	create_toast_table(&stmt, objaddr.objectId);
+	// create_toast_table(&stmt, objaddr.objectId);
 
 	if (uid != saved_uid)
 		SetUserIdAndSecContext(saved_uid, sec_ctx);
 
-	set_attoptions(rel, objaddr.objectId);
+	// set_attoptions(rel, objaddr.objectId);
 
 	table_close(rel, AccessShareLock);
 
-	return objaddr.objectId;
+	// return objaddr.objectId;
+	return InvalidOid;
 }
 
 static Chunk *
@@ -767,10 +786,12 @@ chunk_create_metadata_after_lock(Hypertable *ht, Point *p, const char *schema, c
 	CatalogSecurityContext sec_ctx;
 	Hypercube *cube;
 	Chunk *chunk;
-	ScanTupLock tuplock = {
-		.lockmode = LockTupleKeyShare,
-		.waitpolicy = LockWaitBlock,
-	};
+        /*
+	 *ScanTupLock tuplock = {
+         *		.lockmode = LockTupleKeyShare,
+         *		.waitpolicy = LockWaitBlock,
+	 *};
+         */
 
 	/*
 	 * If the user has enabled adaptive chunking, call the function to
@@ -786,10 +807,10 @@ chunk_create_metadata_after_lock(Hypertable *ht, Point *p, const char *schema, c
 	 *
 	 * The range of a dimension slice does not change, but we should use the
 	 * weakest lock possible to not unnecessarily block other operations. */
-	cube = ts_hypercube_calculate_from_point(hs, p, &tuplock);
+	// cube = ts_hypercube_calculate_from_point(hs, p, &tuplock);
 
 	/* Resolve collisions with other chunks by cutting the new hypercube */
-	chunk_collision_resolve(hs, cube, p);
+	// chunk_collision_resolve(hs, cube, p);
 
 	/* Create a new chunk based on the hypercube */
 	ts_catalog_database_info_become_owner(ts_catalog_database_info_get(), &sec_ctx);
@@ -797,7 +818,7 @@ chunk_create_metadata_after_lock(Hypertable *ht, Point *p, const char *schema, c
 	ts_catalog_restore_user(&sec_ctx);
 
 	chunk->fd.hypertable_id = hs->hypertable_id;
-	chunk->cube = cube;
+	// chunk->cube = cube;
 	chunk->hypertable_relid = ht->main_table_relid;
 	namestrcpy(&chunk->fd.schema_name, schema);
 	snprintf(chunk->fd.table_name.data, NAMEDATALEN, "%s_%d_chunk", prefix, chunk->fd.id);
@@ -1009,14 +1030,18 @@ chunk_create_from_stub(ChunkStubScanCtx *stubctx)
 	int num_found;
 	ScannerCtx scanctx = {
 		.table = catalog_get_table_id(catalog, CHUNK),
-		.index = catalog_get_index(catalog, CHUNK, CHUNK_ID_INDEX),
 		.nkeys = 1,
-		.scankey = scankey,
-		.data = stubctx,
-		.filter = chunk_tuple_dropped_filter,
-		.tuple_found = chunk_tuple_found,
 		.lockmode = AccessShareLock,
 		.scandirection = ForwardScanDirection,
+		.result_mctx = NULL,
+		.scankey = scankey,
+		.tuple_found = chunk_tuple_found,
+		.data = stubctx,
+		.index = catalog_get_index(catalog, CHUNK, CHUNK_ID_INDEX),
+		.limit = NULL,
+		.norderbys = NULL,
+		.want_itup = NULL,
+		.filter = chunk_tuple_dropped_filter,
 	};
 
 	/*
@@ -1056,8 +1081,18 @@ static void
 chunk_scan_ctx_init(ChunkScanCtx *ctx, Hyperspace *hs, Point *p)
 {
 	struct HASHCTL hctl = {
+		.num_partitions = NULL,
+		.ssize = NULL,
+		.dsize = NULL,
+		.max_dsize = NULL,
+		.ffactor = NULL,
 		.keysize = sizeof(int32),
 		.entrysize = sizeof(ChunkScanEntry),
+		.hash = NULL,
+		.match = NULL,
+		.keycopy = NULL,
+		.alloc = NULL,
+		.dealloc = NULL,
 		.hcxt = CurrentMemoryContext,
 	};
 
@@ -1116,15 +1151,20 @@ chunk_point_scan(ChunkScanCtx *scanctx, Point *p, bool lock_slices)
 	for (i = 0; i < scanctx->space->num_dimensions; i++)
 	{
 		DimensionVec *vec;
-		ScanTupLock tuplock = {
-			.lockmode = LockTupleKeyShare,
-			.waitpolicy = LockWaitBlock,
-		};
-
-		vec = ts_dimension_slice_scan_limit(scanctx->space->dimensions[i].fd.id,
-											p->coordinates[i],
-											0,
-											lock_slices ? &tuplock : NULL);
+		/*
+		 *ScanTupLock tuplock = {
+		 *	.lockmode = LockTupleKeyShare,
+		 *	.waitpolicy = LockWaitBlock,
+		 *};
+		 */
+		/*
+		 *vec = ts_dimension_slice_scan_limit(scanctx->space->dimensions[i].fd.id,
+		 *									p->coordinates[i],
+		 *									0,
+		 *									NULL);
+		 */
+											
+		// lock_slices ? &tuplock : NULL);
 
 		dimension_slice_and_chunk_constraint_join(scanctx, vec);
 	}
@@ -1238,8 +1278,8 @@ chunk_scan_context_add_chunk(ChunkScanCtx *scanctx, ChunkStub *stub)
 {
 	ChunkScanCtxAddChunkData *data = scanctx->data;
 	ChunkStubScanCtx stubctx = {
-		.chunk = &data->chunks[data->num_chunks],
 		.stub = stub,
+		.chunk = &data->chunks[data->num_chunks],
 	};
 
 	Assert(data->num_chunks < data->max_chunks);
@@ -1410,39 +1450,40 @@ ts_chunk_find(Hypertable *ht, Point *p, bool lock_slices)
  * ChunkScanCxt. It is the caller's responsibility to destroy this context after
  * usage.
  */
-static ChunkScanCtx *
-chunks_find_all_in_range_limit(Hyperspace *hs, Dimension *time_dim, StrategyNumber start_strategy,
-							   int64 start_value, StrategyNumber end_strategy, int64 end_value,
-							   int limit, uint64 *num_found, ScanTupLock *tuplock)
-{
-	ChunkScanCtx *ctx = palloc(sizeof(ChunkScanCtx));
-	DimensionVec *slices;
 
-	Assert(hs != NULL);
-
-	/* must have been checked earlier that this is the case */
-	Assert(time_dim != NULL);
-
-	slices = ts_dimension_slice_scan_range_limit(time_dim->fd.id,
-												 start_strategy,
-												 start_value,
-												 end_strategy,
-												 end_value,
-												 limit,
-												 tuplock);
-
-	/* The scan context will keep the state accumulated during the scan */
-	chunk_scan_ctx_init(ctx, hs, NULL);
-
-	/* No abort when the first chunk is found */
-	ctx->early_abort = false;
-
-	/* Scan for chunks that are in range */
-	dimension_slice_and_chunk_constraint_join(ctx, slices);
-
-	*num_found += hash_get_num_entries(ctx->htab);
-	return ctx;
-}
+// static ChunkScanCtx *
+//chunks_find_all_in_range_limit(Hyperspace *hs, Dimension *time_dim, StrategyNumber start_strategy,
+//							   int64 start_value, StrategyNumber end_strategy, int64 end_value,
+// 							   int limit, uint64 *num_found, ScanTupLock *tuplock)
+// {
+//	ChunkScanCtx *ctx = palloc(sizeof(ChunkScanCtx));
+// 	DimensionVec *slices;
+// 
+// 	Assert(hs != NULL);
+// 
+// 	/* must have been checked earlier that this is the case */
+// 	Assert(time_dim != NULL);
+// 
+// 	slices = ts_dimension_slice_scan_range_limit(time_dim->fd.id,
+// 												 start_strategy,
+// 												 start_value,
+// 												 end_strategy,
+// 												 end_value,
+// 												 limit,
+// 												 tuplock);
+// 
+// 	/* The scan context will keep the state accumulated during the scan */
+// 	chunk_scan_ctx_init(ctx, hs, NULL);
+// 
+// 	/* No abort when the first chunk is found */
+// 	ctx->early_abort = false;
+// 
+// 	/* Scan for chunks that are in range */
+// 	dimension_slice_and_chunk_constraint_join(ctx, slices);
+// 
+// 	*num_found += hash_get_num_entries(ctx->htab);
+// 	return ctx;
+//}
 
 /*
  * Convert endpoint specifiers such as older than and newer than to an absolute
@@ -1479,67 +1520,69 @@ get_internal_time_from_endpoint_specifiers(Oid hypertable_relid, Dimension *time
 	}
 }
 
-static ChunkScanCtx *
-chunks_typecheck_and_find_all_in_range_limit(Hyperspace *hs, Dimension *time_dim,
-											 Datum older_than_datum, Oid older_than_type,
-											 Datum newer_than_datum, Oid newer_than_type, int limit,
-											 MemoryContext multi_call_memory_ctx, char *caller_name,
-											 uint64 *num_found, ScanTupLock *tuplock)
-{
-	ChunkScanCtx *chunk_ctx = NULL;
-	int64 older_than = -1;
-	int64 newer_than = -1;
-	StrategyNumber start_strategy = InvalidStrategy;
-	StrategyNumber end_strategy = InvalidStrategy;
-	MemoryContext oldcontext;
-
-	if (time_dim == NULL)
-		ereport(ERROR,
-				(errcode(ERRCODE_INVALID_PARAMETER_VALUE), errmsg("no time dimension found")));
-
-	if (older_than_type != InvalidOid)
-	{
-		older_than = get_internal_time_from_endpoint_specifiers(hs->main_table_relid,
-																time_dim,
-																older_than_datum,
-																older_than_type,
-																"older_than",
-																caller_name);
-		end_strategy = BTLessStrategyNumber;
-	}
-
-	if (newer_than_type != InvalidOid)
-	{
-		newer_than = get_internal_time_from_endpoint_specifiers(hs->main_table_relid,
-																time_dim,
-																newer_than_datum,
-																newer_than_type,
-																"newer_than",
-																caller_name);
-		start_strategy = BTGreaterEqualStrategyNumber;
-	}
-
-	if (older_than_type != InvalidOid && newer_than_type != InvalidOid && older_than < newer_than)
-		ereport(ERROR,
-				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-				 errmsg("When both older_than and newer_than are specified, "
-						"older_than must refer to a time that is more recent than newer_than so "
-						"that a valid overlapping range is specified")));
-
-	oldcontext = MemoryContextSwitchTo(multi_call_memory_ctx);
-	chunk_ctx = chunks_find_all_in_range_limit(hs,
-											   time_dim,
-											   start_strategy,
-											   newer_than,
-											   end_strategy,
-											   older_than,
-											   limit,
-											   num_found,
-											   tuplock);
-	MemoryContextSwitchTo(oldcontext);
-
-	return chunk_ctx;
-}
+/*
+ *static ChunkScanCtx *
+ *chunks_typecheck_and_find_all_in_range_limit(Hyperspace *hs, Dimension *time_dim,
+ *											 Datum older_than_datum, Oid older_than_type,
+ *											 Datum newer_than_datum, Oid newer_than_type, int limit,
+ *											 MemoryContext multi_call_memory_ctx, char *caller_name,
+ *											 uint64 *num_found, ScanTupLock *tuplock)
+ *{
+ *	ChunkScanCtx *chunk_ctx = NULL;
+ *	int64 older_than = -1;
+ *	int64 newer_than = -1;
+ *	StrategyNumber start_strategy = InvalidStrategy;
+ *	StrategyNumber end_strategy = InvalidStrategy;
+ *	MemoryContext oldcontext;
+ *
+ *	if (time_dim == NULL)
+ *		ereport(ERROR,
+ *				(errcode(ERRCODE_INVALID_PARAMETER_VALUE), errmsg("no time dimension found")));
+ *
+ *	if (older_than_type != InvalidOid)
+ *	{
+ *		older_than = get_internal_time_from_endpoint_specifiers(hs->main_table_relid,
+ *																time_dim,
+ *																older_than_datum,
+ *																older_than_type,
+ *																"older_than",
+ *																caller_name);
+ *		end_strategy = BTLessStrategyNumber;
+ *	}
+ *
+ *	if (newer_than_type != InvalidOid)
+ *	{
+ *		newer_than = get_internal_time_from_endpoint_specifiers(hs->main_table_relid,
+ *																time_dim,
+ *																newer_than_datum,
+ *																newer_than_type,
+ *																"newer_than",
+ *																caller_name);
+ *		start_strategy = BTGreaterEqualStrategyNumber;
+ *	}
+ *
+ *	if (older_than_type != InvalidOid && newer_than_type != InvalidOid && older_than < newer_than)
+ *		ereport(ERROR,
+ *				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+ *				 errmsg("When both older_than and newer_than are specified, "
+ *						"older_than must refer to a time that is more recent than newer_than so "
+ *						"that a valid overlapping range is specified")));
+ *
+ *	oldcontext = MemoryContextSwitchTo(multi_call_memory_ctx);
+ *	chunk_ctx = chunks_find_all_in_range_limit(hs,
+ *											   time_dim,
+ *											   start_strategy,
+ *											   newer_than,
+ *											   end_strategy,
+ *											   older_than,
+ *											   limit,
+ *											   num_found,
+ *											   tuplock);
+ *	MemoryContextSwitchTo(oldcontext);
+ *
+ *	return chunk_ctx;
+ *}
+ */
 
 static ChunkResult
 append_chunk_common(ChunkScanCtx *scanctx, ChunkStub *stub, Chunk **chunk)
@@ -1698,150 +1741,150 @@ ts_chunk_show_chunks(PG_FUNCTION_ARGS)
 
 		funcctx = SRF_FIRSTCALL_INIT();
 
-		funcctx->user_fctx = ts_chunk_get_chunks_in_time_range(table_relid,
-															   older_than_datum,
-															   newer_than_datum,
-															   older_than_type,
-															   newer_than_type,
-															   "show_chunks",
-															   funcctx->multi_call_memory_ctx,
-															   &funcctx->max_calls,
-															   NULL);
+		//funcctx->user_fctx = ts_chunk_get_chunks_in_time_range(table_relid,
+		//													   older_than_datum,
+		//													   newer_than_datum,
+		//													   older_than_type,
+		//													   newer_than_type,
+		//													   "show_chunks",
+		//													   funcctx->multi_call_memory_ctx,
+		//													   &funcctx->max_calls,
+															   //NULL)//;
 	}
 
 	return chunks_return_srf(fcinfo);
 }
 
-Chunk *
-ts_chunk_get_chunks_in_time_range(Oid table_relid, Datum older_than_datum, Datum newer_than_datum,
-								  Oid older_than_type, Oid newer_than_type, char *caller_name,
-								  MemoryContext mctx, uint64 *num_chunks_returned,
-								  ScanTupLock *tuplock)
-{
-	ListCell *lc;
-	MemoryContext oldcontext;
-	ChunkScanCtx **chunk_scan_ctxs;
-	Chunk *chunks;
-	ChunkScanCtxAddChunkData data;
-	Cache *hypertable_cache;
-	Hypertable *ht;
-	Dimension *time_dim;
-	Oid time_dim_type = InvalidOid;
-
-	/*
-	 * contains the list of hypertables which need to be considered. this is a
-	 * list containing a single hypertable if we are passed an invalid table
-	 * OID. Otherwise, it will have the list of all hypertables in the system
-	 */
-	List *hypertables = NIL;
-	int ht_index = 0;
-	uint64 num_chunks = 0;
-	int i;
-
-	if (older_than_type != InvalidOid && newer_than_type != InvalidOid &&
-		older_than_type != newer_than_type)
-		ereport(ERROR,
-				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-				 errmsg("older_than_type and newer_than_type should have the same type")));
-
-	/*
-	 * Cache outside the if block to make sure cached hypertable entry
-	 * returned will still be valid in foreach block below
-	 */
-	hypertable_cache = ts_hypertable_cache_pin();
-	if (!OidIsValid(table_relid))
-	{
-		hypertables = ts_hypertable_get_all();
-	}
-	else
-	{
-		ht = ts_hypertable_cache_get_entry(hypertable_cache, table_relid, CACHE_FLAG_NONE);
-		hypertables = list_make1(ht);
-	}
-
-	oldcontext = MemoryContextSwitchTo(mctx);
-	chunk_scan_ctxs = palloc(sizeof(ChunkScanCtx *) * list_length(hypertables));
-	MemoryContextSwitchTo(oldcontext);
-	foreach (lc, hypertables)
-	{
-		ht = lfirst(lc);
-
-		if (ht->fd.compressed)
-			elog(ERROR, "cannot call ts_chunk_get_chunks_in_time_range on a compressed hypertable");
-
-		time_dim = hyperspace_get_open_dimension(ht->space, 0);
-
-		if (time_dim_type == InvalidOid)
-			time_dim_type = ts_dimension_get_partition_type(time_dim);
-
-		/*
-		 * Even though internally all time columns are represented as bigints,
-		 * it is locally unclear what set of chunks should be returned if
-		 * there are multiple tables on the system some of which care about
-		 * timestamp when others do not. That is why, whenever there is any
-		 * time dimension constraint given as an argument (older_than or
-		 * newer_than) we make sure all hypertables have the time dimension
-		 * type of the given type or through an error. This check is done
-		 * across hypertables that is why it is not in the helper function
-		 * below.
-		 */
-		if (time_dim_type != ts_dimension_get_partition_type(time_dim) &&
-			(older_than_type != InvalidOid || newer_than_type != InvalidOid))
-			ereport(ERROR,
-					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-					 errmsg("cannot call \"%s\" on all hypertables "
-							"when all hypertables do not have the same time dimension type",
-							caller_name)));
-
-		chunk_scan_ctxs[ht_index++] = chunks_typecheck_and_find_all_in_range_limit(ht->space,
-																				   time_dim,
-																				   older_than_datum,
-																				   older_than_type,
-																				   newer_than_datum,
-																				   newer_than_type,
-																				   -1,
-																				   mctx,
-																				   caller_name,
-																				   &num_chunks,
-																				   tuplock);
-	}
-
-	chunks = MemoryContextAllocZero(mctx, sizeof(Chunk) * num_chunks);
-	data = (ChunkScanCtxAddChunkData){
-		.chunks = chunks,
-		.max_chunks = num_chunks,
-		.num_chunks = 0,
-	};
-
-	for (i = 0; i < list_length(hypertables); i++)
-	{
-		/* Get all the chunks from the context */
-		chunk_scan_ctxs[i]->data = &data;
-		chunk_scan_ctx_foreach_chunk_stub(chunk_scan_ctxs[i], chunk_scan_context_add_chunk, -1);
-		/*
-		 * only affects ctx.htab Got all the chunk already so can now safely
-		 * destroy the context
-		 */
-		chunk_scan_ctx_destroy(chunk_scan_ctxs[i]);
-	}
-
-	*num_chunks_returned = data.num_chunks;
-	qsort(chunks, *num_chunks_returned, sizeof(Chunk), chunk_cmp);
-
-	ts_cache_release(hypertable_cache);
-
-#ifdef USE_ASSERT_CHECKING
-	do
-	{
-		uint64 i = 0;
-		/* Assert that we never return dropped chunks */
-		for (i = 0; i < *num_chunks_returned; i++)
-			ASSERT_IS_VALID_CHUNK(&chunks[i]);
-	} while (false);
-#endif
-
-	return chunks;
-}
+//Chunk *
+//ts_chunk_get_chunks_in_time_range(Oid table_relid, Datum older_than_datum, Datum newer_than_datum,
+//								  Oid older_than_type, Oid newer_than_type, char *caller_name,
+//								  MemoryContext mctx, uint64 *num_chunks_returned,
+//								  ScanTupLock *tuplock)
+//{
+//	ListCell *lc;
+//	MemoryContext oldcontext;
+//	ChunkScanCtx **chunk_scan_ctxs;
+//	Chunk *chunks;
+//	ChunkScanCtxAddChunkData data;
+//	Cache *hypertable_cache;
+//	Hypertable *ht;
+//	Dimension *time_dim;
+//	Oid time_dim_type = InvalidOid;
+//
+//	/*
+//	 * contains the list of hypertables which need to be considered. this is a
+//	 * list containing a single hypertable if we are passed an invalid table
+//	 * OID. Otherwise, it will have the list of all hypertables in the system
+//	 */
+//	List *hypertables = NIL;
+//	int ht_index = 0;
+//	uint64 num_chunks = 0;
+//	int i;
+//
+//	if (older_than_type != InvalidOid && newer_than_type != InvalidOid &&
+//		older_than_type != newer_than_type)
+//		ereport(ERROR,
+//				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+//				 errmsg("older_than_type and newer_than_type should have the same type")));
+//
+//	/*
+//	 * Cache outside the if block to make sure cached hypertable entry
+//	 * returned will still be valid in foreach block below
+//	 */
+//	hypertable_cache = ts_hypertable_cache_pin();
+//	if (!OidIsValid(table_relid))
+//	{
+//		hypertables = ts_hypertable_get_all();
+//	}
+//	else
+//	{
+//		ht = ts_hypertable_cache_get_entry(hypertable_cache, table_relid, CACHE_FLAG_NONE);
+//		hypertables = list_make1(ht);
+//	}
+//
+//	oldcontext = MemoryContextSwitchTo(mctx);
+//	chunk_scan_ctxs = palloc(sizeof(ChunkScanCtx *) * list_length(hypertables));
+//	MemoryContextSwitchTo(oldcontext);
+//	foreach (lc, hypertables)
+//	{
+//		ht = lfirst(lc);
+//
+//		if (ht->fd.compressed)
+//			elog(ERROR, "cannot call ts_chunk_get_chunks_in_time_range on a compressed hypertable");
+//
+//		time_dim = hyperspace_get_open_dimension(ht->space, 0);
+//
+//		if (time_dim_type == InvalidOid)
+//			time_dim_type = ts_dimension_get_partition_type(time_dim);
+//
+//		/*
+//		 * Even though internally all time columns are represented as bigints,
+//		 * it is locally unclear what set of chunks should be returned if
+//		 * there are multiple tables on the system some of which care about
+//		 * timestamp when others do not. That is why, whenever there is any
+//		 * time dimension constraint given as an argument (older_than or
+//		 * newer_than) we make sure all hypertables have the time dimension
+//		 * type of the given type or through an error. This check is done
+//		 * across hypertables that is why it is not in the helper function
+//		 * below.
+//		 */
+//		if (time_dim_type != ts_dimension_get_partition_type(time_dim) &&
+//			(older_than_type != InvalidOid || newer_than_type != InvalidOid))
+//			ereport(ERROR,
+//					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+//					 errmsg("cannot call \"%s\" on all hypertables "
+//							"when all hypertables do not have the same time dimension type",
+//							caller_name)));
+//
+//		chunk_scan_ctxs[ht_index++] = chunks_typecheck_and_find_all_in_range_limit(ht->space,
+//																				   time_dim,
+//																				   older_than_datum,
+//																				   older_than_type,
+//																				   newer_than_datum,
+//																				   newer_than_type,
+//																				   -1,
+//																				   mctx,
+//																				   caller_name,
+//																				   &num_chunks,
+//																				   tuplock);
+//	}
+//
+//	chunks = MemoryContextAllocZero(mctx, sizeof(Chunk) * num_chunks);
+//	data = (ChunkScanCtxAddChunkData){
+//		.chunks = chunks,
+//		.max_chunks = num_chunks,
+//		.num_chunks = 0,
+//	};
+//
+//	for (i = 0; i < list_length(hypertables); i++)
+//	{
+//		/* Get all the chunks from the context */
+//		chunk_scan_ctxs[i]->data = &data;
+//		chunk_scan_ctx_foreach_chunk_stub(chunk_scan_ctxs[i], chunk_scan_context_add_chunk, -1);
+//		/*
+//		 * only affects ctx.htab Got all the chunk already so can now safely
+//		 * destroy the context
+//		 */
+//		chunk_scan_ctx_destroy(chunk_scan_ctxs[i]);
+//	}
+//
+//	*num_chunks_returned = data.num_chunks;
+//	qsort(chunks, *num_chunks_returned, sizeof(Chunk), chunk_cmp);
+//
+//	ts_cache_release(hypertable_cache);
+//
+//#ifdef USE_ASSERT_CHECKING
+//	do
+//	{
+//		uint64 i = 0;
+//		/* Assert that we never return dropped chunks */
+//		for (i = 0; i < *num_chunks_returned; i++)
+//			ASSERT_IS_VALID_CHUNK(&chunks[i]);
+//	} while (false);
+//#endif
+//
+//	return chunks;
+//}
 
 Chunk *
 ts_chunk_copy(Chunk *chunk)
@@ -1869,16 +1912,18 @@ chunk_scan_internal(int indexid, ScanKeyData scankey[], int nkeys, tuple_filter_
 	Catalog *catalog = ts_catalog_get();
 	ScannerCtx ctx = {
 		.table = catalog_get_table_id(catalog, CHUNK),
-		.index = catalog_get_index(catalog, CHUNK, indexid),
 		.nkeys = nkeys,
-		.data = data,
-		.scankey = scankey,
-		.filter = filter,
-		.tuple_found = tuple_found,
-		.limit = limit,
 		.lockmode = lockmode,
 		.scandirection = scandir,
 		.result_mctx = mctx,
+		.scankey = scankey,
+		.tuple_found = tuple_found,
+		.data = data,
+		.index = catalog_get_index(catalog, CHUNK, indexid),
+		.limit = limit,
+		.norderbys = NULL,
+		.want_itup = NULL,
+		.filter = filter,
 	};
 
 	return ts_scanner_scan(&ctx);
@@ -2308,14 +2353,15 @@ chunk_tuple_delete(TupleInfo *ti, DropBehavior behavior, bool preserve_chunk_cat
 				 * - T1: Adds a chunk constraint referencing dimension
 				 *   slice X (which is about to be deleted by T2).
 				 */
-				ScanTupLock tuplock = {
-					.lockmode = LockTupleExclusive,
-					.waitpolicy = LockWaitBlock,
-				};
-				DimensionSlice *slice =
-					ts_dimension_slice_scan_by_id_and_lock(cc->fd.dimension_slice_id,
-														   &tuplock,
-														   CurrentMemoryContext);
+				//ScanTupLock tuplock = {
+				//	.lockmode = LockTupleExclusive,
+				//	.waitpolicy = LockWaitBlock,
+				//};
+				//DimensionSlice *slice =
+				//	ts_dimension_slice_scan_by_id_and_lock(cc->fd.dimension_slice_id,
+				//										   &tuplock,
+				//										   CurrentMemoryContext);
+				DimensionSlice *slice = NULL;
 				/* If the slice is not found in the scan above, the table is
 				 * broken so we do not delete the slice. We proceed
 				 * anyway since users need to be able to drop broken tables or
@@ -2668,8 +2714,8 @@ chunk_tuple_update_schema_and_table(TupleInfo *ti, void *data)
 
 	chunk_formdata_fill(&form, ti->tuple, ti->desc);
 
-	namecpy(&form.schema_name, &update->schema_name);
-	namecpy(&form.table_name, &update->table_name);
+	//namecpy(&form.schema_name, &update->schema_name);
+	//namecpy(&form.table_name, &update->table_name);
 
 	new_tuple = chunk_formdata_make_tuple(&form, ti->desc);
 
@@ -2791,13 +2837,14 @@ ts_chunks_rename_schema_name(char *old_schema, char *new_schema)
 	Catalog *catalog = ts_catalog_get();
 	ScannerCtx scanctx = {
 		.table = catalog_get_table_id(catalog, CHUNK),
-		.index = catalog_get_index(catalog, CHUNK, CHUNK_SCHEMA_NAME_INDEX),
 		.nkeys = 1,
+		.lockmode = RowExclusiveLock,
+		.scandirection = ForwardScanDirection,
+		.result_mctx = NULL,
 		.scankey = scankey,
 		.tuple_found = chunk_rename_schema_name,
 		.data = new_schema,
-		.lockmode = RowExclusiveLock,
-		.scandirection = ForwardScanDirection,
+		.index = catalog_get_index(catalog, CHUNK, CHUNK_SCHEMA_NAME_INDEX),
 	};
 
 	namestrcpy(&old_schema_name, old_schema);
@@ -3032,10 +3079,10 @@ ts_chunk_do_drop_chunks(Oid table_relid, Datum older_than_datum, Datum newer_tha
 	int32 hypertable_id = ts_hypertable_relid_to_id(table_relid);
 	bool has_continuous_aggs;
 	const MemoryContext oldcontext = CurrentMemoryContext;
-	ScanTupLock tuplock = {
-		.waitpolicy = LockWaitBlock,
-		.lockmode = LockTupleExclusive,
-	};
+	//ScanTupLock tuplock = {
+	//	.waitpolicy = LockWaitBlock,
+	//	.lockmode = LockTupleExclusive,
+	//};
 
 	Assert(OidIsValid(table_relid));
 
@@ -3074,17 +3121,18 @@ ts_chunk_do_drop_chunks(Oid table_relid, Datum older_than_datum, Datum newer_tha
 	}
 
 	PG_TRY();
-	{
-		chunks = ts_chunk_get_chunks_in_time_range(table_relid,
-												   older_than_datum,
-												   newer_than_datum,
-												   older_than_type,
-												   newer_than_type,
-												   "drop_chunks",
-												   CurrentMemoryContext,
-												   &num_chunks,
-												   &tuplock);
-	}
+	{	uint64 i = 0;}
+	//{
+	//	chunks = ts_chunk_get_chunks_in_time_range(table_relid,
+	//											   older_than_datum,
+	//											   newer_than_datum,
+	//											   older_than_type,
+	//											   newer_than_type,
+	//											   "drop_chunks",
+	//											   CurrentMemoryContext,
+	//											   &num_chunks,
+	//											   &tuplock);
+	//}
 	PG_CATCH();
 	{
 		ErrorData *edata;
@@ -3094,8 +3142,8 @@ ts_chunk_do_drop_chunks(Oid table_relid, Datum older_than_datum, Datum newer_tha
 		{
 			FlushErrorState();
 			edata->detail = edata->message;
-			edata->message =
-				psprintf("some chunks could not be read since they are being concurrently updated");
+			edata->message = "some chunks could not be read since they are being concurrently updated";
+				//psprintf("some chunks could not be read since they are being concurrently updated");
 		}
 		ReThrowError(edata);
 	}
@@ -3300,17 +3348,19 @@ ts_chunk_drop_chunks(PG_FUNCTION_ARGS)
 			 * this list is from the relcache and can disappear with a cache
 			 * flush, so no further catalog access till we save the fk relids
 			 */
-			cachedfkeys = RelationGetFKeyList(table_rel);
+			//cachedfkeys = RelationGetFKeyList(table_rel);
+			cachedfkeys = RelationGetFKeyListCompat(table_rel);
 			foreach (lf, cachedfkeys)
 			{
-				ForeignKeyCacheInfo *cachedfk = (ForeignKeyCacheInfo *) lfirst(lf);
+				//ForeignKeyCacheInfo *cachedfk = (ForeignKeyCacheInfo *) lfirst(lf);
+				ForeignKeyCacheInfoCompat *cachedfk = (ForeignKeyCacheInfoCompat *) lfirst(lf);
 
 				/*
 				 * conrelid should always be that of the table we're
 				 * considering
 				 */
-				Assert(cachedfk->conrelid == RelationGetRelid(table_rel));
-				fk_relids = lappend_oid(fk_relids, cachedfk->confrelid);
+				//Assert(cachedfk->conrelid == RelationGetRelid(table_rel));
+				//fk_relids = lappend_oid(fk_relids, cachedfk->confrelid);
 			}
 			table_close(table_rel, AccessShareLock);
 		}
@@ -3356,6 +3406,7 @@ ts_chunk_drop_chunks(PG_FUNCTION_ARGS)
 	return list_return_srf(fcinfo);
 }
 
+#define pg_unreachable() abort()
 /**
  * This function is used to explicitly specify chunks that are being scanned. It's being
  * processed in the planning phase and removed from the query tree. This means that the actual

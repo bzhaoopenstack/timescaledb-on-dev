@@ -18,9 +18,12 @@
 #include "scanner.h"
 #include "chunk_adaptive.h"
 
-#if PG96
+/*
+ *#if PG96
+ *#include <catalog/objectaddress.h>
+ *#endif
+ */
 #include <catalog/objectaddress.h>
-#endif
 
 #define OLD_INSERT_BLOCKER_NAME "insert_blocker"
 #define INSERT_BLOCKER_NAME "ts_insert_blocker"

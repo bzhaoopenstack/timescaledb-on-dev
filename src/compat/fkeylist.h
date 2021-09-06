@@ -4,6 +4,7 @@
  * LICENSE-APACHE for a copy of the license.
  */
 
+extern List *ts_relation_get_fk_list(Relation relation);
 #ifndef TIMESCALEDB_FKEYLIST_H
 #define TIMESCALEDB_FKEYLIST_H
 

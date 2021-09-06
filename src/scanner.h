@@ -71,18 +71,36 @@ typedef void (*postscan_func)(int num_tuples, void *data);
 typedef struct ScannerCtx
 {
 	Oid table;
-	Oid index;
-	ScanKey scankey;
-	int nkeys, norderbys, limit; /* Limit on number of tuples to return. 0 or
-								  * less means no limit */
-	bool want_itup;
+        int nkeys;
 	LOCKMODE lockmode;
-	MemoryContext result_mctx; /* The memory context to allocate the result
-								* on */
-	// ScanTupLock *tuplock;
 	ScanDirection scandirection;
-	void *data; /* User-provided data passed on to filter()
-				 * and tuple_found() */
+        MemoryContext result_mctx; /* The memory context to allocate the result
+                                                                * on */
+
+	ScanKey scankey;
+	// int nkeys, norderbys, limit; /* Limit on number of tuples to return. 0 or less means no limit */
+        /*
+         * Handler for found tuples. Should return SCAN_CONTINUE to continue the
+         * scan or SCAN_DONE to finish without scanning further tuples.
+         */
+        ScanTupleResult (*tuple_found)(TupleInfo *ti, void *data);
+
+        void *data; /* User-provided data passed on to filter()
+                                 * and tuple_found() */
+
+	// ScanTupLock *tuplock;
+	Oid index;
+	int limit;
+	int norderbys;
+	bool want_itup;
+
+        /*
+         * Optional handler to filter tuples. Should return SCAN_INCLUDE for
+         * tuples that should be passed on to tuple_found, or SCAN_EXCLUDE
+         * otherwise.
+         */
+        ScanFilterResult (*filter)(TupleInfo *ti, void *data);
+
 
 	/*
 	 * Optional handler called before a scan starts, but relation locks are
@@ -96,18 +114,6 @@ typedef struct ScannerCtx
 	 */
 	void (*postscan)(int num_tuples, void *data);
 
-	/*
-	 * Optional handler to filter tuples. Should return SCAN_INCLUDE for
-	 * tuples that should be passed on to tuple_found, or SCAN_EXCLUDE
-	 * otherwise.
-	 */
-	ScanFilterResult (*filter)(TupleInfo *ti, void *data);
-
-	/*
-	 * Handler for found tuples. Should return SCAN_CONTINUE to continue the
-	 * scan or SCAN_DONE to finish without scanning further tuples.
-	 */
-	ScanTupleResult (*tuple_found)(TupleInfo *ti, void *data);
 } ScannerCtx;
 
 /* Performs an index scan or heap scan and returns the number of matching

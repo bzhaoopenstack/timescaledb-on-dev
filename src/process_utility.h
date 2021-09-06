@@ -15,14 +15,16 @@
 typedef struct ProcessUtilityArgs
 {
 	Cache *hcache;
-#if !PG96
-	PlannedStmt *pstmt;
-	QueryEnvironment *queryEnv;
-	ParseState *parse_state;
-#endif
+/*
+ *#if !PG96
+ *	PlannedStmt *pstmt;
+ *	QueryEnvironment *queryEnv;
+ *	ParseState *parse_state;
+ *#endif
+ */
 	Node *parsetree;
 	const char *query_string;
-	ProcessUtilityContext context;
+	// ProcessUtilityContext context;
 	ParamListInfo params;
 	DestReceiver *dest;
 	List *hypertable_list;

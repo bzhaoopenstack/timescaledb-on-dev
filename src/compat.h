@@ -112,7 +112,7 @@
 #endif
 
 /* CatalogTuple functions not implemented until pg10 */
-#if PG96
+//#if PG96
 #define CatalogTupleInsert(relation, tuple)                                                        \
 	do                                                                                             \
 	{                                                                                              \
@@ -129,7 +129,7 @@
 
 #define CatalogTupleDelete(relation, tid) simple_heap_delete(relation, tid);
 
-#endif
+//#endif
 
 /* CheckValidResultRel */
 #if PG96
@@ -145,9 +145,9 @@
  * https://github.com/postgres/postgres/commit/17b7c302b5fc92bd0241c452599019e18df074dc
  * we use the PG11 version as it is more descriptive.
  */
-#if PG11_LT
+//#if PG11_LT
 #define ConstraintRelidTypidNameIndexId ConstraintRelidIndexId
-#endif
+//#endif
 
 /*
  * CreateTrigger
@@ -463,7 +463,7 @@ MakeTupleTableSlotCompat(TupleDesc tupdesc, void *tts_ops)
  * compatibility here and have a small static inline function to replicate the
  * behavior on older versions.
  */
-#if PG11_LT
+//#if PG11_LT
 static inline char *
 get_attname_compat(Oid relid, AttrNumber attnum, bool missing_ok)
 {
@@ -473,9 +473,9 @@ get_attname_compat(Oid relid, AttrNumber attnum, bool missing_ok)
 		elog(ERROR, "cache lookup failed for attribute %d of relation %u", attnum, relid);
 	return name;
 }
-#else
-#define get_attname_compat get_attname
-#endif
+//#else
+//#define get_attname_compat get_attname
+//#endif
 
 /* get_projection_info_slot */
 #if PG96
@@ -976,21 +976,23 @@ list_qsort(const List *list, list_qsort_comparator cmp)
  * ForeignKeyCacheInfo doesn't contain the constraint Oid in early versions.
  * This is a fix for PG10 and PG96 until support for them is gone.
  */
-#if PG11_LT
+#include "compat/fkeylist.h"
+//#if PG11_LT
 #define RelationGetFKeyListCompat(rel) ts_relation_get_fk_list(rel)
 #define T_ForeignKeyCacheInfoCompat T_ForeignKeyCacheInfo
 typedef struct ForeignKeyCacheInfoCompat
 {
-	ForeignKeyCacheInfo base;
+	//ForeignKeyCacheInfo base;
+	bool base;
 	Oid conoid;
 } ForeignKeyCacheInfoCompat;
 /* No need to copy FK list, since custom implementation doesn't use cache. */
 #define copy_fk_list_from_cache(l) l
-#else
-#define RelationGetFKeyListCompat(rel) RelationGetFKeyList(rel)
-#define ForeignKeyCacheInfoCompat ForeignKeyCacheInfo
+//#else
+//#define RelationGetFKeyListCompat(rel) RelationGetFKeyList(rel)
+//#define ForeignKeyCacheInfoCompat ForeignKeyCacheInfo
 /* Copies FK list, since the cache can be invalidated. */
-#define copy_fk_list_from_cache(l) copyObject(l)
-#endif /* PG11_LT */
+//#define copy_fk_list_from_cache(l) copyObject(l)
+//#endif /* PG11_LT */
 
 #endif /* TIMESCALEDB_COMPAT_H */

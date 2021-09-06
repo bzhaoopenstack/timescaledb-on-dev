@@ -12,18 +12,23 @@
 #include <utils/syscache.h>
 #include <utils/inval.h>
 #include <access/xact.h>
-#include <access/htup_details.h>
+//#include <access/htup_details.h>
+#include <access/htup.h>
 #include <miscadmin.h>
 #include <commands/dbcommands.h>
 #include <commands/sequence.h>
+//#include <knl/knl_session.h>
+#include <knl/knl_variable.h>
 
 #include "compat.h"
 #include "catalog.h"
 #include "extension.h"
 
-#if !PG96
-#include <utils/regproc.h>
-#endif
+/*
+ *#if !PG96
+ *#include <utils/regproc.h>
+ *#endif
+ */
 
 static const TableInfoDef catalog_table_names[_MAX_CATALOG_TABLES + 1] = {
 	[HYPERTABLE] = {
@@ -196,8 +201,8 @@ static const TableIndexDef catalog_table_index_definitions[_MAX_CATALOG_TABLES] 
 	[BGW_POLICY_DROP_CHUNKS] = {
 		.length = _MAX_BGW_POLICY_DROP_CHUNKS_INDEX,
 		.names = (char *[]) {
-			[BGW_POLICY_DROP_CHUNKS_PKEY] = "bgw_policy_drop_chunks_pkey",
 			[BGW_POLICY_DROP_CHUNKS_HYPERTABLE_ID_KEY] = "bgw_policy_drop_chunks_hypertable_id_key",
+			[BGW_POLICY_DROP_CHUNKS_PKEY] = "bgw_policy_drop_chunks_pkey",
 		},
 	},
 	[BGW_POLICY_CHUNK_STATS] = {
@@ -255,8 +260,8 @@ static const TableIndexDef catalog_table_index_definitions[_MAX_CATALOG_TABLES] 
 	[BGW_POLICY_COMPRESS_CHUNKS] = {
 		.length = _MAX_BGW_POLICY_COMPRESS_CHUNKS_INDEX,
 		.names = (char *[]) {
-			[BGW_POLICY_COMPRESS_CHUNKS_PKEY] = "bgw_policy_compress_chunks_pkey",
 			[BGW_POLICY_COMPRESS_CHUNKS_HYPERTABLE_ID_KEY] = "bgw_policy_compress_chunks_hypertable_id_key",
+			[BGW_POLICY_COMPRESS_CHUNKS_PKEY] = "bgw_policy_compress_chunks_pkey",
 		},
 	},
 };
@@ -271,8 +276,11 @@ static const char *catalog_table_serial_id_names[_MAX_CATALOG_TABLES] = {
 	[TABLESPACE] = CATALOG_SCHEMA_NAME ".tablespace_id_seq",
 	[BGW_JOB] = CONFIG_SCHEMA_NAME ".bgw_job_id_seq",
 	[BGW_JOB_STAT] = NULL,
+	[METADATA] = NULL,
 	[BGW_POLICY_REORDER] = NULL,
 	[BGW_POLICY_DROP_CHUNKS] = NULL,
+	[BGW_POLICY_CHUNK_STATS] = NULL,
+	[CONTINUOUS_AGG] = NULL,
 	[CONTINUOUS_AGGS_COMPLETED_THRESHOLD] = NULL,
 	[CONTINUOUS_AGGS_HYPERTABLE_INVALIDATION_LOG] = NULL,
 	[CONTINUOUS_AGGS_INVALIDATION_THRESHOLD] = NULL,
@@ -354,8 +362,8 @@ catalog_table_name(CatalogTable table)
 static void
 catalog_database_info_init(CatalogDatabaseInfo *info)
 {
-	info->database_id = MyDatabaseId;
-	StrNCpy(info->database_name, get_database_name(MyDatabaseId), NAMEDATALEN);
+	info->database_id = u_sess->proc_cxt.MyDatabaseId;
+	StrNCpy(info->database_name, get_database_name(u_sess->proc_cxt.MyDatabaseId), NAMEDATALEN);
 	info->schema_id = get_namespace_oid(CATALOG_SCHEMA_NAME, false);
 	info->owner_uid = catalog_owner();
 
@@ -443,7 +451,7 @@ ts_catalog_get(void)
 {
 	int i;
 
-	if (!OidIsValid(MyDatabaseId))
+	if (!OidIsValid(u_sess->proc_cxt.MyDatabaseId))
 		elog(ERROR, "invalid database ID");
 
 	if (!ts_extension_is_loaded())
@@ -542,7 +550,7 @@ ts_catalog_table_next_seq_id(Catalog *catalog, CatalogTable table)
 }
 
 Oid
-ts_catalog_get_cache_proxy_id(Catalog *catalog, CacheType type)
+ts_catalog_get_cache_proxy_id(Catalog *catalog, TsCacheType type)
 {
 	if (!catalog_is_valid(catalog))
 	{
@@ -728,13 +736,14 @@ ts_catalog_scan_one(CatalogTable table, int indexid, ScanKeyData *scankey, int n
 
 	ScannerCtx scanctx = {
 		.table = catalog_get_table_id(catalog, table),
-		.index = catalog_get_index(catalog, table, indexid),
 		.nkeys = num_keys,
+		.lockmode = lockmode,
+		.scandirection = ForwardScanDirection,
+		.result_mctx = NULL,
 		.scankey = scankey,
 		.tuple_found = tuple_found,
 		.data = data,
-		.lockmode = lockmode,
-		.scandirection = ForwardScanDirection,
+		.index = catalog_get_index(catalog, table, indexid),
 	};
 
 	return ts_scanner_scan_one(&scanctx, false, table_name);
@@ -748,13 +757,14 @@ ts_catalog_scan_all(CatalogTable table, int indexid, ScanKeyData *scankey, int n
 
 	ScannerCtx scanctx = {
 		.table = catalog_get_table_id(catalog, table),
-		.index = catalog_get_index(catalog, table, indexid),
 		.nkeys = num_keys,
+		.lockmode = lockmode,
+		.scandirection = ForwardScanDirection,
+		.result_mctx = NULL,
 		.scankey = scankey,
 		.tuple_found = tuple_found,
 		.data = data,
-		.lockmode = lockmode,
-		.scandirection = ForwardScanDirection,
+		.index = catalog_get_index(catalog, table, indexid),
 	};
 
 	ts_scanner_scan(&scanctx);

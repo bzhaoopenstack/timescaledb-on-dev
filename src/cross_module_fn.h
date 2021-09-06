@@ -8,10 +8,11 @@
 
 #include <postgres.h>
 #include <fmgr.h>
-#include <commands/event_trigger.h>
+//#include <commands/event_trigger.h>
 #include <optimizer/planner.h>
 #include <utils/timestamp.h>
-#include <utils/jsonb.h>
+//#include <utils/jsonb.h>
+#include <utils/json.h>
 
 #include "export.h"
 #include "bgw/job.h"
@@ -35,7 +36,7 @@ typedef struct CrossModuleFunctions
 	TimestampTz (*license_end_time)(void);
 	void (*print_tsl_license_expiration_info_hook)(void);
 	void (*module_shutdown_hook)(void);
-	void (*add_tsl_license_info_telemetry)(JsonbParseState *parseState);
+	// void (*add_tsl_license_info_telemetry)(JsonbParseState *parseState);
 	bool (*bgw_policy_job_execute)(BgwJob *job);
 	bool (*continuous_agg_materialize)(int32 materialization_id, ContinuousAggMatOptions *options);
 	Datum (*add_drop_chunks_policy)(PG_FUNCTION_ARGS);
@@ -44,7 +45,7 @@ typedef struct CrossModuleFunctions
 	Datum (*remove_drop_chunks_policy)(PG_FUNCTION_ARGS);
 	Datum (*remove_reorder_policy)(PG_FUNCTION_ARGS);
 	Datum (*remove_compress_chunks_policy)(PG_FUNCTION_ARGS);
-	void (*create_upper_paths_hook)(PlannerInfo *, UpperRelationKind, RelOptInfo *, RelOptInfo *);
+	// void (*create_upper_paths_hook)(PlannerInfo *, UpperRelationKind, RelOptInfo *, RelOptInfo *);
 	void (*set_rel_pathlist_dml)(PlannerInfo *, RelOptInfo *, Index, RangeTblEntry *, Hypertable *);
 	void (*set_rel_pathlist_query)(PlannerInfo *, RelOptInfo *, Index, RangeTblEntry *,
 								   Hypertable *);
@@ -59,7 +60,7 @@ typedef struct CrossModuleFunctions
 	PGFunction reorder_chunk;
 	PGFunction move_chunk;
 	void (*ddl_command_start)(ProcessUtilityArgs *args);
-	void (*ddl_command_end)(EventTriggerData *command);
+	// void (*ddl_command_end)(EventTriggerData *command);
 	void (*sql_drop)(List *dropped_objects);
 	PGFunction partialize_agg;
 	PGFunction finalize_agg_sfunc;
