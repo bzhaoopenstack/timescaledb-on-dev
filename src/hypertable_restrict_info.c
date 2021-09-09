@@ -10,11 +10,11 @@
 #include <utils/array.h>
 
 #include "compat.h"
-#if PG12_LT
+//#if PG12_LT
 #include <optimizer/clauses.h>
-#else
-#include <optimizer/optimizer.h>
-#endif
+//#else
+//#include <optimizer/optimizer.h>
+//#endif
 
 #include "hypertable_restrict_info.h"
 #include "dimension.h"
@@ -56,23 +56,23 @@ typedef struct DimensionValues
 static DimensionRestrictInfoOpen *
 dimension_restrict_info_open_create(Dimension *d)
 {
-	DimensionRestrictInfoOpen *new = palloc(sizeof(DimensionRestrictInfoOpen));
+	DimensionRestrictInfoOpen *newa = palloc(sizeof(DimensionRestrictInfoOpen));
 
-	new->base.dimension = d;
-	new->lower_strategy = InvalidStrategy;
-	new->upper_strategy = InvalidStrategy;
-	return new;
+	newa->base.dimension = d;
+	newa->lower_strategy = InvalidStrategy;
+	newa->upper_strategy = InvalidStrategy;
+	return newa;
 }
 
 static DimensionRestrictInfoClosed *
 dimension_restrict_info_closed_create(Dimension *d)
 {
-	DimensionRestrictInfoClosed *new = palloc(sizeof(DimensionRestrictInfoClosed));
+	DimensionRestrictInfoClosed *newa = palloc(sizeof(DimensionRestrictInfoClosed));
 
-	new->partitions = NIL;
-	new->base.dimension = d;
-	new->strategy = InvalidStrategy;
-	return new;
+	newa->partitions = NIL;
+	newa->base.dimension = d;
+	newa->strategy = InvalidStrategy;
+	return newa;
 }
 
 static DimensionRestrictInfo *
@@ -236,65 +236,65 @@ dimension_restrict_info_add(DimensionRestrictInfo *dri, int strategy, Oid collat
 	}
 }
 
-static DimensionVec *
-dimension_restrict_info_open_slices(DimensionRestrictInfoOpen *dri)
-{
-	/* basic idea: slice_end > lower_bound && slice_start < upper_bound */
-	return ts_dimension_slice_scan_range_limit(dri->base.dimension->fd.id,
-											   dri->upper_strategy,
-											   dri->upper_bound,
-											   dri->lower_strategy,
-											   dri->lower_bound,
-											   0,
-											   NULL);
-}
+//static DimensionVec *
+//dimension_restrict_info_open_slices(DimensionRestrictInfoOpen *dri)
+//{
+//	/* basic idea: slice_end > lower_bound && slice_start < upper_bound */
+//	return ts_dimension_slice_scan_range_limit(dri->base.dimension->fd.id,
+//											   dri->upper_strategy,
+//											   dri->upper_bound,
+//											   dri->lower_strategy,
+//											   dri->lower_bound,
+//											   0,
+//											   NULL);
+//}
 
-static DimensionVec *
-dimension_restrict_info_closed_slices(DimensionRestrictInfoClosed *dri)
-{
-	if (dri->strategy == BTEqualStrategyNumber)
-	{
-		/* slice_end >= value && slice_start <= value */
-		ListCell *cell;
-		DimensionVec *dim_vec = ts_dimension_vec_create(DIMENSION_VEC_DEFAULT_SIZE);
-
-		foreach (cell, dri->partitions)
-		{
-			int i;
-			int32 partition = lfirst_int(cell);
-			DimensionVec *tmp = ts_dimension_slice_scan_range_limit(dri->base.dimension->fd.id,
-																	BTLessEqualStrategyNumber,
-																	partition,
-																	BTGreaterEqualStrategyNumber,
-																	partition,
-																	0,
-																	NULL);
-
-			for (i = 0; i < tmp->num_slices; i++)
-				dim_vec = ts_dimension_vec_add_unique_slice(&dim_vec, tmp->slices[i]);
-		}
-		return dim_vec;
-	}
-
-	/* get all slices */
-	return ts_dimension_slice_scan_range_limit(dri->base.dimension->fd.id,
-											   InvalidStrategy,
-											   -1,
-											   InvalidStrategy,
-											   -1,
-											   0,
-											   NULL);
-}
+//static DimensionVec *
+//dimension_restrict_info_closed_slices(DimensionRestrictInfoClosed *dri)
+//{
+//	if (dri->strategy == BTEqualStrategyNumber)
+//	{
+//		/* slice_end >= value && slice_start <= value */
+//		ListCell *cell;
+//		DimensionVec *dim_vec = ts_dimension_vec_create(DIMENSION_VEC_DEFAULT_SIZE);
+//
+//		foreach (cell, dri->partitions)
+//		{
+//			int i;
+//			int32 partition = lfirst_int(cell);
+//			//DimensionVec *tmp = ts_dimension_slice_scan_range_limit(dri->base.dimension->fd.id,
+//			//														BTLessEqualStrategyNumber,
+//			//														partition,
+//			//														BTGreaterEqualStrategyNumber,
+//			//														partition,
+//			//														0,
+//			//														NULL);
+//
+//			for (i = 0; i < tmp->num_slices; i++)
+//				dim_vec = ts_dimension_vec_add_unique_slice(&dim_vec, tmp->slices[i]);
+//		}
+//		return dim_vec;
+//	}
+//
+//	/* get all slices */
+//	//return ts_dimension_slice_scan_range_limit(dri->base.dimension->fd.id,
+//	//										   InvalidStrategy,
+//	//										   -1,
+//	//										   InvalidStrategy,
+//	//										   -1,
+//	//										   0,
+//	//										   NULL);
+//}
 
 static DimensionVec *
 dimension_restrict_info_slices(DimensionRestrictInfo *dri)
 {
 	switch (dri->dimension->type)
 	{
-		case DIMENSION_TYPE_OPEN:
-			return dimension_restrict_info_open_slices((DimensionRestrictInfoOpen *) dri);
-		case DIMENSION_TYPE_CLOSED:
-			return dimension_restrict_info_closed_slices((DimensionRestrictInfoClosed *) dri);
+		//case DIMENSION_TYPE_OPEN:
+		//	return dimension_restrict_info_open_slices((DimensionRestrictInfoOpen *) dri);
+		//case DIMENSION_TYPE_CLOSED:
+		//	return dimension_restrict_info_closed_slices((DimensionRestrictInfoClosed *) dri);
 		default:
 			elog(ERROR, "unknown dimension type");
 			return NULL;
@@ -427,7 +427,8 @@ dimension_values_create(List *values, Oid type, bool use_or)
 static DimensionValues *
 dimension_values_create_from_array(Const *c, bool user_or)
 {
-	ArrayIterator iterator = array_create_iterator(DatumGetArrayTypeP(c->constvalue), 0, NULL);
+	//ArrayIterator iterator = array_create_iterator(DatumGetArrayTypeP(c->constvalue), 0, NULL);
+	ArrayIterator iterator = array_create_iterator(DatumGetArrayTypeP(c->constvalue), 0);
 	Datum elem = (Datum) NULL;
 	bool isnull;
 	List *values = NIL;

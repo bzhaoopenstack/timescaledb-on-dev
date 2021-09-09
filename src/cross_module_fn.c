@@ -253,14 +253,14 @@ static bool
 error_no_default_fn_bool_void_community(void)
 {
 	error_no_default_fn_community();
-	pg_unreachable();
+	//pg_unreachable();
 }
 
 static bool
 error_no_default_fn_bool_void_enterprise(void)
 {
 	error_no_default_fn_enterprise();
-	pg_unreachable();
+	//pg_unreachable();
 }
 
 static void
@@ -273,27 +273,27 @@ static TimestampTz
 license_end_time_default_fn(void)
 {
 	error_no_default_fn_community();
-	pg_unreachable();
+	//pg_unreachable();
 }
 
-static void
-add_telemetry_default(JsonbParseState *parseState)
-{
-	error_no_default_fn_community();
-}
+//static void
+//add_telemetry_default(JsonbParseState *parseState)
+//{
+//	error_no_default_fn_community();
+//}
 
 static bool
 bgw_policy_job_execute_default_fn(BgwJob *job)
 {
 	error_no_default_fn_enterprise();
-	pg_unreachable();
+	//pg_unreachable();
 }
 
 static bool
 cagg_materialize_default_fn(int32 materialization_id, ContinuousAggMatOptions *options)
 {
 	error_no_default_fn_community();
-	pg_unreachable();
+	//pg_unreachable();
 }
 
 static bool
@@ -301,7 +301,7 @@ process_compress_table_default(AlterTableCmd *cmd, Hypertable *ht,
 							   WithClauseResult *with_clause_options)
 {
 	error_no_default_fn_community();
-	pg_unreachable();
+	//pg_unreachable();
 }
 
 static Datum
@@ -314,7 +314,7 @@ error_no_default_fn_pg_community(PG_FUNCTION_ARGS)
 					ts_guc_license_key),
 			 errhint(
 				 "Upgrade to a Timescale-licensed binary to access this free community feature")));
-	pg_unreachable();
+	//pg_unreachable();
 }
 
 static Datum
@@ -327,7 +327,7 @@ error_no_default_fn_pg_enterprise(PG_FUNCTION_ARGS)
 					ts_guc_license_key),
 			 errhint("Request a trial license to try this feature for free or contact us for more "
 					 "information at https://www.timescale.com/pricing")));
-	pg_unreachable();
+	//pg_unreachable();
 }
 
 static bool
@@ -340,7 +340,7 @@ static void
 continuous_agg_update_options_default(ContinuousAgg *cagg, WithClauseResult *with_clause_options)
 {
 	error_no_default_fn_community();
-	pg_unreachable();
+	//pg_unreachable();
 }
 
 static void
@@ -365,7 +365,7 @@ TSDLLEXPORT CrossModuleFunctions ts_cm_functions_default = {
 	.license_end_time = license_end_time_default_fn,
 	.print_tsl_license_expiration_info_hook = NULL,
 	.module_shutdown_hook = NULL,
-	.add_tsl_license_info_telemetry = add_telemetry_default,
+	//.add_tsl_license_info_telemetry = add_telemetry_default,
 	.bgw_policy_job_execute = bgw_policy_job_execute_default_fn,
 	.continuous_agg_materialize = cagg_materialize_default_fn,
 	.add_drop_chunks_policy = error_no_default_fn_pg_community,
@@ -374,7 +374,7 @@ TSDLLEXPORT CrossModuleFunctions ts_cm_functions_default = {
 	.remove_drop_chunks_policy = error_no_default_fn_pg_community,
 	.remove_reorder_policy = error_no_default_fn_pg_community,
 	.remove_compress_chunks_policy = error_no_default_fn_pg_community,
-	.create_upper_paths_hook = NULL,
+	//.create_upper_paths_hook = NULL,
 	.set_rel_pathlist_dml = NULL,
 	.set_rel_pathlist_query = NULL,
 	.gapfill_marker = error_no_default_fn_pg_community,
@@ -388,7 +388,7 @@ TSDLLEXPORT CrossModuleFunctions ts_cm_functions_default = {
 	.reorder_chunk = error_no_default_fn_pg_community,
 	.move_chunk = error_no_default_fn_pg_enterprise,
 	.ddl_command_start = NULL,
-	.ddl_command_end = NULL,
+	//.ddl_command_end = NULL,
 	.sql_drop = NULL,
 	.partialize_agg = error_no_default_fn_pg_community,
 	.finalize_agg_sfunc = error_no_default_fn_pg_community,

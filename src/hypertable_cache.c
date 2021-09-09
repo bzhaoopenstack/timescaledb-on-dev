@@ -52,28 +52,41 @@ hypertable_cache_valid_result(const void *result)
 static Cache *
 hypertable_cache_create()
 {
-	MemoryContext ctx =
-		AllocSetContextCreate(CacheMemoryContext, "Hypertable cache", ALLOCSET_DEFAULT_SIZES);
+//	MemoryContext ctx =
+//		AllocSetContextCreate(CacheMemoryContext, "Hypertable cache", ALLOCSET_DEFAULT_SIZES);
+	MemoryContext ctx;
 
 	Cache *cache = MemoryContextAlloc(ctx, sizeof(Cache));
-	Cache		template =
-	{
-		.hctl =
-		{
-			.keysize = sizeof(Oid),
-			.entrysize = sizeof(HypertableCacheEntry),
-			.hcxt = ctx,
-		},
-		.name = "hypertable_cache",
-		.numelements = 16,
-		.flags = HASH_ELEM | HASH_CONTEXT | HASH_BLOBS,
-		.get_key = hypertable_cache_get_key,
-		.create_entry = hypertable_cache_create_entry,
-		.missing_error = hypertable_cache_missing_error,
-		.valid_result = hypertable_cache_valid_result,
-	};
+	HASHCTL hhctl;
+	hhctl.keysize = sizeof(Oid);
+	hhctl.entrysize = sizeof(HypertableCacheEntry);
+	hhctl.hcxt = ctx;
+//	Cache		tmplate =
+//	{
+//		.hctl = hhctl,
+//		.htab = NULL,
+//		.refcount = NULL,
+//		.name = "hypertable_cache",
+//		.numelements = 16,
+//		.flags = HASH_ELEM | HASH_CONTEXT | HASH_BLOBS,
+//		.stats = NULL,
+//		.get_key = hypertable_cache_get_key,
+//		.create_entry = hypertable_cache_create_entry,
+//		.update_entry = NULL,
+//		.missing_error = hypertable_cache_missing_error,
+//		.valid_result = hypertable_cache_valid_result,
+//	};
+	Cache           tmplate;
+	tmplate.hctl = hhctl;
+	tmplate.name = "hypertable_cache";
+	tmplate.numelements = 16;
+	tmplate.flags = HASH_ELEM | HASH_CONTEXT | HASH_BLOBS;
+	tmplate.get_key = hypertable_cache_get_key;
+	tmplate.create_entry = hypertable_cache_create_entry;
+	tmplate.missing_error = hypertable_cache_missing_error;
+	tmplate.valid_result = hypertable_cache_valid_result;
 
-	*cache = template;
+	*cache = tmplate;
 
 	ts_cache_init(cache);
 
@@ -198,8 +211,11 @@ Hypertable *
 ts_hypertable_cache_get_entry_with_table(Cache *cache, const Oid relid, const char *schema,
 										 const char *table, const unsigned int flags)
 {
+	CacheQuery qr = {
+		.flags = flags,
+	};
 	HypertableCacheQuery query = {
-		.q.flags = flags,
+		.q = qr,
 		.relid = relid,
 		.schema = schema,
 		.table = table,
@@ -218,7 +234,7 @@ ts_hypertable_cache_pin()
 void
 _hypertable_cache_init(void)
 {
-	CreateCacheMemoryContext();
+	//CreateCacheMemoryContext();
 	hypertable_cache_current = hypertable_cache_create();
 }
 

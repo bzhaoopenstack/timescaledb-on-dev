@@ -9,13 +9,13 @@
 #include <utils/selfuncs.h>
 
 #include "compat.h"
-#if PG12_LT
+//#if PG12_LT
 #include <optimizer/clauses.h>
 #include <optimizer/cost.h>
 #include <optimizer/tlist.h>
-#else
-#include <optimizer/optimizer.h>
-#endif
+//#else
+//#include <optimizer/optimizer.h>
+//#endif
 
 #include "func_cache.h"
 #include "estimate.h"

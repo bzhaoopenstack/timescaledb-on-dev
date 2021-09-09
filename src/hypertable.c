@@ -4,7 +4,8 @@
  * LICENSE-APACHE for a copy of the license.
  */
 #include <postgres.h>
-#include <access/htup_details.h>
+//#include <access/htup_details.h>
+#include <access/htup.h>
 #include <access/heapam.h>
 #include <access/relscan.h>
 #include <utils/lsyscache.h>
@@ -28,15 +29,17 @@
 #include <storage/lmgr.h>
 #include <miscadmin.h>
 
+#include <knl/knl_session.h>
+
 #include <catalog/pg_constraint.h>
 #include <catalog/pg_inherits.h>
 #include <catalog/pg_type.h>
 #include <parser/parse_func.h>
 #include "compat.h"
-#if PG11_LT /* PG11 consolidates pg_foo_fn.h -> pg_foo.h */
+//#if PG11_LT /* PG11 consolidates pg_foo_fn.h -> pg_foo.h */
 #include <catalog/pg_inherits_fn.h>
-#include <catalog/pg_constraint_fn.h>
-#endif
+//#include <catalog/pg_constraint_fn.h>
+//#endif
 
 #include "hypertable.h"
 #include "dimension.h"
@@ -271,13 +274,14 @@ ts_hypertable_id_to_relid(int32 hypertable_id)
 	ScanKeyData scankey[1];
 	ScannerCtx scanctx = {
 		.table = catalog_get_table_id(catalog, HYPERTABLE),
-		.index = catalog_get_index(catalog, HYPERTABLE, HYPERTABLE_ID_INDEX),
 		.nkeys = 1,
+		.lockmode = AccessShareLock,
+		.scandirection = ForwardScanDirection,
+		.result_mctx = NULL,
 		.scankey = scankey,
 		.tuple_found = hypertable_tuple_get_relid,
 		.data = &relid,
-		.lockmode = AccessShareLock,
-		.scandirection = ForwardScanDirection,
+		.index = catalog_get_index(catalog, HYPERTABLE, HYPERTABLE_ID_INDEX),
 	};
 
 	/* Perform an index scan on the hypertable pkey. */
@@ -362,16 +366,18 @@ hypertable_scan_limit_internal(ScanKeyData *scankey, int num_scankeys, int index
 	Catalog *catalog = ts_catalog_get();
 	ScannerCtx scanctx = {
 		.table = catalog_get_table_id(catalog, HYPERTABLE),
-		.index = catalog_get_index(catalog, HYPERTABLE, indexid),
 		.nkeys = num_scankeys,
-		.scankey = scankey,
-		.data = scandata,
-		.limit = limit,
-		.tuple_found = on_tuple_found,
 		.lockmode = lock,
-		.filter = filter,
 		.scandirection = ForwardScanDirection,
 		.result_mctx = mctx,
+		.scankey = scankey,
+		.tuple_found = on_tuple_found,
+		.data = scandata,
+		.index = catalog_get_index(catalog, HYPERTABLE, indexid),
+		.limit = limit,
+		.norderbys = NULL,
+		.want_itup = NULL,
+		.filter = filter,
 	};
 
 	return ts_scanner_scan(&scanctx);
@@ -470,8 +476,9 @@ hypertable_tuple_update(TupleInfo *ti, void *data)
 		Dimension *dim = ts_hyperspace_get_dimension(ht->space, DIMENSION_TYPE_OPEN, 0);
 		ChunkSizingInfo info = {
 			.table_relid = ht->main_table_relid,
-			.colname = dim == NULL ? NULL : NameStr(dim->fd.column_name),
 			.func = ht->chunk_sizing_func,
+			.target_size = NULL,
+			.colname = dim == NULL ? NULL : NameStr(dim->fd.column_name),
 		};
 
 		ts_chunk_adaptive_sizing_info_validate(&info);
@@ -555,6 +562,7 @@ TSDLLEXPORT ObjectAddress
 ts_hypertable_create_trigger(Hypertable *ht, CreateTrigStmt *stmt, const char *query)
 {
 	ObjectAddress root_trigger_addr;
+	Oid ooid;
 	List *chunks;
 	ListCell *lc;
 	int sec_ctx;
@@ -562,16 +570,15 @@ ts_hypertable_create_trigger(Hypertable *ht, CreateTrigStmt *stmt, const char *q
 	Oid owner;
 
 	Assert(ht != NULL);
-#if !PG96
-	if (stmt->transitionRels != NIL)
-		ereport(ERROR,
-				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-				 errmsg("hypertables do not support transition tables in triggers")));
-#endif
+//#if !PG96
+//	if (stmt->transitionRels != NIL)
+//		ereport(ERROR,
+//				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+//				 errmsg("hypertables do not support transition tables in triggers")));
+//#endif
 	/* create the trigger on the root table */
 	/* ACL permissions checks happen within this call */
-	root_trigger_addr =
-		CreateTriggerCompat(stmt, query, InvalidOid, InvalidOid, InvalidOid, InvalidOid, false);
+	//root_trigger_addr = CreateTriggerCompat(stmt, query, InvalidOid, InvalidOid, InvalidOid, InvalidOid, false);
 
 	/* and forward it to the chunks */
 	CommandCounterIncrement();
@@ -813,16 +820,16 @@ ts_hypertable_lock_tuple_simple(Oid table_relid)
 			/* successfully locked */
 			return true;
 
-#if PG12_GE
-		case TM_Deleted:
-#endif
+//#if PG12_GE
+//		case TM_Deleted:
+//#endif
 		case TM_Updated:
 			ereport(ERROR,
 					(errcode(ERRCODE_LOCK_NOT_AVAILABLE),
 					 errmsg("hypertable \"%s\" has already been updated by another transaction",
 							get_rel_name(table_relid)),
 					 errhint("Retry the operation again")));
-			pg_unreachable();
+			//pg_unreachable();
 			return false;
 
 		case TM_BeingModified:
@@ -831,18 +838,18 @@ ts_hypertable_lock_tuple_simple(Oid table_relid)
 					 errmsg("hypertable \"%s\" is being updated by another transaction",
 							get_rel_name(table_relid)),
 					 errhint("Retry the operation again")));
-			pg_unreachable();
+			//pg_unreachable();
 			return false;
-		case TM_WouldBlock:
-			/* Locking would block. Let caller decide what to do */
-			return false;
+//		case TM_WouldBlock:
+//			/* Locking would block. Let caller decide what to do */
+//			return false;
 		case TM_Invisible:
 			elog(ERROR, "attempted to lock invisible tuple");
-			pg_unreachable();
+			//pg_unreachable();
 			return false;
 		default:
 			elog(ERROR, "unexpected tuple lock status");
-			pg_unreachable();
+			//pg_unreachable();
 			return false;
 	}
 }
@@ -995,7 +1002,8 @@ hypertable_chunk_store_add(Hypertable *h, Chunk *chunk)
 
 	chunk_mcxt = AllocSetContextCreate(ts_subspace_store_mcxt(h->chunk_cache),
 									   "chunk cache entry memory context",
-									   ALLOCSET_SMALL_SIZES);
+									   //ALLOCSET_SMALL_SIZES);
+									   ALLOCSET_SMALL_MINSIZE, ALLOCSET_SMALL_INITSIZE, ALLOCSET_SMALL_MAXSIZE);
 
 	/* Add the chunk to the subspace store */
 	old_mcxt = MemoryContextSwitchTo(chunk_mcxt);
@@ -1215,12 +1223,12 @@ hypertable_check_associated_schema_permissions(const char *schema_name, Oid user
 		 * Schema does not exist, so we must check that the user has
 		 * privileges to create the schema in the current database
 		 */
-		if (pg_database_aclcheck(MyDatabaseId, user_oid, ACL_CREATE) != ACLCHECK_OK)
+		if (pg_database_aclcheck(u_sess->proc_cxt.MyDatabaseId, user_oid, ACL_CREATE) != ACLCHECK_OK)
 			ereport(ERROR,
 					(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
 					 errmsg("permissions denied: cannot create schema \"%s\" in database \"%s\"",
 							schema_name,
-							get_database_name(MyDatabaseId))));
+							get_database_name(u_sess->proc_cxt.MyDatabaseId))));
 	}
 	else if (pg_namespace_aclcheck(schema_oid, user_oid, ACL_CREATE) != ACLCHECK_OK)
 		ereport(ERROR,
@@ -1295,21 +1303,29 @@ ts_hypertable_has_chunks(Oid table_relid, LOCKMODE lockmode)
 static void
 hypertable_create_schema(const char *schema_name)
 {
+	//CreateSchemaStmt stmt = {
+	//	.schemaname = (char *) schema_name,
+	//	.authrole = NULL,
+	//	.schemaElts = NIL,
+	//	.if_not_exists = true,
+	//};
 	CreateSchemaStmt stmt = {
+		.type = NULL,
 		.schemaname = (char *) schema_name,
-		.authrole = NULL,
+		.authid = NULL,
 		.schemaElts = NIL,
-		.if_not_exists = true,
 	};
 
 	CreateSchemaCommand(&stmt,
-						"(generated CREATE SCHEMA command)"
-#if !PG96
-						,
-						-1,
-						-1
-#endif
+						"(generated CREATE SCHEMA command)",
+						false
 	);
+//#if !PG96
+//						,
+//						-1,
+//						-1
+//#endif
+//	);
 }
 
 /*
@@ -1450,11 +1466,11 @@ old_insert_blocker_trigger_get(Oid relid)
 					strlen(OLD_INSERT_BLOCKER_NAME)) == 0 &&
 			trig->tgisinternal)
 		{
-#if PG12_LT
+//#if PG12_LT
 			tgoid = HeapTupleGetOid(tuple);
-#else
-			tgoid = trig->oid;
-#endif
+//#else
+//			tgoid = trig->oid;
+//#endif
 			break;
 		}
 	}
@@ -1475,18 +1491,19 @@ static Oid
 insert_blocker_trigger_add(Oid relid)
 {
 	ObjectAddress objaddr;
+	Oid ooid;
 	char *relname = get_rel_name(relid);
 	Oid schemaid = get_rel_namespace(relid);
 	char *schema = get_namespace_name(schemaid);
 	CreateTrigStmt stmt = {
 		.type = T_CreateTrigStmt,
-		.row = true,
-		.timing = TRIGGER_TYPE_BEFORE,
 		.trigname = INSERT_BLOCKER_NAME,
 		.relation = makeRangeVar(schema, relname, -1),
 		.funcname =
 			list_make2(makeString(INTERNAL_SCHEMA_NAME), makeString(OLD_INSERT_BLOCKER_NAME)),
 		.args = NIL,
+		.row = true,
+		.timing = TRIGGER_TYPE_BEFORE,
 		.events = TRIGGER_TYPE_INSERT,
 	};
 
@@ -1495,12 +1512,14 @@ insert_blocker_trigger_add(Oid relid)
 	 * the hypertable. This call will error out if a trigger with the same
 	 * name already exists. (This is the desired behavior.)
 	 */
-	objaddr = CreateTriggerCompat(&stmt, NULL, relid, InvalidOid, InvalidOid, InvalidOid, false);
+	ooid = CreateTriggerCompat(&stmt, NULL, relid, InvalidOid, InvalidOid, InvalidOid, false);
 
-	if (!OidIsValid(objaddr.objectId))
+	//if (!OidIsValid(objaddr.objectId))
+	if (!OidIsValid(ooid))
 		elog(ERROR, "could not create insert blocker trigger");
 
-	return objaddr.objectId;
+	//return objaddr.objectId;
+	return ooid;
 }
 
 TS_FUNCTION_INFO_V1(ts_hypertable_insert_blocker_trigger_add);
@@ -1624,8 +1643,8 @@ ts_hypertable_create(PG_FUNCTION_ARGS)
 
 	ChunkSizingInfo chunk_sizing_info = {
 		.table_relid = table_relid,
-		.target_size = PG_ARGISNULL(11) ? NULL : PG_GETARG_TEXT_P(11),
 		.func = PG_ARGISNULL(12) ? InvalidOid : PG_GETARG_OID(12),
+		.target_size = PG_ARGISNULL(11) ? NULL : PG_GETARG_TEXT_P(11),
 		.colname = PG_ARGISNULL(1) ? NULL : PG_GETARG_CSTRING(1),
 		.check_for_index = !create_default_indexes,
 	};
@@ -1759,13 +1778,13 @@ ts_hypertable_create_from_info(Oid table_relid, int32 hypertable_id, uint32 flag
 	/* Is this the right kind of relation? */
 	switch (get_rel_relkind(table_relid))
 	{
-#if PG10_GE
-		case RELKIND_PARTITIONED_TABLE:
-			ereport(ERROR,
-					(errcode(ERRCODE_WRONG_OBJECT_TYPE),
-					 errmsg("table \"%s\" is already partitioned", get_rel_name(table_relid)),
-					 errdetail("It is not possible to turn partitioned tables into hypertables.")));
-#endif
+//#if PG10_GE
+//		case RELKIND_PARTITIONED_TABLE:
+//			ereport(ERROR,
+//					(errcode(ERRCODE_WRONG_OBJECT_TYPE),
+//					 errmsg("table \"%s\" is already partitioned", get_rel_name(table_relid)),
+//					 errdetail("It is not possible to turn partitioned tables into hypertables.")));
+//#endif
 		case RELKIND_RELATION:
 			break;
 		default:
@@ -1994,11 +2013,14 @@ ts_hypertables_rename_schema_name(const char *old_name, const char *new_name)
 
 	ScannerCtx scanctx = {
 		.table = catalog_get_table_id(catalog, HYPERTABLE),
-		.index = InvalidOid,
-		.tuple_found = hypertable_rename_schema_name,
-		.data = (void *) schema_names,
+		.nkeys = NULL,
 		.lockmode = RowExclusiveLock,
 		.scandirection = ForwardScanDirection,
+		.result_mctx = NULL,
+		.scankey = NULL,
+		.tuple_found = hypertable_rename_schema_name,
+		.data = (void *) schema_names,
+		.index = InvalidOid,
 	};
 
 	ts_scanner_scan(&scanctx);

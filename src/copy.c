@@ -26,12 +26,14 @@
 #include <parser/parse_coerce.h>
 #include <parser/parse_collate.h>
 #include <parser/parse_relation.h>
-#include <storage/bufmgr.h>
+#include <storage/buf/bufmgr.h>
 #include <utils/builtins.h>
 #include <utils/guc.h>
 #include <utils/lsyscache.h>
 #include <utils/rel.h>
-#include <utils/rls.h>
+//#include <utils/rls.h>
+
+#include <knl/knl_thread.h>
 
 #include "hypertable.h"
 #include "copy.h"
@@ -41,9 +43,9 @@
 #include "subspace_store.h"
 #include "compat.h"
 
-#if PG12_GE
-#include <optimizer/optimizer.h>
-#endif
+//#if PG12_GE
+//#include <optimizer/optimizer.h>
+//#endif
 
 /*
  * Copy from a file to a hypertable.
@@ -101,11 +103,11 @@ static bool
 next_copy_from(CopyChunkState *ccstate, ExprContext *econtext, Datum *values, bool *nulls)
 {
 	Assert(ccstate->cstate != NULL);
-#if PG12_GE
-	return NextCopyFrom(ccstate->cstate, econtext, values, nulls);
-#else
+//#if PG12_GE
+//	return NextCopyFrom(ccstate->cstate, econtext, values, nulls);
+//#else
 	return NextCopyFrom(ccstate->cstate, econtext, values, nulls, NULL);
-#endif
+//#endif
 }
 
 /*
@@ -143,9 +145,9 @@ copyfrom(CopyChunkState *ccstate, List *range_table, Hypertable *ht)
 	int ti_options = 0; /* start with default options for insert */
 	BulkInsertState bistate;
 	uint64 processed = 0;
-#if PG12_GE
-	ExprState *qualexpr;
-#endif
+//#if PG12_GE
+//	ExprState *qualexpr;
+//#endif
 
 	Assert(range_table);
 
@@ -246,25 +248,25 @@ copyfrom(CopyChunkState *ccstate, List *range_table, Hypertable *ht)
 	estate->es_result_relation_info = resultRelInfo;
 	estate->es_range_table = range_table;
 
-#if PG12_GE
-	ExecInitRangeTable(estate, estate->es_range_table);
-#else
+//#if PG12_GE
+//	ExecInitRangeTable(estate, estate->es_range_table);
+//#else
 
 	/* Triggers might need a slot as well. In PG12, the trigger slots were
 	 * moved to the ResultRelInfo and are lazily initialized during
 	 * executor execution. */
 	estate->es_trig_tuple_slot = ExecInitExtraTupleSlotCompat(estate, NULL, NULL);
-#endif
+//#endif
 
 	singleslot = table_slot_create(resultRelInfo->ri_RelationDesc, &estate->es_tupleTable);
 
 	/* Prepare to catch AFTER triggers. */
 	AfterTriggerBeginQuery();
 
-#if PG12_GE
-	if (ccstate->where_clause)
-		qualexpr = ExecInitQual(castNode(List, ccstate->where_clause), NULL);
-#endif
+//#if PG12_GE
+//	if (ccstate->where_clause)
+//		qualexpr = ExecInitQual(castNode(List, ccstate->where_clause), NULL);
+//#endif
 
 	/*
 	 * Check BEFORE STATEMENT insertion triggers. It's debatable whether we
@@ -289,8 +291,8 @@ copyfrom(CopyChunkState *ccstate, List *range_table, Hypertable *ht)
 	{
 		errcallback.callback = CopyFromErrorCallback;
 		errcallback.arg = (void *) ccstate->cstate;
-		errcallback.previous = error_context_stack;
-		error_context_stack = &errcallback;
+		errcallback.previous = t_thrd.log_cxt.error_context_stack;
+		t_thrd.log_cxt.error_context_stack = &errcallback;
 	}
 
 	for (;;)
@@ -339,14 +341,14 @@ copyfrom(CopyChunkState *ccstate, List *range_table, Hypertable *ht)
 		if (NULL != cis->hyper_to_chunk_map)
 			myslot = execute_attr_map_slot(cis->hyper_to_chunk_map->attrMap, myslot, cis->slot);
 
-#if PG12_GE
-		if (ccstate->where_clause)
-		{
-			econtext->ecxt_scantuple = myslot;
-			if (!ExecQual(qualexpr, econtext))
-				continue;
-		}
-#endif
+//#if PG12_GE
+//		if (ccstate->where_clause)
+//		{
+//			econtext->ecxt_scantuple = myslot;
+//			if (!ExecQual(qualexpr, econtext))
+//				continue;
+//		}
+//#endif
 
 		/*
 		 * Set the result relation in the executor state to the target chunk.
@@ -365,12 +367,12 @@ copyfrom(CopyChunkState *ccstate, List *range_table, Hypertable *ht)
 		/* BEFORE ROW INSERT Triggers */
 		if (resultRelInfo->ri_TrigDesc && resultRelInfo->ri_TrigDesc->trig_insert_before_row)
 		{
-#if PG12_LT
+//#if PG12_LT
 			myslot = ExecBRInsertTriggers(estate, resultRelInfo, myslot);
 			skip_tuple = (myslot == NULL);
-#else
-			skip_tuple = !ExecBRInsertTriggers(estate, resultRelInfo, myslot);
-#endif
+//#else
+//			skip_tuple = !ExecBRInsertTriggers(estate, resultRelInfo, myslot);
+//#endif
 		}
 
 		if (!skip_tuple)
@@ -381,12 +383,12 @@ copyfrom(CopyChunkState *ccstate, List *range_table, Hypertable *ht)
 			 */
 			List *recheckIndexes = NIL;
 
-#if PG12_GE
-			/* Compute stored generated columns */
-			if (resultRelInfo->ri_RelationDesc->rd_att->constr &&
-				resultRelInfo->ri_RelationDesc->rd_att->constr->has_generated_stored)
-				ExecComputeStoredGenerated(estate, myslot);
-#endif
+//#if PG12_GE
+//			/* Compute stored generated columns */
+//			if (resultRelInfo->ri_RelationDesc->rd_att->constr &&
+//				resultRelInfo->ri_RelationDesc->rd_att->constr->has_generated_stored)
+//				ExecComputeStoredGenerated(estate, myslot);
+//#endif
 			/*
 			 * If the target is a plain table, check the constraints of
 			 * the tuple.
@@ -402,7 +404,8 @@ copyfrom(CopyChunkState *ccstate, List *range_table, Hypertable *ht)
 			table_tuple_insert(resultRelInfo->ri_RelationDesc, myslot, mycid, ti_options, bistate);
 
 			if (resultRelInfo->ri_NumIndices > 0)
-				recheckIndexes = ExecInsertIndexTuplesCompat(myslot, estate, false, NULL, NIL);
+				//recheckIndexes = ExecInsertIndexTuplesCompat(myslot, estate, false, NULL, NIL);
+				recheckIndexes = ExecInsertIndexTuplesCompat(myslot, estate, NULL, NULL, InvalidBktId, NULL);
 
 			/* AFTER ROW INSERT Triggers */
 			ExecARInsertTriggersCompat(estate,
@@ -429,7 +432,7 @@ copyfrom(CopyChunkState *ccstate, List *range_table, Hypertable *ht)
 
 	/* Done, clean up */
 	if (errcallback.previous)
-		error_context_stack = errcallback.previous;
+		t_thrd.log_cxt.error_context_stack = errcallback.previous;
 
 	FreeBulkInsertState(bistate);
 
@@ -447,7 +450,7 @@ copyfrom(CopyChunkState *ccstate, List *range_table, Hypertable *ht)
 	ExecResetTupleTable(estate->es_tupleTable, false);
 
 	ExecCloseIndices(resultRelInfo);
-#if PG96
+//#if PG96
 	{
 		/*
 		 * es_trig_target_relations sometimes created in
@@ -466,10 +469,10 @@ copyfrom(CopyChunkState *ccstate, List *range_table, Hypertable *ht)
 			table_close(resultRelInfo->ri_RelationDesc, NoLock);
 		}
 	}
-#else
-	/* Close any trigger target relations */
-	ExecCleanUpTriggerState(estate);
-#endif
+//#else
+//	/* Close any trigger target relations */
+//	ExecCleanUpTriggerState(estate);
+//#endif
 
 	copy_chunk_state_destroy(ccstate);
 
@@ -567,13 +570,13 @@ copy_constraints_and_check(ParseState *pstate, Relation rel, List *attnums)
 {
 	ListCell *cur;
 	char *xactReadOnly;
-#if PG12_GE
-	RangeTblEntry *rte =
-		addRangeTableEntryForRelation(pstate, rel, RowExclusiveLock, NULL, false, false);
-	addRTEtoQuery(pstate, rte, false, true, true);
-#else
+//#if PG12_GE
+//	RangeTblEntry *rte =
+//		addRangeTableEntryForRelation(pstate, rel, RowExclusiveLock, NULL, false, false);
+//	addRTEtoQuery(pstate, rte, false, true, true);
+//#else
 	RangeTblEntry *rte = addRangeTableEntryForRelation(pstate, rel, NULL, false, false);
-#endif
+//#endif
 	rte->requiredPerms = ACL_INSERT;
 
 	foreach (cur, attnums)
@@ -598,20 +601,21 @@ copy_constraints_and_check(ParseState *pstate, Relation rel, List *attnums)
 	 * If RLS is not enabled for this, then just fall through to the normal
 	 * non-filtering relation handling.
 	 */
-	if (check_enable_rls(rte->relid, InvalidOid, false) == RLS_ENABLED)
-	{
-		ereport(ERROR,
-				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-				 errmsg("COPY FROM not supported with row-level security"),
-				 errhint("Use INSERT statements instead.")));
-	}
+	//if (check_enable_rls(rte->relid, InvalidOid, false) == RLS_ENABLED)
+	//{
+	//	ereport(ERROR,
+	//			(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+	//			 errmsg("COPY FROM not supported with row-level security"),
+	//			 errhint("Use INSERT statements instead.")));
+	//}
 
 	/* check read-only transaction and parallel mode */
-	xactReadOnly = GetConfigOptionByName("transaction_read_only", NULL, false);
+	//xactReadOnly = GetConfigOptionByName("transaction_read_only", NULL, false);
+	xactReadOnly = GetConfigOptionByName("transaction_read_only", NULL);
 
 	if (strncmp(xactReadOnly, "on", sizeof("on")) == 0 && !rel->rd_islocaltemp)
 		PreventCommandIfReadOnly("COPY FROM");
-	PreventCommandIfParallelMode("COPY FROM");
+	//PreventCommandIfParallelMode("COPY FROM");
 }
 
 void
@@ -626,21 +630,21 @@ timescaledb_DoCopy(const CopyStmt *stmt, const char *queryString, uint64 *proces
 	ParseState *pstate;
 
 	/* Disallow COPY to/from file or program except to superusers. */
-	if (!pipe && !superuser())
-	{
-		if (stmt->is_program)
-			ereport(ERROR,
-					(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
-					 errmsg("must be superuser to COPY to or from an external program"),
-					 errhint("Anyone can COPY to stdout or from stdin. "
-							 "psql's \\copy command also works for anyone.")));
-		else
-			ereport(ERROR,
-					(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
-					 errmsg("must be superuser to COPY to or from a file"),
-					 errhint("Anyone can COPY to stdout or from stdin. "
-							 "psql's \\copy command also works for anyone.")));
-	}
+	//if (!pipe && !superuser())
+	//{
+	//	if (stmt->is_program)
+	//		ereport(ERROR,
+	//				(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
+	//				 errmsg("must be superuser to COPY to or from an external program"),
+	//				 errhint("Anyone can COPY to stdout or from stdin. "
+	//						 "psql's \\copy command also works for anyone.")));
+	//	else
+	//		ereport(ERROR,
+	//				(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
+	//				 errmsg("must be superuser to COPY to or from a file"),
+	//				 errhint("Anyone can COPY to stdout or from stdin. "
+	//						 "psql's \\copy command also works for anyone.")));
+	//}
 
 	if (!stmt->is_from || NULL == stmt->relation)
 		elog(ERROR, "timescale DoCopy should only be called for COPY FROM");
@@ -661,32 +665,33 @@ timescaledb_DoCopy(const CopyStmt *stmt, const char *queryString, uint64 *proces
 	pstate->p_sourcetext = queryString;
 	copy_constraints_and_check(pstate, rel, attnums);
 
-#if PG96
-	cstate = BeginCopyFrom(rel, stmt->filename, stmt->is_program, stmt->attlist, stmt->options);
-#else
-	cstate = BeginCopyFrom(pstate,
-						   rel,
-						   stmt->filename,
-						   stmt->is_program,
-						   NULL,
-						   stmt->attlist,
-						   stmt->options);
-#endif
-
-#if PG12_GE
-	if (stmt->whereClause)
-	{
-		where_clause = transformExpr(pstate, stmt->whereClause, EXPR_KIND_COPY_WHERE);
-
-		where_clause = coerce_to_boolean(pstate, where_clause, "WHERE");
-		assign_expr_collations(pstate, where_clause);
-
-		where_clause = eval_const_expressions(NULL, where_clause);
-
-		where_clause = (Node *) canonicalize_qual((Expr *) where_clause, false);
-		where_clause = (Node *) make_ands_implicit((Expr *) where_clause);
-	}
-#endif
+//#if PG96
+	//cstate = BeginCopyFrom(rel, stmt->filename, stmt->is_program, stmt->attlist, stmt->options);
+	cstate = BeginCopyFrom(rel, stmt->filename, NULL, stmt->attlist, stmt->options);
+//#else
+//	cstate = BeginCopyFrom(pstate,
+//						   rel,
+//						   stmt->filename,
+//						   stmt->is_program,
+//						   NULL,
+//						   stmt->attlist,
+//						   stmt->options);
+//#endif
+//
+//#if PG12_GE
+//	if (stmt->whereClause)
+//	{
+//		where_clause = transformExpr(pstate, stmt->whereClause, EXPR_KIND_COPY_WHERE);
+//
+//		where_clause = coerce_to_boolean(pstate, where_clause, "WHERE");
+//		assign_expr_collations(pstate, where_clause);
+//
+//		where_clause = eval_const_expressions(NULL, where_clause);
+//
+//		where_clause = (Node *) canonicalize_qual((Expr *) where_clause, false);
+//		where_clause = (Node *) make_ands_implicit((Expr *) where_clause);
+//	}
+//#endif
 
 	ccstate = copy_chunk_state_create(ht, rel, next_copy_from, cstate, NULL);
 	ccstate->where_clause = where_clause;
@@ -731,18 +736,22 @@ timescaledb_move_from_table_to_chunks(Hypertable *ht, LOCKMODE lockmode)
 	List *attnums = NIL;
 
 	RangeVar rv = {
+		.type = NULL,
+		.catalogname = NULL,
 		.schemaname = NameStr(ht->fd.schema_name),
 		.relname = NameStr(ht->fd.table_name),
-#if PG96
+		.partitionname = NULL,
+//#if PG96
 		.inhOpt = INH_NO,
-#else
-		.inh = false, /* Don't recurse */
-#endif
+//#else
+//		.inh = false, /* Don't recurse */
+//#endif
 	};
 
 	TruncateStmt stmt = {
 		.type = T_TruncateStmt,
 		.relations = list_make1(&rv),
+		.restart_seqs = NULL,
 		.behavior = DROP_RESTRICT,
 	};
 	int i;

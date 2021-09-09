@@ -108,21 +108,21 @@ lock_result_ok_or_abort(TupleInfo *ti, DimensionSlice *slice)
 		case TM_Ok:
 			break;
 
-#if PG12_GE
-		case TM_Deleted:
-			ereport(ERROR,
-					(errcode(ERRCODE_LOCK_NOT_AVAILABLE),
-					 errmsg("dimension slice %d deleted by other transaction", slice->fd.id),
-					 errhint("Retry the operation again.")));
-			pg_unreachable();
-			break;
-#endif
+//#if PG12_GE
+//		case TM_Deleted:
+//			ereport(ERROR,
+//					(errcode(ERRCODE_LOCK_NOT_AVAILABLE),
+//					 errmsg("dimension slice %d deleted by other transaction", slice->fd.id),
+//					 errhint("Retry the operation again.")));
+//			pg_unreachable();
+//			break;
+//#endif
 		case TM_Updated:
 			ereport(ERROR,
 					(errcode(ERRCODE_LOCK_NOT_AVAILABLE),
 					 errmsg("dimension slice %d locked by other transaction", slice->fd.id),
 					 errhint("Retry the operation again.")));
-			pg_unreachable();
+			//pg_unreachable();
 			break;
 
 		case TM_BeingModified:
@@ -130,18 +130,18 @@ lock_result_ok_or_abort(TupleInfo *ti, DimensionSlice *slice)
 					(errcode(ERRCODE_LOCK_NOT_AVAILABLE),
 					 errmsg("dimension slice %d updated by other transaction", slice->fd.id),
 					 errhint("Retry the operation again.")));
-			pg_unreachable();
+			//pg_unreachable();
 			break;
 
 		case TM_Invisible:
 			elog(ERROR, "attempt to lock invisible tuple");
-			pg_unreachable();
+			//pg_unreachable();
 			break;
 
-		case TM_WouldBlock:
+		//case TM_WouldBlock:
 		default:
 			elog(ERROR, "unexpected tuple lock status: %d", ti->lockresult);
-			pg_unreachable();
+			//pg_unreachable();
 			break;
 	}
 }
@@ -157,15 +157,15 @@ dimension_vec_tuple_found(TupleInfo *ti, void *data)
 		case TM_SelfModified:
 		case TM_Ok:
 			break;
-#if PG12_GE
-		case TM_Deleted:
-#endif
+//#if PG12_GE
+//		case TM_Deleted:
+//#endif
 		case TM_Updated:
 			/* Treat as not found */
 			return SCAN_CONTINUE;
 		default:
 			elog(ERROR, "unexpected tuple lock status: %d", ti->lockresult);
-			pg_unreachable();
+			//pg_unreachable();
 			break;
 	}
 
@@ -175,196 +175,196 @@ dimension_vec_tuple_found(TupleInfo *ti, void *data)
 	return SCAN_CONTINUE;
 }
 
-static int
-dimension_slice_scan_limit_direction_internal(int indexid, ScanKeyData *scankey, int nkeys,
-											  tuple_found_func on_tuple_found, void *scandata,
-											  int limit, ScanDirection scandir, LOCKMODE lockmode,
-											  ScanTupLock *tuplock, MemoryContext mctx)
-{
-	Catalog *catalog = ts_catalog_get();
-	ScannerCtx scanctx = {
-		.table = catalog_get_table_id(catalog, DIMENSION_SLICE),
-		.index = catalog_get_index(catalog, DIMENSION_SLICE, indexid),
-		.nkeys = nkeys,
-		.scankey = scankey,
-		.data = scandata,
-		.limit = limit,
-		.tuplock = tuplock,
-		.tuple_found = on_tuple_found,
-		.lockmode = lockmode,
-		.scandirection = scandir,
-		.result_mctx = mctx,
-	};
+//static int
+//dimension_slice_scan_limit_direction_internal(int indexid, ScanKeyData *scankey, int nkeys,
+//											  tuple_found_func on_tuple_found, void *scandata,
+//											  int limit, ScanDirection scandir, LOCKMODE lockmode,
+//											  ScanTupLock *tuplock, MemoryContext mctx)
+//{
+//	Catalog *catalog = ts_catalog_get();
+//	ScannerCtx scanctx = {
+//		.table = catalog_get_table_id(catalog, DIMENSION_SLICE),
+//		.index = catalog_get_index(catalog, DIMENSION_SLICE, indexid),
+//		.nkeys = nkeys,
+//		.scankey = scankey,
+//		.data = scandata,
+//		.limit = limit,
+//		.tuplock = tuplock,
+//		.tuple_found = on_tuple_found,
+//		.lockmode = lockmode,
+//		.scandirection = scandir,
+//		.result_mctx = mctx,
+//	};
+//
+//	return ts_scanner_scan(&scanctx);
+//}
 
-	return ts_scanner_scan(&scanctx);
-}
-
-static int
-dimension_slice_scan_limit_internal(int indexid, ScanKeyData *scankey, int nkeys,
-									tuple_found_func on_tuple_found, void *scandata, int limit,
-									LOCKMODE lockmode, ScanTupLock *tuplock, MemoryContext mctx)
-{
-	return dimension_slice_scan_limit_direction_internal(indexid,
-														 scankey,
-														 nkeys,
-														 on_tuple_found,
-														 scandata,
-														 limit,
-														 ForwardScanDirection,
-														 lockmode,
-														 tuplock,
-														 mctx);
-}
+//static int
+//dimension_slice_scan_limit_internal(int indexid, ScanKeyData *scankey, int nkeys,
+//									tuple_found_func on_tuple_found, void *scandata, int limit,
+//									LOCKMODE lockmode, ScanTupLock *tuplock, MemoryContext mctx)
+//{
+//	return dimension_slice_scan_limit_direction_internal(indexid,
+//														 scankey,
+//														 nkeys,
+//														 on_tuple_found,
+//														 scandata,
+//														 limit,
+//														 ForwardScanDirection,
+//														 lockmode,
+//														 tuplock,
+//														 mctx);
+//}
 
 /*
  * Scan for slices that enclose the coordinate in the given dimension.
  *
  * Returns a dimension vector of slices that enclose the coordinate.
  */
-DimensionVec *
-ts_dimension_slice_scan_limit(int32 dimension_id, int64 coordinate, int limit, ScanTupLock *tuplock)
-{
-	ScanKeyData scankey[3];
-	DimensionVec *slices = ts_dimension_vec_create(limit > 0 ? limit : DIMENSION_VEC_DEFAULT_SIZE);
+//DimensionVec *
+//ts_dimension_slice_scan_limit(int32 dimension_id, int64 coordinate, int limit, ScanTupLock *tuplock)
+//{
+//	ScanKeyData scankey[3];
+//	DimensionVec *slices = ts_dimension_vec_create(limit > 0 ? limit : DIMENSION_VEC_DEFAULT_SIZE);
+//
+//	coordinate = REMAP_LAST_COORDINATE(coordinate);
+//
+//	/*
+//	 * Perform an index scan for slices matching the dimension's ID and which
+//	 * enclose the coordinate.
+//	 */
+//	ScanKeyInit(&scankey[0],
+//				Anum_dimension_slice_dimension_id_range_start_range_end_idx_dimension_id,
+//				BTEqualStrategyNumber,
+//				F_INT4EQ,
+//				Int32GetDatum(dimension_id));
+//	ScanKeyInit(&scankey[1],
+//				Anum_dimension_slice_dimension_id_range_start_range_end_idx_range_start,
+//				BTLessEqualStrategyNumber,
+//				F_INT8LE,
+//				Int64GetDatum(coordinate));
+//	ScanKeyInit(&scankey[2],
+//				Anum_dimension_slice_dimension_id_range_start_range_end_idx_range_end,
+//				BTGreaterStrategyNumber,
+//				F_INT8GT,
+//				Int64GetDatum(coordinate));
+//
+//	dimension_slice_scan_limit_internal(DIMENSION_SLICE_DIMENSION_ID_RANGE_START_RANGE_END_IDX,
+//										scankey,
+//										3,
+//										dimension_vec_tuple_found,
+//										&slices,
+//										limit,
+//										AccessShareLock,
+//										tuplock,
+//										CurrentMemoryContext);
+//
+//	return ts_dimension_vec_sort(&slices);
+//}
 
-	coordinate = REMAP_LAST_COORDINATE(coordinate);
-
-	/*
-	 * Perform an index scan for slices matching the dimension's ID and which
-	 * enclose the coordinate.
-	 */
-	ScanKeyInit(&scankey[0],
-				Anum_dimension_slice_dimension_id_range_start_range_end_idx_dimension_id,
-				BTEqualStrategyNumber,
-				F_INT4EQ,
-				Int32GetDatum(dimension_id));
-	ScanKeyInit(&scankey[1],
-				Anum_dimension_slice_dimension_id_range_start_range_end_idx_range_start,
-				BTLessEqualStrategyNumber,
-				F_INT8LE,
-				Int64GetDatum(coordinate));
-	ScanKeyInit(&scankey[2],
-				Anum_dimension_slice_dimension_id_range_start_range_end_idx_range_end,
-				BTGreaterStrategyNumber,
-				F_INT8GT,
-				Int64GetDatum(coordinate));
-
-	dimension_slice_scan_limit_internal(DIMENSION_SLICE_DIMENSION_ID_RANGE_START_RANGE_END_IDX,
-										scankey,
-										3,
-										dimension_vec_tuple_found,
-										&slices,
-										limit,
-										AccessShareLock,
-										tuplock,
-										CurrentMemoryContext);
-
-	return ts_dimension_vec_sort(&slices);
-}
-
-static void
-dimension_slice_scan_with_strategies(int32 dimension_id, StrategyNumber start_strategy,
-									 int64 start_value, StrategyNumber end_strategy,
-									 int64 end_value, void *data, tuple_found_func tuple_found,
-									 int limit, ScanTupLock *tuplock)
-{
-	ScanKeyData scankey[3];
-	int nkeys = 1;
-
-	/*
-	 * Perform an index scan for slices matching the dimension's ID and which
-	 * enclose the coordinate.
-	 */
-	ScanKeyInit(&scankey[0],
-				Anum_dimension_slice_dimension_id_range_start_range_end_idx_dimension_id,
-				BTEqualStrategyNumber,
-				F_INT4EQ,
-				Int32GetDatum(dimension_id));
-	if (start_strategy != InvalidStrategy)
-	{
-		Oid opno = get_opfamily_member(INTEGER_BTREE_FAM_OID, INT8OID, INT8OID, start_strategy);
-		Oid proc = get_opcode(opno);
-
-		Assert(OidIsValid(proc));
-
-		ScanKeyInit(&scankey[nkeys++],
-					Anum_dimension_slice_dimension_id_range_start_range_end_idx_range_start,
-					start_strategy,
-					proc,
-					Int64GetDatum(start_value));
-	}
-	if (end_strategy != InvalidStrategy)
-	{
-		Oid opno = get_opfamily_member(INTEGER_BTREE_FAM_OID, INT8OID, INT8OID, end_strategy);
-		Oid proc = get_opcode(opno);
-
-		Assert(OidIsValid(proc));
-
-		/*
-		 * range_end is stored as exclusive, so add 1 to the value being
-		 * searched. Also avoid overflow
-		 */
-		if (end_value != PG_INT64_MAX)
-		{
-			end_value++;
-
-			/*
-			 * If getting as input INT64_MAX-1, need to remap the incremented
-			 * value back to INT64_MAX-1
-			 */
-			end_value = REMAP_LAST_COORDINATE(end_value);
-		}
-		else
-		{
-			/*
-			 * The point with INT64_MAX gets mapped to INT64_MAX-1 so
-			 * incrementing that gets you to INT_64MAX
-			 */
-			end_value = PG_INT64_MAX;
-		}
-
-		ScanKeyInit(&scankey[nkeys++],
-					Anum_dimension_slice_dimension_id_range_start_range_end_idx_range_end,
-					end_strategy,
-					proc,
-					Int64GetDatum(end_value));
-	}
-
-	dimension_slice_scan_limit_internal(DIMENSION_SLICE_DIMENSION_ID_RANGE_START_RANGE_END_IDX,
-										scankey,
-										nkeys,
-										tuple_found,
-										data,
-										limit,
-										AccessShareLock,
-										tuplock,
-										CurrentMemoryContext);
-}
+//static void
+//dimension_slice_scan_with_strategies(int32 dimension_id, StrategyNumber start_strategy,
+//									 int64 start_value, StrategyNumber end_strategy,
+//									 int64 end_value, void *data, tuple_found_func tuple_found,
+//									 int limit, ScanTupLock *tuplock)
+//{
+//	ScanKeyData scankey[3];
+//	int nkeys = 1;
+//
+//	/*
+//	 * Perform an index scan for slices matching the dimension's ID and which
+//	 * enclose the coordinate.
+//	 */
+//	ScanKeyInit(&scankey[0],
+//				Anum_dimension_slice_dimension_id_range_start_range_end_idx_dimension_id,
+//				BTEqualStrategyNumber,
+//				F_INT4EQ,
+//				Int32GetDatum(dimension_id));
+//	if (start_strategy != InvalidStrategy)
+//	{
+//		Oid opno = get_opfamily_member(INTEGER_BTREE_FAM_OID, INT8OID, INT8OID, start_strategy);
+//		Oid proc = get_opcode(opno);
+//
+//		Assert(OidIsValid(proc));
+//
+//		ScanKeyInit(&scankey[nkeys++],
+//					Anum_dimension_slice_dimension_id_range_start_range_end_idx_range_start,
+//					start_strategy,
+//					proc,
+//					Int64GetDatum(start_value));
+//	}
+//	if (end_strategy != InvalidStrategy)
+//	{
+//		Oid opno = get_opfamily_member(INTEGER_BTREE_FAM_OID, INT8OID, INT8OID, end_strategy);
+//		Oid proc = get_opcode(opno);
+//
+//		Assert(OidIsValid(proc));
+//
+//		/*
+//		 * range_end is stored as exclusive, so add 1 to the value being
+//		 * searched. Also avoid overflow
+//		 */
+//		if (end_value != PG_INT64_MAX)
+//		{
+//			end_value++;
+//
+//			/*
+//			 * If getting as input INT64_MAX-1, need to remap the incremented
+//			 * value back to INT64_MAX-1
+//			 */
+//			end_value = REMAP_LAST_COORDINATE(end_value);
+//		}
+//		else
+//		{
+//			/*
+//			 * The point with INT64_MAX gets mapped to INT64_MAX-1 so
+//			 * incrementing that gets you to INT_64MAX
+//			 */
+//			end_value = PG_INT64_MAX;
+//		}
+//
+//		ScanKeyInit(&scankey[nkeys++],
+//					Anum_dimension_slice_dimension_id_range_start_range_end_idx_range_end,
+//					end_strategy,
+//					proc,
+//					Int64GetDatum(end_value));
+//	}
+//
+//	dimension_slice_scan_limit_internal(DIMENSION_SLICE_DIMENSION_ID_RANGE_START_RANGE_END_IDX,
+//										scankey,
+//										nkeys,
+//										tuple_found,
+//										data,
+//										limit,
+//										AccessShareLock,
+//										tuplock,
+//										CurrentMemoryContext);
+//}
 
 /*
  * Look for all dimension slices where (lower_bound, upper_bound) of the dimension_slice contains
  * the given (start_value, end_value) range
  *
  */
-DimensionVec *
-ts_dimension_slice_scan_range_limit(int32 dimension_id, StrategyNumber start_strategy,
-									int64 start_value, StrategyNumber end_strategy, int64 end_value,
-									int limit, ScanTupLock *tuplock)
-{
-	DimensionVec *slices = ts_dimension_vec_create(limit > 0 ? limit : DIMENSION_VEC_DEFAULT_SIZE);
-
-	dimension_slice_scan_with_strategies(dimension_id,
-										 start_strategy,
-										 start_value,
-										 end_strategy,
-										 end_value,
-										 &slices,
-										 dimension_vec_tuple_found,
-										 limit,
-										 tuplock);
-
-	return ts_dimension_vec_sort(&slices);
-}
+//DimensionVec *
+//ts_dimension_slice_scan_range_limit(int32 dimension_id, StrategyNumber start_strategy,
+//									int64 start_value, StrategyNumber end_strategy, int64 end_value,
+//									int limit, ScanTupLock *tuplock)
+//{
+//	DimensionVec *slices = ts_dimension_vec_create(limit > 0 ? limit : DIMENSION_VEC_DEFAULT_SIZE);
+//
+//	dimension_slice_scan_with_strategies(dimension_id,
+//										 start_strategy,
+//										 start_value,
+//										 end_strategy,
+//										 end_value,
+//										 &slices,
+//										 dimension_vec_tuple_found,
+//										 limit,
+//										 tuplock);
+//
+//	return ts_dimension_vec_sort(&slices);
+//}
 
 /*
  * Scan for slices that collide/overlap with the given range.
@@ -394,15 +394,15 @@ ts_dimension_slice_collision_scan_limit(int32 dimension_id, int64 range_start, i
 				F_INT8GT,
 				Int64GetDatum(range_start));
 
-	dimension_slice_scan_limit_internal(DIMENSION_SLICE_DIMENSION_ID_RANGE_START_RANGE_END_IDX,
-										scankey,
-										3,
-										dimension_vec_tuple_found,
-										&slices,
-										limit,
-										AccessShareLock,
-										NULL,
-										CurrentMemoryContext);
+	//dimension_slice_scan_limit_internal(DIMENSION_SLICE_DIMENSION_ID_RANGE_START_RANGE_END_IDX,
+	//									scankey,
+	//									3,
+	//									dimension_vec_tuple_found,
+	//									&slices,
+	//									limit,
+	//									AccessShareLock,
+	//									NULL,
+	//									CurrentMemoryContext);
 
 	return ts_dimension_vec_sort(&slices);
 }
@@ -419,15 +419,15 @@ ts_dimension_slice_scan_by_dimension(int32 dimension_id, int limit)
 				F_INT4EQ,
 				Int32GetDatum(dimension_id));
 
-	dimension_slice_scan_limit_internal(DIMENSION_SLICE_DIMENSION_ID_RANGE_START_RANGE_END_IDX,
-										scankey,
-										1,
-										dimension_vec_tuple_found,
-										&slices,
-										limit,
-										AccessShareLock,
-										NULL,
-										CurrentMemoryContext);
+	//dimension_slice_scan_limit_internal(DIMENSION_SLICE_DIMENSION_ID_RANGE_START_RANGE_END_IDX,
+	//									scankey,
+	//									1,
+	//									dimension_vec_tuple_found,
+	//									&slices,
+	//									limit,
+	//									AccessShareLock,
+	//									NULL,
+	//									CurrentMemoryContext);
 
 	return ts_dimension_vec_sort(&slices);
 }
@@ -461,17 +461,17 @@ ts_dimension_slice_scan_by_dimension_before_point(int32 dimension_id, int64 poin
 				F_INT8LT,
 				Int64GetDatum(point));
 
-	dimension_slice_scan_limit_direction_internal(
-		DIMENSION_SLICE_DIMENSION_ID_RANGE_START_RANGE_END_IDX,
-		scankey,
-		3,
-		dimension_vec_tuple_found,
-		&slices,
-		limit,
-		scandir,
-		AccessShareLock,
-		NULL,
-		mctx);
+	//dimension_slice_scan_limit_direction_internal(
+	//	DIMENSION_SLICE_DIMENSION_ID_RANGE_START_RANGE_END_IDX,
+	//	scankey,
+	//	3,
+	//	dimension_vec_tuple_found,
+	//	&slices,
+	//	limit,
+	//	scandir,
+	//	AccessShareLock,
+	//	NULL,
+	//	mctx);
 
 	return ts_dimension_vec_sort(&slices);
 }
@@ -508,16 +508,16 @@ ts_dimension_slice_delete_by_dimension_id(int32 dimension_id, bool delete_constr
 				F_INT4EQ,
 				Int32GetDatum(dimension_id));
 
-	return dimension_slice_scan_limit_internal(
-		DIMENSION_SLICE_DIMENSION_ID_RANGE_START_RANGE_END_IDX,
-		scankey,
-		1,
-		dimension_slice_tuple_delete,
-		&delete_constraints,
-		0,
-		RowExclusiveLock,
-		NULL,
-		CurrentMemoryContext);
+	//return dimension_slice_scan_limit_internal(
+	//	DIMENSION_SLICE_DIMENSION_ID_RANGE_START_RANGE_END_IDX,
+	//	scankey,
+	//	1,
+	//	dimension_slice_tuple_delete,
+	//	&delete_constraints,
+	//	0,
+	//	RowExclusiveLock,
+	//	NULL,
+	//	CurrentMemoryContext);
 }
 
 int
@@ -531,15 +531,15 @@ ts_dimension_slice_delete_by_id(int32 dimension_slice_id, bool delete_constraint
 				F_INT4EQ,
 				Int32GetDatum(dimension_slice_id));
 
-	return dimension_slice_scan_limit_internal(DIMENSION_SLICE_ID_IDX,
-											   scankey,
-											   1,
-											   dimension_slice_tuple_delete,
-											   &delete_constraints,
-											   1,
-											   RowExclusiveLock,
-											   NULL,
-											   CurrentMemoryContext);
+	//return dimension_slice_scan_limit_internal(DIMENSION_SLICE_ID_IDX,
+	//										   scankey,
+	//										   1,
+	//										   dimension_slice_tuple_delete,
+	//										   &delete_constraints,
+	//										   1,
+	//										   RowExclusiveLock,
+	//										   NULL,
+	//										   CurrentMemoryContext);
 }
 
 static ScanTupleResult
@@ -556,15 +556,15 @@ dimension_slice_fill(TupleInfo *ti, void *data)
 			memcpy(&(*slice)->fd, GETSTRUCT(tuple), sizeof(FormData_dimension_slice));
 			break;
 		}
-#if PG12_GE
-		case TM_Deleted:
-#endif
+//#if PG12_GE
+//		case TM_Deleted:
+//#endif
 		case TM_Updated:
 			/* Same as not found */
 			break;
 		default:
 			elog(ERROR, "unexpected tuple lock status: %d", ti->lockresult);
-			pg_unreachable();
+			//pg_unreachable();
 			break;
 	}
 
@@ -579,38 +579,38 @@ dimension_slice_fill(TupleInfo *ti, void *data)
  * Returns true if the dimension slice was found (and locked), false
  * otherwise.
  */
-bool
-ts_dimension_slice_scan_for_existing(DimensionSlice *slice, ScanTupLock *tuplock)
-{
-	ScanKeyData scankey[3];
-
-	ScanKeyInit(&scankey[0],
-				Anum_dimension_slice_dimension_id_range_start_range_end_idx_dimension_id,
-				BTEqualStrategyNumber,
-				F_INT4EQ,
-				Int32GetDatum(slice->fd.dimension_id));
-	ScanKeyInit(&scankey[1],
-				Anum_dimension_slice_dimension_id_range_start_range_end_idx_range_start,
-				BTEqualStrategyNumber,
-				F_INT8EQ,
-				Int64GetDatum(slice->fd.range_start));
-	ScanKeyInit(&scankey[2],
-				Anum_dimension_slice_dimension_id_range_start_range_end_idx_range_end,
-				BTEqualStrategyNumber,
-				F_INT8EQ,
-				Int64GetDatum(slice->fd.range_end));
-
-	return dimension_slice_scan_limit_internal(
-		DIMENSION_SLICE_DIMENSION_ID_RANGE_START_RANGE_END_IDX,
-		scankey,
-		3,
-		dimension_slice_fill,
-		&slice,
-		1,
-		AccessShareLock,
-		tuplock,
-		CurrentMemoryContext);
-}
+//bool
+//ts_dimension_slice_scan_for_existing(DimensionSlice *slice, ScanTupLock *tuplock)
+//{
+//	ScanKeyData scankey[3];
+//
+//	ScanKeyInit(&scankey[0],
+//				Anum_dimension_slice_dimension_id_range_start_range_end_idx_dimension_id,
+//				BTEqualStrategyNumber,
+//				F_INT4EQ,
+//				Int32GetDatum(slice->fd.dimension_id));
+//	ScanKeyInit(&scankey[1],
+//				Anum_dimension_slice_dimension_id_range_start_range_end_idx_range_start,
+//				BTEqualStrategyNumber,
+//				F_INT8EQ,
+//				Int64GetDatum(slice->fd.range_start));
+//	ScanKeyInit(&scankey[2],
+//				Anum_dimension_slice_dimension_id_range_start_range_end_idx_range_end,
+//				BTEqualStrategyNumber,
+//				F_INT8EQ,
+//				Int64GetDatum(slice->fd.range_end));
+//
+//	return dimension_slice_scan_limit_internal(
+//		DIMENSION_SLICE_DIMENSION_ID_RANGE_START_RANGE_END_IDX,
+//		scankey,
+//		3,
+//		dimension_slice_fill,
+//		&slice,
+//		1,
+//		AccessShareLock,
+//		tuplock,
+//		CurrentMemoryContext);
+//}
 
 static ScanTupleResult
 dimension_slice_tuple_found(TupleInfo *ti, void *data)
@@ -631,42 +631,42 @@ dimension_slice_tuple_found(TupleInfo *ti, void *data)
  * If you're scanning for a tuple, you have to provide a lock, since, otherwise,
  * concurrent threads can do bad things with the tuple and you probably want
  * it to not change nor disappear. */
-DimensionSlice *
-ts_dimension_slice_scan_by_id_and_lock(int32 dimension_slice_id, ScanTupLock *tuplock,
-									   MemoryContext mctx)
-{
-	DimensionSlice *slice = NULL;
-	ScanKeyData scankey[1];
-
-	ScanKeyInit(&scankey[0],
-				Anum_dimension_slice_id_idx_id,
-				BTEqualStrategyNumber,
-				F_INT4EQ,
-				Int32GetDatum(dimension_slice_id));
-
-	dimension_slice_scan_limit_internal(DIMENSION_SLICE_ID_IDX,
-										scankey,
-										1,
-										dimension_slice_tuple_found,
-										&slice,
-										1,
-										AccessShareLock,
-										tuplock,
-										mctx);
-
-	return slice;
-}
+//DimensionSlice *
+//ts_dimension_slice_scan_by_id_and_lock(int32 dimension_slice_id, ScanTupLock *tuplock,
+//									   MemoryContext mctx)
+//{
+//	DimensionSlice *slice = NULL;
+//	ScanKeyData scankey[1];
+//
+//	ScanKeyInit(&scankey[0],
+//				Anum_dimension_slice_id_idx_id,
+//				BTEqualStrategyNumber,
+//				F_INT4EQ,
+//				Int32GetDatum(dimension_slice_id));
+//
+//	dimension_slice_scan_limit_internal(DIMENSION_SLICE_ID_IDX,
+//										scankey,
+//										1,
+//										dimension_slice_tuple_found,
+//										&slice,
+//										1,
+//										AccessShareLock,
+//										tuplock,
+//										mctx);
+//
+//	return slice;
+//}
 
 DimensionSlice *
 ts_dimension_slice_copy(const DimensionSlice *original)
 {
-	DimensionSlice *new = palloc(sizeof(DimensionSlice));
+	DimensionSlice *new_ds = palloc(sizeof(DimensionSlice));
 
 	Assert(original->storage == NULL);
 	Assert(original->storage_free == NULL);
 
-	memcpy(new, original, sizeof(DimensionSlice));
-	return new;
+	memcpy(new_ds, original, sizeof(DimensionSlice));
+	return new_ds;
 }
 
 /*
@@ -837,17 +837,17 @@ ts_dimension_slice_nth_latest_slice(int32 dimension_id, int n)
 				F_INT4EQ,
 				Int32GetDatum(dimension_id));
 
-	num_tuples = dimension_slice_scan_limit_direction_internal(
-		DIMENSION_SLICE_DIMENSION_ID_RANGE_START_RANGE_END_IDX,
-		scankey,
-		1,
-		dimension_slice_nth_tuple_found,
-		&ret,
-		n,
-		BackwardScanDirection,
-		AccessShareLock,
-		NULL,
-		CurrentMemoryContext);
+	//num_tuples = dimension_slice_scan_limit_direction_internal(
+	//	DIMENSION_SLICE_DIMENSION_ID_RANGE_START_RANGE_END_IDX,
+	//	scankey,
+	//	1,
+	//	dimension_slice_nth_tuple_found,
+	//	&ret,
+	//	n,
+	//	BackwardScanDirection,
+	//	AccessShareLock,
+	//	NULL,
+	//	CurrentMemoryContext);
 	if (num_tuples < n)
 		return NULL;
 
@@ -897,19 +897,19 @@ ts_dimension_slice_oldest_valid_chunk_for_reorder(int32 job_id, int32 dimension_
 												  StrategyNumber end_strategy, int64 end_value)
 {
 	ChunkStatInfo info = {
-		.job_id = job_id,
 		.chunk_id = -1,
+		.job_id = job_id,
 	};
 
-	dimension_slice_scan_with_strategies(dimension_id,
-										 start_strategy,
-										 start_value,
-										 end_strategy,
-										 end_value,
-										 &info,
-										 dimension_slice_check_chunk_stats_tuple_found,
-										 -1,
-										 NULL);
+	//dimension_slice_scan_with_strategies(dimension_id,
+	//									 start_strategy,
+	//									 start_value,
+	//									 end_strategy,
+	//									 end_value,
+	//									 &info,
+	//									 dimension_slice_check_chunk_stats_tuple_found,
+	//									 -1,
+	//									 NULL);
 
 	return info.chunk_id;
 }
@@ -943,15 +943,15 @@ ts_dimension_slice_get_chunkid_to_compress(int32 dimension_id, StrategyNumber st
 										   int64 end_value)
 {
 	int32 chunk_id_ret = INVALID_CHUNK_ID;
-	dimension_slice_scan_with_strategies(dimension_id,
-										 start_strategy,
-										 start_value,
-										 end_strategy,
-										 end_value,
-										 &chunk_id_ret,
-										 dimension_slice_check_is_chunk_uncompressed_tuple_found,
-										 -1,
-										 NULL);
+	//dimension_slice_scan_with_strategies(dimension_id,
+	//									 start_strategy,
+	//									 start_value,
+	//									 end_strategy,
+	//									 end_value,
+	//									 &chunk_id_ret,
+	//									 dimension_slice_check_is_chunk_uncompressed_tuple_found,
+	//									 -1,
+	//									 NULL);
 
 	return chunk_id_ret;
 }

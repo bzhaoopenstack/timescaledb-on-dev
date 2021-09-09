@@ -11,7 +11,7 @@
 
 #include <utils/memutils.h>
 #include <utils/rel.h>
-#include <utils/rls.h>
+//#include <utils/rls.h>
 #include <utils/lsyscache.h>
 #include <utils/builtins.h>
 #include <utils/guc.h>
@@ -24,13 +24,13 @@
 #include <catalog/pg_type.h>
 
 #include "compat.h"
-#if PG12_LT
+//#if PG12_LT
 #include <optimizer/clauses.h>
 #include <optimizer/plancat.h>
 #include <optimizer/planner.h>
-#else
-#include <optimizer/optimizer.h>
-#endif
+//#else
+//#include <optimizer/optimizer.h>
+//#endif
 
 #include "errors.h"
 #include "chunk_insert_state.h"
@@ -69,7 +69,7 @@ create_chunk_rri_constraint_expr(ResultRelInfo *rri, Relation rel)
 
 	ncheck = rel->rd_att->constr->num_check;
 	check = rel->rd_att->constr->check;
-#if PG96
+//#if PG96
 	rri->ri_ConstraintExprs = (List **) palloc(ncheck * sizeof(List *));
 
 	for (i = 0; i < ncheck; i++)
@@ -79,16 +79,16 @@ create_chunk_rri_constraint_expr(ResultRelInfo *rri, Relation rel)
 
 		rri->ri_ConstraintExprs[i] = (List *) prepare_constr_expr((Expr *) qual);
 	}
-#else
-	rri->ri_ConstraintExprs = (ExprState **) palloc(ncheck * sizeof(ExprState *));
-
-	for (i = 0; i < ncheck; i++)
-	{
-		Expr *checkconstr = stringToNode(check[i].ccbin);
-
-		rri->ri_ConstraintExprs[i] = prepare_constr_expr(checkconstr);
-	}
-#endif
+//#else
+//	rri->ri_ConstraintExprs = (ExprState **) palloc(ncheck * sizeof(ExprState *));
+//
+//	for (i = 0; i < ncheck; i++)
+//	{
+//		Expr *checkconstr = stringToNode(check[i].ccbin);
+//
+//		rri->ri_ConstraintExprs[i] = prepare_constr_expr(checkconstr);
+//	}
+//#endif
 }
 
 /*
@@ -112,14 +112,14 @@ create_chunk_result_relation_info(ChunkDispatch *dispatch, Relation rel)
 
 	/* Copy options from the main table's (hypertable's) result relation info */
 	rri_orig = dispatch->hypertable_result_rel_info;
-	rri->ri_WithCheckOptions = rri_orig->ri_WithCheckOptions;
-	rri->ri_WithCheckOptionExprs = rri_orig->ri_WithCheckOptionExprs;
+	//rri->ri_WithCheckOptions = rri_orig->ri_WithCheckOptions;
+	//rri->ri_WithCheckOptionExprs = rri_orig->ri_WithCheckOptionExprs;
 	rri->ri_junkFilter = rri_orig->ri_junkFilter;
 	rri->ri_projectReturning = rri_orig->ri_projectReturning;
-#if PG11_LT
-	rri->ri_onConflictSetProj = rri_orig->ri_onConflictSetProj;
-	rri->ri_onConflictSetWhere = rri_orig->ri_onConflictSetWhere;
-#endif
+//#if PG11_LT
+//	rri->ri_onConflictSetProj = rri_orig->ri_onConflictSetProj;
+//	rri->ri_onConflictSetWhere = rri_orig->ri_onConflictSetWhere;
+//#endif
 
 	create_chunk_rri_constraint_expr(rri, rel);
 
@@ -263,107 +263,107 @@ get_hyper_rri(ChunkDispatch *dispatch)
  * The hypertable root is used as a template. A shallow copy can be made,
  * e.g., if tuple descriptors match exactly.
  */
-#if PG11_GE
-static void
-init_basic_on_conflict_state(ResultRelInfo *hyper_rri, ResultRelInfo *chunk_rri)
-{
-	OnConflictSetState *onconfl = makeNode(OnConflictSetState);
-
-	/* If no tuple conversion between the chunk and root hyper relation is
-	 * needed, we can get away with a (mostly) shallow copy */
-	memcpy(onconfl, hyper_rri->ri_onConflict, sizeof(OnConflictSetState));
-
-	chunk_rri->ri_onConflict = onconfl;
-}
-#else
+//#if PG11_GE
+//static void
+//init_basic_on_conflict_state(ResultRelInfo *hyper_rri, ResultRelInfo *chunk_rri)
+//{
+//	OnConflictSetState *onconfl = makeNode(OnConflictSetState);
+//
+//	/* If no tuple conversion between the chunk and root hyper relation is
+//	 * needed, we can get away with a (mostly) shallow copy */
+//	memcpy(onconfl, hyper_rri->ri_onConflict, sizeof(OnConflictSetState));
+//
+//	chunk_rri->ri_onConflict = onconfl;
+//}
+//#else
 /* No dedicated ON CONFLICT state */
 #define init_basic_on_conflict_state(hyper_rri, chunk_rri)
-#endif /* PG11_GE */
+//#endif /* PG11_GE */
 
-#if PG96
+//#if PG96
 static List *
 create_on_conflict_where_qual(List *clause)
 {
 	return (List *) ExecInitExpr((Expr *) clause, NULL);
 }
-#else
-static ExprState *
-create_on_conflict_where_qual(List *clause)
-{
-	return ExecInitQual(clause, NULL);
-}
-#endif /* PG96 */
+//#else
+//static ExprState *
+//create_on_conflict_where_qual(List *clause)
+//{
+//	return ExecInitQual(clause, NULL);
+//}
+//#endif /* PG96 */
 
-#if PG12_GE
+//#if PG12_GE
+//static TupleDesc
+//get_default_confl_tupdesc(ChunkInsertState *state, ChunkDispatch *dispatch)
+//{
+//	return get_hyper_rri(dispatch)->ri_onConflict->oc_ProjSlot->tts_tupleDescriptor;
+//}
+//
+//static TupleTableSlot *
+//get_default_confl_slot(ChunkInsertState *state, ChunkDispatch *dispatch)
+//{
+//	return get_hyper_rri(dispatch)->ri_onConflict->oc_ProjSlot;
+//}
+//
+//static TupleTableSlot *
+//get_confl_slot(ChunkInsertState *state, ChunkDispatch *dispatch, TupleDesc projtupdesc)
+//{
+//	ResultRelInfo *chunk_rri = get_chunk_rri(state);
+//
+//	/* PG12 has a per-relation projection slot for ON CONFLICT. Usually,
+//	 * these slots are tied to the executor's tuple table
+//	 * (estate->es_tupleTable), which tracks all slots and cleans them up
+//	 * at the end of exection. This doesn't work well in our case, since
+//	 * chunk insert states do not necessarily live to the end of execution
+//	 * (in order to keep memory usage down when inserting into lots of
+//	 * chunks). Therefore, we do NOT tie these slots to the executor
+//	 * state, and instead manage their lifecycles ourselves. */
+//	chunk_rri->ri_onConflict->oc_ProjSlot = MakeSingleTupleTableSlot(projtupdesc, &TTSOpsVirtual);
+//
+//	return chunk_rri->ri_onConflict->oc_ProjSlot;
+//}
+//
+//static TupleTableSlot *
+//get_default_existing_slot(ChunkInsertState *state, ChunkDispatch *dispatch)
+//{
+//	ResultRelInfo *chunk_rri = get_chunk_rri(state);
+//
+//	chunk_rri->ri_onConflict->oc_Existing = table_slot_create(state->rel, NULL);
+//
+//	return chunk_rri->ri_onConflict->oc_Existing;
+//}
+//
+//#else
 static TupleDesc
 get_default_confl_tupdesc(ChunkInsertState *state, ChunkDispatch *dispatch)
 {
-	return get_hyper_rri(dispatch)->ri_onConflict->oc_ProjSlot->tts_tupleDescriptor;
-}
-
-static TupleTableSlot *
-get_default_confl_slot(ChunkInsertState *state, ChunkDispatch *dispatch)
-{
-	return get_hyper_rri(dispatch)->ri_onConflict->oc_ProjSlot;
-}
-
-static TupleTableSlot *
-get_confl_slot(ChunkInsertState *state, ChunkDispatch *dispatch, TupleDesc projtupdesc)
-{
-	ResultRelInfo *chunk_rri = get_chunk_rri(state);
-
-	/* PG12 has a per-relation projection slot for ON CONFLICT. Usually,
-	 * these slots are tied to the executor's tuple table
-	 * (estate->es_tupleTable), which tracks all slots and cleans them up
-	 * at the end of exection. This doesn't work well in our case, since
-	 * chunk insert states do not necessarily live to the end of execution
-	 * (in order to keep memory usage down when inserting into lots of
-	 * chunks). Therefore, we do NOT tie these slots to the executor
-	 * state, and instead manage their lifecycles ourselves. */
-	chunk_rri->ri_onConflict->oc_ProjSlot = MakeSingleTupleTableSlot(projtupdesc, &TTSOpsVirtual);
-
-	return chunk_rri->ri_onConflict->oc_ProjSlot;
-}
-
-static TupleTableSlot *
-get_default_existing_slot(ChunkInsertState *state, ChunkDispatch *dispatch)
-{
-	ResultRelInfo *chunk_rri = get_chunk_rri(state);
-
-	chunk_rri->ri_onConflict->oc_Existing = table_slot_create(state->rel, NULL);
-
-	return chunk_rri->ri_onConflict->oc_Existing;
-}
-
-#else
-static TupleDesc
-get_default_confl_tupdesc(ChunkInsertState *state, ChunkDispatch *dispatch)
-{
-#if PG11
-	return get_hyper_rri(dispatch)->ri_onConflict->oc_ProjTupdesc;
-#else
+//#if PG11
+//	return get_hyper_rri(dispatch)->ri_onConflict->oc_ProjTupdesc;
+//#else
 	return dispatch->dispatch_state->conflproj_tupdesc;
-#endif /* PG11 */
+//#endif /* PG11 */
 }
 
-static TupleTableSlot *
-get_default_confl_slot(ChunkInsertState *state, ChunkDispatch *dispatch)
-{
-	return dispatch->dispatch_state->mtstate->mt_conflproj;
-}
+//static TupleTableSlot *
+//get_default_confl_slot(ChunkInsertState *state, ChunkDispatch *dispatch)
+//{
+//	return dispatch->dispatch_state->mtstate->mt_conflproj;
+//}
 
-static TupleTableSlot *
-get_confl_slot(ChunkInsertState *state, ChunkDispatch *dispatch, TupleDesc projtupdesc)
-{
-	return dispatch->dispatch_state->mtstate->mt_conflproj;
-}
+//static TupleTableSlot *
+//get_confl_slot(ChunkInsertState *state, ChunkDispatch *dispatch, TupleDesc projtupdesc)
+//{
+//	return dispatch->dispatch_state->mtstate->mt_conflproj;
+//}
 
-static TupleTableSlot *
-get_default_existing_slot(ChunkInsertState *state, ChunkDispatch *dispatch)
-{
-	return dispatch->dispatch_state->mtstate->mt_existing;
-}
-#endif /* PG12_GE */
+//static TupleTableSlot *
+//get_default_existing_slot(ChunkInsertState *state, ChunkDispatch *dispatch)
+//{
+//	return dispatch->dispatch_state->mtstate->mt_existing;
+//}
+//#endif /* PG12_GE */
 
 /*
  * Setup ON CONFLICT state for a chunk.
@@ -382,27 +382,29 @@ setup_on_conflict_state(ChunkInsertState *state, ChunkDispatch *dispatch, AttrNu
 	Relation hyper_rel = dispatch->hypertable_result_rel_info->ri_RelationDesc;
 	Relation first_rel = hyper_rel;
 
-	Assert(ts_chunk_dispatch_get_on_conflict_action(dispatch) == ONCONFLICT_UPDATE);
+	//Assert(ts_chunk_dispatch_get_on_conflict_action(dispatch) == ONCONFLICT_UPDATE);
 	init_basic_on_conflict_state(hyper_rri, chunk_rri);
 
 	/* Setup default slots for ON CONFLICT handling, in case of no tuple
 	 * conversion.  */
-	state->existing_slot = get_default_existing_slot(state, dispatch);
-	state->conflproj_tupdesc = get_default_confl_tupdesc(state, dispatch);
-	state->conflproj_slot = get_default_confl_slot(state, dispatch);
+	//state->existing_slot = get_default_existing_slot(state, dispatch);
+	//state->conflproj_tupdesc = get_default_confl_tupdesc(state, dispatch);
+	//state->conflproj_slot = get_default_confl_slot(state, dispatch);
 
 	if (NULL != map)
 	{
-		ExprContext *econtext = ResultRelInfo_OnConflictProjInfoCompat(hyper_rri)->pi_exprContext;
-		Node *onconflict_where = ts_chunk_dispatch_get_on_conflict_where(dispatch);
+		//ExprContext *econtext = ResultRelInfo_OnConflictProjInfoCompat(hyper_rri)->pi_exprContext;
+		ExprContext *econtext = NULL;
+		//Node *onconflict_where = ts_chunk_dispatch_get_on_conflict_where(dispatch);
+		Node *onconflict_where = NULL;
 		List *onconflset;
 
 		Assert(map->outdesc == RelationGetDescr(chunk_rel));
 
-		if (NULL == chunk_attnos)
-			chunk_attnos = convert_tuples_by_name_map(RelationGetDescr(chunk_rel),
-													  RelationGetDescr(first_rel),
-													  gettext_noop("could not convert row type"));
+		//if (NULL == chunk_attnos)
+		//	chunk_attnos = convert_tuples_by_name_map(RelationGetDescr(chunk_rel),
+		//											  RelationGetDescr(first_rel),
+		//											  gettext_noop("could not convert row type"));
 
 		onconflset = translate_clause(ts_chunk_dispatch_get_on_conflict_set(dispatch),
 									  chunk_attnos,
@@ -415,15 +417,16 @@ setup_on_conflict_state(ChunkInsertState *state, ChunkDispatch *dispatch, AttrNu
 		/* create the tuple slot for the UPDATE SET projection */
 		state->conflproj_tupdesc =
 			ExecTypeFromTLCompat(onconflset, RelationGetDescr(chunk_rel)->tdhasoid);
-		state->conflproj_slot = get_confl_slot(state, dispatch, state->conflproj_tupdesc);
+		//state->conflproj_slot = get_confl_slot(state, dispatch, state->conflproj_tupdesc);
+		state->conflproj_slot = NULL;
 
 		/* build UPDATE SET projection state */
-		ResultRelInfo_OnConflictProjInfoCompat(chunk_rri) =
-			ExecBuildProjectionInfoCompat(onconflset,
-										  econtext,
-										  state->conflproj_slot,
-										  NULL,
-										  RelationGetDescr(chunk_rel));
+		//ResultRelInfo_OnConflictProjInfoCompat(chunk_rri) =
+		//	ExecBuildProjectionInfoCompat(onconflset,
+		//								  econtext,
+		//								  state->conflproj_slot,
+		//								  NULL,
+		//								  RelationGetDescr(chunk_rel));
 
 		/*
 		 * Map attribute numbers in the WHERE clause, if it exists.
@@ -436,7 +439,7 @@ setup_on_conflict_state(ChunkInsertState *state, ChunkDispatch *dispatch, AttrNu
 											hyper_rel,
 											chunk_rel);
 
-			ResultRelInfo_OnConflictWhereCompat(chunk_rri) = create_on_conflict_where_qual(clause);
+			//ResultRelInfo_OnConflictWhereCompat(chunk_rri) = create_on_conflict_where_qual(clause);
 		}
 	}
 }
@@ -485,9 +488,9 @@ set_arbiter_indexes(ChunkInsertState *state, ChunkDispatch *dispatch)
 
 		state->arbiter_indexes = lappend_oid(state->arbiter_indexes, cim.indexoid);
 	}
-#if PG11_GE
-	state->result_relation_info->ri_onConflictArbiterIndexes = state->arbiter_indexes;
-#endif
+//#if PG11_GE
+//	state->result_relation_info->ri_onConflictArbiterIndexes = state->arbiter_indexes;
+//#endif
 }
 
 /* Change the projections to work with chunks instead of hypertables */
@@ -498,7 +501,7 @@ adjust_projections(ChunkInsertState *cis, ChunkDispatch *dispatch, Oid rowtype)
 	Relation hyper_rel = dispatch->hypertable_result_rel_info->ri_RelationDesc;
 	Relation chunk_rel = cis->rel;
 	AttrNumber *chunk_attnos = NULL;
-	OnConflictAction onconflict_action = ts_chunk_dispatch_get_on_conflict_action(dispatch);
+	//OnConflictAction onconflict_action = ts_chunk_dispatch_get_on_conflict_action(dispatch);
 
 	if (ts_chunk_dispatch_has_returning(dispatch))
 	{
@@ -507,9 +510,10 @@ adjust_projections(ChunkInsertState *cis, ChunkDispatch *dispatch, Oid rowtype)
 		 * to have the hypertable_desc in the out spot for map_variable_attnos
 		 * to work correctly in mapping hypertable attnos->chunk attnos.
 		 */
-		chunk_attnos = convert_tuples_by_name_map(RelationGetDescr(chunk_rel),
-												  RelationGetDescr(hyper_rel),
-												  gettext_noop("could not convert row type"));
+		//chunk_attnos = convert_tuples_by_name_map(RelationGetDescr(chunk_rel),
+		//										  RelationGetDescr(hyper_rel),
+		//										  gettext_noop("could not convert row type"));
+		AttrNumber *chunk_attnos = NULL;
 
 		chunk_rri->ri_projectReturning =
 			get_adjusted_projection_info_returning(chunk_rri->ri_projectReturning,
@@ -524,13 +528,13 @@ adjust_projections(ChunkInsertState *cis, ChunkDispatch *dispatch, Oid rowtype)
 	}
 
 	/* Set the chunk's arbiter indexes for ON CONFLICT statements */
-	if (onconflict_action != ONCONFLICT_NONE)
-	{
-		set_arbiter_indexes(cis, dispatch);
-
-		if (onconflict_action == ONCONFLICT_UPDATE)
-			setup_on_conflict_state(cis, dispatch, chunk_attnos);
-	}
+	//if (onconflict_action != ONCONFLICT_NONE)
+	//{
+	//	set_arbiter_indexes(cis, dispatch);
+	//
+	//	if (onconflict_action == ONCONFLICT_UPDATE)
+	//		setup_on_conflict_state(cis, dispatch, chunk_attnos);
+	//}
 }
 
 /*
@@ -548,14 +552,14 @@ ts_chunk_insert_state_create(Chunk *chunk, ChunkDispatch *dispatch)
 	MemoryContext cis_context = AllocSetContextCreate(dispatch->estate->es_query_cxt,
 													  "chunk insert state memory context",
 													  ALLOCSET_DEFAULT_SIZES);
-	OnConflictAction onconflict_action = ts_chunk_dispatch_get_on_conflict_action(dispatch);
+	//OnConflictAction onconflict_action = ts_chunk_dispatch_get_on_conflict_action(dispatch);
 	ResultRelInfo *resrelinfo;
 
 	/* permissions NOT checked here; were checked at hypertable level */
-	if (check_enable_rls(chunk->table_id, InvalidOid, false) == RLS_ENABLED)
-		ereport(ERROR,
-				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-				 errmsg("hypertables do not support row-level security")));
+	//if (check_enable_rls(chunk->table_id, InvalidOid, false) == RLS_ENABLED)
+	//	ereport(ERROR,
+	//			(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+	//			 errmsg("hypertables do not support row-level security")));
 
 	/*
 	 * We must allocate the range table entry on the executor's per-query
@@ -578,9 +582,9 @@ ts_chunk_insert_state_create(Chunk *chunk, ChunkDispatch *dispatch)
 	state->result_relation_info = resrelinfo;
 	state->estate = dispatch->estate;
 
-	if (resrelinfo->ri_RelationDesc->rd_rel->relhasindex &&
-		resrelinfo->ri_IndexRelationDescs == NULL)
-		ExecOpenIndices(resrelinfo, onconflict_action != ONCONFLICT_NONE);
+	//if (resrelinfo->ri_RelationDesc->rd_rel->relhasindex &&
+	//	resrelinfo->ri_IndexRelationDescs == NULL)
+	//	ExecOpenIndices(resrelinfo, onconflict_action != ONCONFLICT_NONE);
 
 	if (resrelinfo->ri_TrigDesc != NULL)
 	{
@@ -606,8 +610,8 @@ ts_chunk_insert_state_create(Chunk *chunk, ChunkDispatch *dispatch)
 	 * state. Otherwise, memory might blow up when there are many chunks being
 	 * inserted into. This also means that the slot needs to be destroyed with
 	 * the chunk insert state. */
-	state->slot = MakeSingleTupleTableSlotCompat(RelationGetDescr(resrelinfo->ri_RelationDesc),
-												 table_slot_callbacks(resrelinfo->ri_RelationDesc));
+	//state->slot = MakeSingleTupleTableSlotCompat(RelationGetDescr(resrelinfo->ri_RelationDesc),
+	//											 table_slot_callbacks(resrelinfo->ri_RelationDesc));
 	table_close(parent_rel, AccessShareLock);
 
 	MemoryContextSwitchTo(old_mcxt);

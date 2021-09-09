@@ -12,7 +12,8 @@
 #include <catalog/pg_constraint.h>
 #include <catalog/objectaddress.h>
 #include <catalog/namespace.h>
-#include <access/htup_details.h>
+//#include <access/htup_details.h>
+#include <access/htup.h>
 #include <utils/syscache.h>
 #include <utils/lsyscache.h>
 #include <utils/rel.h>
@@ -26,11 +27,11 @@
 #include <miscadmin.h>
 
 #include "compat.h"
-#if PG12_LT
+//#if PG12_LT
 #include <optimizer/var.h>
-#else
-#include <optimizer/optimizer.h>
-#endif
+//#else
+//#include <optimizer/optimizer.h>
+//#endif
 
 #include "chunk_index.h"
 #include "hypertable.h"
@@ -97,14 +98,21 @@ adjust_expr_attnos(Oid ht_relid, IndexInfo *ii, Relation chunkrel)
 {
 	List *vars = NIL;
 	ListCell *lc;
+	PVCAggregateBehavior aggbehavior = NULL;
+	PVCPlaceHolderBehavior phbehavior = NULL;
+	PVCSPExprBehavior spbehavior = NULL;
+	bool includeUpperVars = NULL;
+	bool includeUpperAggrefs = NULL;
 
 	/* Get a list of references to all Vars in the expression */
 	if (ii->ii_Expressions != NIL)
-		vars = list_concat(vars, pull_var_clause((Node *) ii->ii_Expressions, 0));
+		//vars = list_concat(vars, pull_var_clause((Node *) ii->ii_Expressions, 0));
+		vars = list_concat(vars, pull_var_clause((Node *) ii->ii_Expressions, aggbehavior, phbehavior, spbehavior, includeUpperVars, includeUpperAggrefs));
 
 	/* Get a list of references to all Vars in the predicate */
 	if (ii->ii_Predicate != NIL)
-		vars = list_concat(vars, pull_var_clause((Node *) ii->ii_Predicate, 0));
+		//vars = list_concat(vars, pull_var_clause((Node *) ii->ii_Predicate, 0));
+		vars = list_concat(vars, pull_var_clause((Node *) ii->ii_Predicate, aggbehavior, phbehavior, spbehavior, includeUpperVars, includeUpperAggrefs));
 
 	foreach (lc, vars)
 	{
@@ -133,11 +141,11 @@ chunk_adjust_colref_attnos(IndexInfo *ii, Relation idxrel, Relation chunkrel)
 
 		if (attno == InvalidAttrNumber)
 			elog(ERROR, "index attribute %s not found in chunk", NameStr(idxattr->attname));
-#if PG11_LT
+//#if PG11_LT
 		ii->ii_KeyAttrNumbers[i] = attno;
-#else
-		ii->ii_IndexAttrNumbers[i] = attno;
-#endif
+//#else
+//		ii->ii_IndexAttrNumbers[i] = attno;
+//#endif
 	}
 }
 
@@ -274,6 +282,7 @@ ts_chunk_index_create_post_adjustment(int32 hypertable_id, Relation template_ind
 	if (template_indexrel->rd_index->indisprimary)
 		flags |= INDEX_CREATE_IS_PRIMARY;
 
+	IndexCreateExtraArgs extra;
 	chunk_indexrelid = index_create_compat(chunkrel,
 										   indexname,
 										   InvalidOid,
@@ -290,7 +299,8 @@ ts_chunk_index_create_post_adjustment(int32 hypertable_id, Relation template_ind
 										   0,	  /* constr_flags constant and 0
 													* for now */
 										   false,  /* allow system table mods */
-										   false); /* is internal */
+				//						   false); /* is internal */
+										   &extra);
 
 	ReleaseSysCache(tuple);
 
@@ -469,14 +479,18 @@ chunk_index_scan(int indexid, ScanKeyData scankey[], int nkeys, tuple_found_func
 	Catalog *catalog = ts_catalog_get();
 	ScannerCtx scanctx = {
 		.table = catalog_get_table_id(catalog, CHUNK_INDEX),
-		.index = catalog_get_index(catalog, CHUNK_INDEX, indexid),
 		.nkeys = nkeys,
-		.scankey = scankey,
-		.tuple_found = tuple_found,
-		.filter = tuple_filter,
-		.data = data,
 		.lockmode = lockmode,
 		.scandirection = ForwardScanDirection,
+		.result_mctx = NULL,
+		.scankey = scankey,
+		.tuple_found = tuple_found,
+		.data = data,
+		.index = catalog_get_index(catalog, CHUNK_INDEX, indexid),
+		.limit = NULL,
+		.norderbys = NULL,
+		.want_itup=NULL,
+		.filter = tuple_filter,
 	};
 
 	return ts_scanner_scan(&scanctx);
@@ -680,6 +694,8 @@ ts_chunk_index_delete(int32 chunk_id, const char *indexname, bool drop_index)
 {
 	ScanKeyData scankey[2];
 	ChunkIndexDeleteData data = {
+		.index_name = NULL,
+		.schema = NULL,
 		.drop_index = drop_index,
 	};
 
@@ -707,8 +723,8 @@ ts_chunk_index_delete_by_name(const char *schema, const char *index_name, bool d
 {
 	ChunkIndexDeleteData data = {
 		.index_name = index_name,
-		.drop_index = drop_index,
 		.schema = schema,
+		.drop_index = drop_index,
 	};
 
 	chunk_index_scan_update(INVALID_INDEXID,
@@ -724,6 +740,8 @@ ts_chunk_index_delete_by_chunk_id(int32 chunk_id, bool drop_index)
 {
 	ScanKeyData scankey[1];
 	ChunkIndexDeleteData data = {
+		.index_name = NULL,
+		.schema = NULL,
 		.drop_index = drop_index,
 	};
 
@@ -974,7 +992,8 @@ ts_chunk_index_mark_clustered(Oid chunkrelid, Oid indexrelid)
 {
 	Relation rel = table_open(chunkrelid, AccessShareLock);
 
-	mark_index_clustered(rel, indexrelid, true);
+	//mark_index_clustered(rel, indexrelid, true);
+	mark_index_clustered(rel, indexrelid);
 	CommandCounterIncrement();
 	table_close(rel, AccessShareLock);
 }

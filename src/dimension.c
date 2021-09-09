@@ -45,7 +45,7 @@ Dimension *
 ts_hyperspace_get_dimension_by_id(Hyperspace *hs, int32 id)
 {
 	Dimension dim = {
-		.fd.id = id,
+		.fd = {.id = id,},
 	};
 
 	return bsearch(&dim, hs->dimensions, hs->num_dimensions, sizeof(Dimension), cmp_dimension_id);
@@ -165,15 +165,15 @@ dimension_fill_in_from_tuple(Dimension *d, TupleInfo *ti, Oid main_table_relid)
 		MemoryContextSwitchTo(old);
 	}
 
-	if (!isnull[Anum_dimension_integer_now_func_schema - 1] &&
-		!isnull[Anum_dimension_integer_now_func - 1])
-	{
-		namecpy(&d->fd.integer_now_func_schema,
-				DatumGetName(
-					values[AttrNumberGetAttrOffset(Anum_dimension_integer_now_func_schema)]));
-		namecpy(&d->fd.integer_now_func,
-				DatumGetName(values[AttrNumberGetAttrOffset(Anum_dimension_integer_now_func)]));
-	}
+	//if (!isnull[Anum_dimension_integer_now_func_schema - 1] &&
+	//	!isnull[Anum_dimension_integer_now_func - 1])
+	//{
+	//	namecpy(&d->fd.integer_now_func_schema,
+	//			DatumGetName(
+	//				values[AttrNumberGetAttrOffset(Anum_dimension_integer_now_func_schema)]));
+	//	namecpy(&d->fd.integer_now_func,
+	//			DatumGetName(values[AttrNumberGetAttrOffset(Anum_dimension_integer_now_func)]));
+	//}
 
 	if (d->type == DIMENSION_TYPE_CLOSED)
 		d->fd.num_slices = DatumGetInt16(values[Anum_dimension_num_slices - 1]);
@@ -250,10 +250,32 @@ Datum
 ts_dimension_calculate_open_range_default(PG_FUNCTION_ARGS)
 {
 	int64 value = PG_GETARG_INT64(0);
-	Dimension dim = {
-		.fd.id = 0,
-		.fd.interval_length = PG_GETARG_INT64(1),
-	};
+	//Dimension dim = {
+	//	.fd.id = 0,
+	//	.fd.interval_length = PG_GETARG_INT64(1),
+	//};
+	//FormData_dimension fdata = {
+	//	.id = 0,
+	//	.hypertable_id = NULL,
+	//	.column_name = NULL,
+	//	.column_type = NULL,
+	//	.aligned = NULL,
+	//	.num_slices = NULL,
+	//	.partitioning_func_schema = NULL,
+	//	.partitioning_func = NULL,
+	//	.interval_length = PG_GETARG_INT64(1),
+	//	.integer_now_func_schema = NULL,
+	//	.integer_now_func = NULL,
+	//};
+	//Dimension dim = {
+	//	.fd = fdata
+	//};
+        FormData_dimension fdata;
+        fdata.id = 0;
+        fdata.interval_length = PG_GETARG_INT64(1);
+        Dimension dim;
+        dim.fd = fdata;
+
 	DimensionSlice *slice = calculate_open_range_default(&dim, value);
 
 	PG_RETURN_DATUM(create_range_datum(fcinfo, slice));
@@ -300,10 +322,32 @@ Datum
 ts_dimension_calculate_closed_range_default(PG_FUNCTION_ARGS)
 {
 	int64 value = PG_GETARG_INT64(0);
-	Dimension dim = {
-		.fd.id = 0,
-		.fd.num_slices = PG_GETARG_INT16(1),
-	};
+	//Dimension dim = {
+	//	.fd.id = 0,
+	//	.fd.num_slices = PG_GETARG_INT16(1),
+	//};
+	//FormData_dimension fdata = {
+	//	.id = 0,
+	//	.hypertable_id = NULL,
+	//	.column_name = NULL,
+	//	.column_type = NULL,
+	//	.aligned = NULL,
+	//	.num_slices = NULL,
+	//	.partitioning_func_schema = NULL,
+	//	.partitioning_func = NULL,
+	//	.interval_length = PG_GETARG_INT64(1),
+	//	.integer_now_func_schema = NULL,
+	//	.integer_now_func = NULL,
+	//};
+        //Dimension dim = {
+        //        .fd = fdata
+        //};
+	FormData_dimension fdata;
+	fdata.id = 0;
+	fdata.interval_length = PG_GETARG_INT64(1);
+	Dimension dim;
+	dim.fd = fdata;
+	
 	DimensionSlice *slice = calculate_closed_range_default(&dim, value);
 
 	PG_RETURN_DATUM(create_range_datum(fcinfo, slice));
@@ -349,15 +393,15 @@ dimension_scan_internal(ScanKeyData *scankey, int nkeys, tuple_found_func tuple_
 	Catalog *catalog = ts_catalog_get();
 	ScannerCtx scanctx = {
 		.table = catalog_get_table_id(catalog, DIMENSION),
-		.index = catalog_get_index(catalog, DIMENSION, dimension_index),
 		.nkeys = nkeys,
-		.limit = limit,
-		.scankey = scankey,
-		.data = data,
-		.tuple_found = tuple_found,
 		.lockmode = lockmode,
 		.scandirection = ForwardScanDirection,
 		.result_mctx = mctx,
+		.scankey = scankey,
+		.tuple_found = tuple_found,
+		.data = data,
+		.index = catalog_get_index(catalog, DIMENSION, dimension_index),
+		.limit = limit,
 	};
 
 	return ts_scanner_scan(&scanctx);
@@ -446,14 +490,15 @@ dimension_scan_update(int32 dimension_id, tuple_found_func tuple_found, void *da
 	ScanKeyData scankey[1];
 	ScannerCtx scanctx = {
 		.table = catalog_get_table_id(catalog, DIMENSION),
-		.index = catalog_get_index(catalog, DIMENSION, DIMENSION_ID_IDX),
 		.nkeys = 1,
-		.limit = 1,
-		.scankey = scankey,
-		.data = data,
-		.tuple_found = tuple_found,
 		.lockmode = lockmode,
 		.scandirection = ForwardScanDirection,
+		.result_mctx = NULL,
+		.scankey = scankey,
+		.tuple_found = tuple_found,
+		.data = data,
+		.index = catalog_get_index(catalog, DIMENSION, DIMENSION_ID_IDX),
+		.limit = 1,
 	};
 
 	ScanKeyInit(&scankey[0],
@@ -733,8 +778,8 @@ ts_hyperspace_calculate_point(Hyperspace *hs, TupleTableSlot *slot)
 
 		if (NULL != d->partitioning)
 			datum = ts_partitioning_func_apply_slot(d->partitioning, slot, &isnull);
-		else
-			datum = slot_getattr(slot, d->column_attno, &isnull);
+		//else
+		//	datum = slot_getattr(slot, d->column_attno, &isnull);
 
 		switch (d->type)
 		{
@@ -918,6 +963,8 @@ dimension_add_not_null_on_column(Oid table_relid, char *colname)
 		.type = T_AlterTableCmd,
 		.subtype = AT_SetNotNull,
 		.name = colname,
+		.def = NULL,
+		.behavior = NULL,
 		.missing_ok = false,
 	};
 
@@ -980,19 +1027,19 @@ ts_dimension_update(Oid table_relid, Name dimname, DimensionType dimtype, Datum 
 	if (NULL != num_slices)
 		dim->fd.num_slices = *num_slices;
 
-	if (NULL != integer_now_func)
-	{
-		Oid pronamespace = get_func_namespace(*integer_now_func);
-		namecpy(&dim->fd.integer_now_func_schema,
-				DatumGetName(
-					DirectFunctionCall1(namein,
-										CStringGetDatum(get_namespace_name(pronamespace)))));
+	//if (NULL != integer_now_func)
+	//{
+	//	Oid pronamespace = get_func_namespace(*integer_now_func);
+	//	namecpy(&dim->fd.integer_now_func_schema,
+	//			DatumGetName(
+	//				DirectFunctionCall1(namein,
+	//									CStringGetDatum(get_namespace_name(pronamespace)))));
 
-		namecpy(&dim->fd.integer_now_func,
-				DatumGetName(
-					DirectFunctionCall1(namein,
-										CStringGetDatum(get_func_name(*integer_now_func)))));
-	}
+	//	namecpy(&dim->fd.integer_now_func,
+	//			DatumGetName(
+	//				DirectFunctionCall1(namein,
+	//									CStringGetDatum(get_func_name(*integer_now_func)))));
+	//}
 
 	dimension_scan_update(dim->fd.id, dimension_tuple_update, dim, RowExclusiveLock);
 
@@ -1088,11 +1135,15 @@ ts_dimension_info_create_open(Oid table_relid, Name column_name, Datum interval,
 {
 	DimensionInfo *info = palloc(sizeof(*info));
 	*info = (DimensionInfo){
-		.type = DIMENSION_TYPE_OPEN,
 		.table_relid = table_relid,
+		.dimension_id = NULL,
 		.colname = column_name,
+		.coltype = NULL,
+		.type = DIMENSION_TYPE_OPEN,
 		.interval_datum = interval,
 		.interval_type = interval_type,
+		.interval = NULL,
+		.num_slices = NULL,
 		.partitioning_func = partitioning_func,
 	};
 	return info;
@@ -1104,12 +1155,20 @@ ts_dimension_info_create_closed(Oid table_relid, Name column_name, int32 num_sli
 {
 	DimensionInfo *info = palloc(sizeof(*info));
 	*info = (DimensionInfo){
-		.type = DIMENSION_TYPE_CLOSED,
 		.table_relid = table_relid,
+		.dimension_id = NULL,
 		.colname = column_name,
+		.coltype = NULL,
+		.type = DIMENSION_TYPE_CLOSED,
+		.interval_datum = NULL,
+		.interval_type = NULL,
+		.interval = NULL,
 		.num_slices = num_slices,
-		.num_slices_is_set = true,
 		.partitioning_func = partitioning_func,
+		.if_not_exists = NULL,
+		.skip = NULL,
+		.set_not_null = NULL,
+		.num_slices_is_set = true,
 	};
 	return info;
 }
@@ -1204,21 +1263,21 @@ ts_dimension_info_validate(DimensionInfo *info)
 	info->set_not_null = !DatumGetBool(datum);
 
 	/* PG12 check that the column is not generated */
-#if PG12_GE
-	{
-		bool isgenerated;
-
-		datum = SysCacheGetAttr(ATTNAME, tuple, Anum_pg_attribute_attgenerated, &isnull);
-		Assert(!isnull);
-		isgenerated = (DatumGetChar(datum) == ATTRIBUTE_GENERATED_STORED);
-
-		if (isgenerated)
-			ereport(ERROR,
-					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-					 errmsg("invalid partitioning column"),
-					 errhint("Generated columns cannot be used as partitioning dimensions.")));
-	}
-#endif
+//#if PG12_GE
+//	{
+//		bool isgenerated;
+//
+//		datum = SysCacheGetAttr(ATTNAME, tuple, Anum_pg_attribute_attgenerated, &isnull);
+//		Assert(!isnull);
+//		isgenerated = (DatumGetChar(datum) == ATTRIBUTE_GENERATED_STORED);
+//
+//		if (isgenerated)
+//			ereport(ERROR,
+//					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+//					 errmsg("invalid partitioning column"),
+//					 errhint("Generated columns cannot be used as partitioning dimensions.")));
+//	}
+//#endif
 
 	ReleaseSysCache(tuple);
 
@@ -1324,15 +1383,20 @@ ts_dimension_add(PG_FUNCTION_ARGS)
 {
 	Cache *hcache;
 	DimensionInfo info = {
-		.type = PG_ARGISNULL(2) ? DIMENSION_TYPE_OPEN : DIMENSION_TYPE_CLOSED,
 		.table_relid = PG_GETARG_OID(0),
+		.dimension_id = NULL,
 		.colname = PG_ARGISNULL(1) ? NULL : PG_GETARG_NAME(1),
-		.num_slices = PG_ARGISNULL(2) ? DatumGetInt32(-1) : PG_GETARG_INT32(2),
-		.num_slices_is_set = !PG_ARGISNULL(2),
+		.coltype = NULL,
+		.type = PG_ARGISNULL(2) ? DIMENSION_TYPE_OPEN : DIMENSION_TYPE_CLOSED,
 		.interval_datum = PG_ARGISNULL(3) ? DatumGetInt32(-1) : PG_GETARG_DATUM(3),
 		.interval_type = PG_ARGISNULL(3) ? InvalidOid : get_fn_expr_argtype(fcinfo->flinfo, 3),
+		.interval = NULL,
+		.num_slices = PG_ARGISNULL(2) ? DatumGetInt32(-1) : PG_GETARG_INT32(2),
 		.partitioning_func = PG_ARGISNULL(4) ? InvalidOid : PG_GETARG_OID(4),
 		.if_not_exists = PG_ARGISNULL(5) ? false : PG_GETARG_BOOL(5),
+		.skip = NULL,
+		.set_not_null = NULL,
+		.num_slices_is_set = !PG_ARGISNULL(2),
 	};
 	Datum retval = 0;
 
@@ -1477,13 +1541,14 @@ ts_dimensions_rename_schema_name(char *old_name, char *new_name)
 
 	ScannerCtx scanctx = {
 		.table = catalog_get_table_id(catalog, DIMENSION),
-		.index = InvalidOid,
 		.nkeys = 1,
+		.lockmode = RowExclusiveLock,
+		.scandirection = ForwardScanDirection,
+		.result_mctx = NULL,
 		.scankey = scankey,
 		.tuple_found = dimension_rename_schema_name,
 		.data = names,
-		.lockmode = RowExclusiveLock,
-		.scandirection = ForwardScanDirection,
+		.index = InvalidOid,
 	};
 
 	namestrcpy(&old_schema_name, old_name);

@@ -24,6 +24,8 @@
 #include <utils/guc.h>
 #include <catalog/indexing.h>
 
+#include <knl/knl_session.h>
+
 #include "compat.h"
 #if PG12_GE
 #include <access/genam.h>
@@ -135,7 +137,8 @@ static bool inline extension_is_transitioning()
 	 */
 	if (creating_extension)
 	{
-		return get_extension_oid(EXTENSION_NAME, true) == CurrentExtensionObject;
+		//return get_extension_oid(EXTENSION_NAME, true) == CurrentExtensionObject;
+		return get_extension_oid(EXTENSION_NAME, true) == u_sess->cmd_cxt.CurrentExtensionObject;
 	}
 	return false;
 }
@@ -149,7 +152,7 @@ extension_current_state()
 	 * ready (which may result in an infinite loop). More concretely we need
 	 * RelationCacheInitializePhase3 to have been already called.
 	 */
-	if (!IsNormalProcessingMode() || !IsTransactionState() || !OidIsValid(MyDatabaseId))
+	if (!IsNormalProcessingMode() || !IsTransactionState() || !OidIsValid(u_sess->proc_cxt.MyDatabaseId))
 		return EXTENSION_STATE_UNKNOWN;
 
 	/*
@@ -177,8 +180,9 @@ static void
 extension_load_without_preload()
 {
 	/* cannot use GUC variable here since extension not yet loaded */
-	char *allow_install_without_preload =
-		GetConfigOptionByName("timescaledb.allow_install_without_preload", NULL, true);
+	//char *allow_install_without_preload =
+	//	GetConfigOptionByName("timescaledb.allow_install_without_preload", NULL, true);
+	char *allow_install_without_preload = GetConfigOptionByName("timescaledb.allow_install_without_preload", NULL);
 
 	if (allow_install_without_preload == NULL || strcmp(allow_install_without_preload, "on") != 0)
 	{
@@ -188,13 +192,14 @@ extension_load_without_preload()
 		 */
 		/* Only privileged users can get the value of `config file` */
 
-#if PG96
+//#if PG96
 		if (superuser())
-#else
-		if (is_member_of_role(GetUserId(), DEFAULT_ROLE_READ_ALL_SETTINGS))
-#endif
+//#else
+//		if (is_member_of_role(GetUserId(), DEFAULT_ROLE_READ_ALL_SETTINGS))
+//#endif
 		{
-			char *config_file = GetConfigOptionByName("config_file", NULL, false);
+			//char *config_file = GetConfigOptionByName("config_file", NULL, false);
+			char *config_file = GetConfigOptionByName("config_file", NULL);
 
 			ereport(FATAL,
 					(errmsg("extension \"%s\" must be preloaded", EXTENSION_NAME),

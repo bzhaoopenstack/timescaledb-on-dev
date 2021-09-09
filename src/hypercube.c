@@ -113,8 +113,13 @@ ts_hypercube_slice_sort(Hypercube *hc)
 DimensionSlice *
 ts_hypercube_get_slice_by_dimension_id(Hypercube *hc, int32 dimension_id)
 {
+	//DimensionSlice slice = {
+	//	.fd.dimension_id = dimension_id,
+	//};
+	FormData_dimension_slice ffd;
+	ffd.dimension_id = dimension_id;
 	DimensionSlice slice = {
-		.fd.dimension_id = dimension_id,
+		.fd = ffd,
 	};
 	void *ptr = &slice;
 
@@ -152,16 +157,16 @@ ts_hypercube_from_constraints(ChunkConstraints *constraints, MemoryContext mctx)
 	for (i = 0; i < constraints->num_constraints; i++)
 	{
 		ChunkConstraint *cc = chunk_constraints_get(constraints, i);
-		ScanTupLock tuplock = {
-			.lockmode = LockTupleKeyShare,
-			.waitpolicy = LockWaitBlock,
-			.follow_updates = true,
-		};
+		//ScanTupLock tuplock = {
+		//	.lockmode = LockTupleKeyShare,
+		//	.waitpolicy = LockWaitBlock,
+		//	.follow_updates = true,
+		//};
 
 		if (is_dimension_constraint(cc))
 		{
 			DimensionSlice *slice;
-			ScanTupLock *const tuplock_ptr = RecoveryInProgress() ? NULL : &tuplock;
+			//ScanTupLock *const tuplock_ptr = RecoveryInProgress() ? NULL : &tuplock;
 
 			Assert(hc->num_slices < constraints->num_dimension_constraints);
 
@@ -174,9 +179,9 @@ ts_hypercube_from_constraints(ChunkConstraints *constraints, MemoryContext mctx)
 			 * ephemeral recovery mode, so we only take the lock if we are not
 			 * in recovery mode.
 			 */
-			slice = ts_dimension_slice_scan_by_id_and_lock(cc->fd.dimension_slice_id,
-														   tuplock_ptr,
-														   mctx);
+			//slice = ts_dimension_slice_scan_by_id_and_lock(cc->fd.dimension_slice_id,
+			//											   tuplock_ptr,
+			//											   mctx);
 			Assert(slice != NULL);
 			hc->slices[hc->num_slices++] = slice;
 		}
@@ -209,64 +214,64 @@ ts_hypercube_from_constraints(ChunkConstraints *constraints, MemoryContext mctx)
  * to cut them to ensure alignment and avoid collisions with other chunk
  * hypercubes. This happens in a later step.
  */
-Hypercube *
-ts_hypercube_calculate_from_point(Hyperspace *hs, Point *p, ScanTupLock *tuplock)
-{
-	Hypercube *cube;
-	int i;
-
-	cube = ts_hypercube_alloc(hs->num_dimensions);
-
-	/* For each dimension, calculate the hypercube's slice in that dimension */
-	for (i = 0; i < hs->num_dimensions; i++)
-	{
-		Dimension *dim = &hs->dimensions[i];
-		int64 value = p->coordinates[i];
-		bool found = false;
-
-		/* Assert that dimensions are in ascending order */
-		Assert(i == 0 || dim->fd.id > hs->dimensions[i - 1].fd.id);
-
-		/*
-		 * If this is an aligned dimension, we'd like to reuse any existing
-		 * slice that covers the coordinate in the dimension
-		 */
-		if (dim->fd.aligned)
-		{
-			DimensionVec *vec;
-
-			vec = ts_dimension_slice_scan_limit(dim->fd.id, value, 1, tuplock);
-
-			if (vec->num_slices > 0)
-			{
-				cube->slices[i] = vec->slices[0];
-				found = true;
-			}
-		}
-
-		if (!found)
-		{
-			/*
-			 * No existing slice found, or we are not aligning, so calculate
-			 * the range of a new slice
-			 */
-			cube->slices[i] = ts_dimension_calculate_default_slice(dim, value);
-
-			/*
-			 * Check if there's already an existing slice with the calculated
-			 * range. If a slice already exists, use that slice's ID instead
-			 * of a new one.
-			 */
-			ts_dimension_slice_scan_for_existing(cube->slices[i], tuplock);
-		}
-	}
-
-	cube->num_slices = hs->num_dimensions;
-
-	Assert(hypercube_is_sorted(cube));
-
-	return cube;
-}
+//Hypercube *
+//ts_hypercube_calculate_from_point(Hyperspace *hs, Point *p, ScanTupLock *tuplock)
+//{
+//	Hypercube *cube;
+//	int i;
+//
+//	cube = ts_hypercube_alloc(hs->num_dimensions);
+//
+//	/* For each dimension, calculate the hypercube's slice in that dimension */
+//	for (i = 0; i < hs->num_dimensions; i++)
+//	{
+//		Dimension *dim = &hs->dimensions[i];
+//		int64 value = p->coordinates[i];
+//		bool found = false;
+//
+//		/* Assert that dimensions are in ascending order */
+//		Assert(i == 0 || dim->fd.id > hs->dimensions[i - 1].fd.id);
+//
+//		/*
+//		 * If this is an aligned dimension, we'd like to reuse any existing
+//		 * slice that covers the coordinate in the dimension
+//		 */
+//		if (dim->fd.aligned)
+//		{
+//			DimensionVec *vec;
+//
+//			vec = ts_dimension_slice_scan_limit(dim->fd.id, value, 1, tuplock);
+//
+//			if (vec->num_slices > 0)
+//			{
+//				cube->slices[i] = vec->slices[0];
+//				found = true;
+//			}
+//		}
+//
+//		if (!found)
+//		{
+//			/*
+//			 * No existing slice found, or we are not aligning, so calculate
+//			 * the range of a new slice
+//			 */
+//			cube->slices[i] = ts_dimension_calculate_default_slice(dim, value);
+//
+//			/*
+//			 * Check if there's already an existing slice with the calculated
+//			 * range. If a slice already exists, use that slice's ID instead
+//			 * of a new one.
+//			 */
+//			ts_dimension_slice_scan_for_existing(cube->slices[i], tuplock);
+//		}
+//	}
+//
+//	cube->num_slices = hs->num_dimensions;
+//
+//	Assert(hypercube_is_sorted(cube));
+//
+//	return cube;
+//}
 
 /*
  * Check if two hypercubes collide (overlap).

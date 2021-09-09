@@ -14,7 +14,7 @@
 #include <utils/builtins.h>
 #include <utils/lsyscache.h>
 #include <utils/syscache.h>
-#include <commands/event_trigger.h>
+//#include <commands/event_trigger.h>
 #include <commands/defrem.h>
 #include <commands/tablecmds.h>
 #include <commands/tablespace.h>
@@ -28,11 +28,11 @@
 #include "hypertable_cache.h"
 #include "partitioning.h"
 
-#if PG11_LT /* PG11 consolidates pg_foo_fn.h -> pg_foo.h */
+//#if PG11_LT /* PG11 consolidates pg_foo_fn.h -> pg_foo.h */
 #include <catalog/pg_inherits_fn.h>
-#else
-#include <catalog/pg_inherits.h>
-#endif
+//#else
+//#include <catalog/pg_inherits.h>
+//#endif
 static bool
 index_has_attribute(List *indexelems, const char *attrname)
 {

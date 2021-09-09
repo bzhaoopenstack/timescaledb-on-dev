@@ -6,7 +6,8 @@
 
 #include <postgres.h>
 #include <fmgr.h>
-#include <access/htup_details.h>
+//#include <access/htup_details.h>
+#include <access/htup.h>
 #include <catalog/dependency.h>
 #include <catalog/namespace.h>
 #include <catalog/pg_type.h>
@@ -79,9 +80,9 @@ parse_segment_collist(char *inpstr, Hypertable *hypertable)
 	SelectStmt *select;
 	short index = 0;
 	List *collist = NIL;
-#if !PG96
-	RawStmt *raw;
-#endif
+//#if !PG96
+//	RawStmt *raw;
+//#endif
 
 	if (strlen(inpstr) == 0)
 		return NIL;
@@ -108,19 +109,19 @@ parse_segment_collist(char *inpstr, Hypertable *hypertable)
 
 	if (list_length(parsed) != 1)
 		throw_segment_by_error(inpstr);
-#if PG96
+//#if PG96
 	if (!IsA(linitial(parsed), SelectStmt))
 		throw_segment_by_error(inpstr);
 	select = linitial(parsed);
-#else
-	if (!IsA(linitial(parsed), RawStmt))
-		throw_segment_by_error(inpstr);
-	raw = linitial(parsed);
-
-	if (!IsA(raw->stmt, SelectStmt))
-		throw_segment_by_error(inpstr);
-	select = (SelectStmt *) raw->stmt;
-#endif
+//#else
+//	if (!IsA(linitial(parsed), RawStmt))
+//		throw_segment_by_error(inpstr);
+//	raw = linitial(parsed);
+//
+//	if (!IsA(raw->stmt, SelectStmt))
+//		throw_segment_by_error(inpstr);
+//	select = (SelectStmt *) raw->stmt;
+//#endif
 
 	if (!select_stmt_as_expected(select))
 		throw_segment_by_error(inpstr);
@@ -172,9 +173,9 @@ parse_order_collist(char *inpstr, Hypertable *hypertable)
 	SelectStmt *select;
 	short index = 0;
 	List *collist = NIL;
-#if !PG96
-	RawStmt *raw;
-#endif
+//#if !PG96
+//	RawStmt *raw;
+//#endif
 
 	if (strlen(inpstr) == 0)
 		return NIL;
@@ -201,18 +202,18 @@ parse_order_collist(char *inpstr, Hypertable *hypertable)
 
 	if (list_length(parsed) != 1)
 		throw_order_by_error(inpstr);
-#if PG96
+//#if PG96
 	if (!IsA(linitial(parsed), SelectStmt))
 		throw_order_by_error(inpstr);
 	select = linitial(parsed);
-#else
-	if (!IsA(linitial(parsed), RawStmt))
-		throw_order_by_error(inpstr);
-	raw = linitial(parsed);
-	if (!IsA(raw->stmt, SelectStmt))
-		throw_order_by_error(inpstr);
-	select = (SelectStmt *) raw->stmt;
-#endif
+//#else
+//	if (!IsA(linitial(parsed), RawStmt))
+//		throw_order_by_error(inpstr);
+//	raw = linitial(parsed);
+//	if (!IsA(raw->stmt, SelectStmt))
+//		throw_order_by_error(inpstr);
+//	select = (SelectStmt *) raw->stmt;
+//#endif
 
 	if (!select_stmt_as_expected(select))
 		throw_order_by_error(inpstr);

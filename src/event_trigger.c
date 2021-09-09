@@ -4,10 +4,11 @@
  * LICENSE-APACHE for a copy of the license.
  */
 #include <postgres.h>
-#include <commands/event_trigger.h>
+//#include <commands/event_trigger.h>
 #include <utils/builtins.h>
 #include <executor/executor.h>
-#include <access/htup_details.h>
+//#include <access/htup_details.h>
+#include <access/htup.h>
 #include <catalog/pg_type.h>
 #include <catalog/pg_constraint.h>
 #include <catalog/pg_class.h>
@@ -57,22 +58,22 @@ ts_event_trigger_ddl_commands(void)
 
 	while (tuplestore_gettupleslot(rsinfo.setResult, true, false, slot))
 	{
-#if PG12_LT
+//#if PG12_LT
 		HeapTuple tuple = ExecFetchSlotTuple(slot);
-#else
-		HeapTuple tuple = ExecFetchSlotHeapTuple(slot, false, NULL);
-#endif
-		CollectedCommand *cmd;
+//#else
+//		HeapTuple tuple = ExecFetchSlotHeapTuple(slot, false, NULL);
+//#endif
+		//CollectedCommand *cmd;
 		Datum values[DDL_INFO_NATTS];
 		bool nulls[DDL_INFO_NATTS];
 
 		heap_deform_tuple(tuple, rsinfo.setDesc, values, nulls);
 
-		if (rsinfo.setDesc->natts > 8 && !nulls[8])
-		{
-			cmd = (CollectedCommand *) DatumGetPointer(values[8]);
-			objects = lappend(objects, cmd);
-		}
+		//if (rsinfo.setDesc->natts > 8 && !nulls[8])
+		//{
+		//	cmd = (CollectedCommand *) DatumGetPointer(values[8]);
+		//	objects = lappend(objects, cmd);
+		//}
 	}
 
 	FreeExprContext(rsinfo.econtext, false);
@@ -208,11 +209,11 @@ ts_event_trigger_dropped_objects(void)
 
 	while (tuplestore_gettupleslot(rsinfo.setResult, true, false, slot))
 	{
-#if PG12_LT
+//#if PG12_LT
 		HeapTuple tuple = ExecFetchSlotTuple(slot);
-#else
-		HeapTuple tuple = ExecFetchSlotHeapTuple(slot, false, NULL);
-#endif
+//#else
+//		HeapTuple tuple = ExecFetchSlotHeapTuple(slot, false, NULL);
+//#endif
 		Datum values[DROPPED_OBJECTS_NATTS];
 		bool nulls[DROPPED_OBJECTS_NATTS];
 		Oid class_id;

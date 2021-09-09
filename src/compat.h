@@ -132,12 +132,12 @@
 //#endif
 
 /* CheckValidResultRel */
-#if PG96
+//#if PG96
 #define CheckValidResultRelCompat(relinfo, operation)                                              \
 	CheckValidResultRel((relinfo)->ri_RelationDesc, operation)
-#else
-#define CheckValidResultRelCompat(relinfo, operation) CheckValidResultRel(relinfo, operation)
-#endif
+//#else
+//#define CheckValidResultRelCompat(relinfo, operation) CheckValidResultRel(relinfo, operation)
+//#endif
 
 /* ConstraintRelidTypidNameIndexId
  *
@@ -158,28 +158,28 @@
  * with it separately, we instead maintain backwards compatibility for the old
  * interface and continue to manage as before.
  */
-#if PG11_LT
+//#if PG11_LT
 #define CreateTriggerCompat CreateTrigger
-#else
-#define CreateTriggerCompat(stmt,                                                                  \
-							queryString,                                                           \
-							relOid,                                                                \
-							refRelOid,                                                             \
-							constraintOid,                                                         \
-							indexOid,                                                              \
-							isInternal)                                                            \
-	CreateTrigger(stmt,                                                                            \
-				  queryString,                                                                     \
-				  relOid,                                                                          \
-				  refRelOid,                                                                       \
-				  constraintOid,                                                                   \
-				  indexOid,                                                                        \
-				  InvalidOid,                                                                      \
-				  InvalidOid,                                                                      \
-				  NULL,                                                                            \
-				  isInternal,                                                                      \
-				  false)
-#endif
+//#else
+//#define CreateTriggerCompat(stmt,                                                                  \
+//							queryString,                                                           \
+//							relOid,                                                                \
+//							refRelOid,                                                             \
+//							constraintOid,                                                         \
+//							indexOid,                                                              \
+//							isInternal)                                                            \
+//	CreateTrigger(stmt,                                                                            \
+//				  queryString,                                                                     \
+//				  relOid,                                                                          \
+//				  refRelOid,                                                                       \
+//				  constraintOid,                                                                   \
+//				  indexOid,                                                                        \
+//				  InvalidOid,                                                                      \
+//				  InvalidOid,                                                                      \
+//				  NULL,                                                                            \
+//				  isInternal,                                                                      \
+//				  false)
+//#endif
 
 /*
  * DefineIndex
@@ -228,94 +228,102 @@
 				quiet)
 #endif
 
-#if PG96
+//#if PG96
 #define DefineRelationCompat(stmt, relkind, ownerid, typaddress, queryString)                      \
 	DefineRelation(stmt, relkind, ownerid, typaddress)
-#else
-#define DefineRelationCompat(stmt, relkind, ownerid, typaddress, queryString)                      \
-	DefineRelation(stmt, relkind, ownerid, typaddress, queryString)
-#endif
+//#else
+//#define DefineRelationCompat(stmt, relkind, ownerid, typaddress, queryString)                      \
+//	DefineRelation(stmt, relkind, ownerid, typaddress, queryString)
+//#endif
 
-#if PG12_GE
-#define ExecInsertIndexTuplesCompat(slot, estate, no_dup_err, spec_conflict, arbiter_indexes)      \
-	ExecInsertIndexTuples(slot, estate, no_dup_err, spec_conflict, arbiter_indexes);
-#else
-#define ExecInsertIndexTuplesCompat(slot, estate, no_dup_err, spec_conflict, arbiter_indexes)      \
-	ExecInsertIndexTuples(slot,                                                                    \
-						  &((slot)->tts_tuple->t_self),                                            \
-						  estate,                                                                  \
-						  no_dup_err,                                                              \
-						  spec_conflict,                                                           \
-						  arbiter_indexes)
-#endif
+//#if PG12_GE
+//#define ExecInsertIndexTuplesCompat(slot, estate, no_dup_err, spec_conflict, arbiter_indexes)      \
+//	ExecInsertIndexTuples(slot, estate, no_dup_err, spec_conflict, arbiter_indexes);
+//#else
+//#define ExecInsertIndexTuplesCompat(slot, estate, no_dup_err, spec_conflict, arbiter_indexes)      \
+//	ExecInsertIndexTuples(slot,                                                                    \
+//						  &((slot)->tts_tuple->t_self),                                            \
+//						  estate,                                                                  \
+//						  no_dup_err,                                                              \
+//						  spec_conflict,                                                           \
+//						  arbiter_indexes)
+#define ExecInsertIndexTuplesCompat(slot, estate, targetPartRel, p, bucketId, conflict)      \
+         ExecInsertIndexTuples(slot,                                                                    \
+                                                   &((slot)->tts_minhdr.t_self),                                            \
+                                                   estate,                                                                  \
+                                                   targetPartRel,                                                              \
+                                                   p,                                                           \
+                                                   bucketId,                                           \
+						   conflict)
+//#endif
 
 /* ExecARInsertTriggers */
-#if PG96
+//#if PG96
 #define ExecARInsertTriggersCompat(estate, relinfo, slot, recheck_indexes, transition_capture)     \
 	do                                                                                             \
 	{                                                                                              \
 		bool should_free;                                                                          \
 		HeapTuple tuple = ExecFetchSlotHeapTuple(slot, true, &should_free);                        \
-		ExecARInsertTriggers(estate, relinfo, tuple, recheck_indexes);                             \
 		if (should_free)                                                                           \
 			heap_freetuple(tuple);                                                                 \
 	} while (0);
-#elif PG12_LT
-#define ExecARInsertTriggersCompat(estate, relinfo, slot, recheck_indexes, transition_capture)     \
-	do                                                                                             \
-	{                                                                                              \
-		bool should_free;                                                                          \
-		HeapTuple tuple = ExecFetchSlotHeapTuple(slot, true, &should_free);                        \
-		ExecARInsertTriggers(estate, relinfo, tuple, recheck_indexes, transition_capture);         \
-		if (should_free)                                                                           \
-			heap_freetuple(tuple);                                                                 \
-	} while (0);
-#else
-#define ExecARInsertTriggersCompat(estate,                                                         \
-								   result_rel_info,                                                \
-								   tuple,                                                          \
-								   recheck_indexes,                                                \
-								   transition_capture)                                             \
-	ExecARInsertTriggers(estate, result_rel_info, tuple, recheck_indexes, transition_capture)
-#endif
+		//ExecARInsertTriggers(estate, relinfo, tuple, recheck_indexes);                             \
+//#elif PG12_LT
+//#define ExecARInsertTriggersCompat(estate, relinfo, slot, recheck_indexes, transition_capture)     \
+//	do                                                                                             \
+//	{                                                                                              \
+//		bool should_free;                                                                          \
+//		HeapTuple tuple = ExecFetchSlotHeapTuple(slot, true, &should_free);                        \
+//		ExecARInsertTriggers(estate, relinfo, tuple, recheck_indexes, transition_capture);         \
+//		if (should_free)                                                                           \
+//			heap_freetuple(tuple);                                                                 \
+//	} while (0);
+//#else
+//#define ExecARInsertTriggersCompat(estate,                                                         \
+//								   result_rel_info,                                                \
+//								   tuple,                                                          \
+//								   recheck_indexes,                                                \
+//								   transition_capture)                                             \
+//	ExecARInsertTriggers(estate, result_rel_info, tuple, recheck_indexes, transition_capture)
+//#endif
 
 /* ExecASInsertTriggers */
-#if PG96
+//#if PG96
 #define ExecASInsertTriggersCompat(estate, result_rel_info)                                        \
 	ExecASInsertTriggers(estate, result_rel_info)
-#else
-#define ExecASInsertTriggersCompat(estate, result_rel_info)                                        \
-	ExecASInsertTriggers(estate, result_rel_info, NULL)
-#endif
+//#else
+//#define ExecASInsertTriggersCompat(estate, result_rel_info)                                        \
+//	ExecASInsertTriggers(estate, result_rel_info, NULL)
+//#endif
 
 /* execute_attr_map_tuple */
-#if PG12_LT
+//#if PG12_LT
 #define execute_attr_map_tuple do_convert_tuple
-#endif
+//#endif
 
 /* ExecBuildProjectionInfo */
-#if PG96
+//#if PG96
 #define ExecBuildProjectionInfoCompat(tl, exprContext, slot, parent, inputdesc)                    \
 	ExecBuildProjectionInfo((List *) ExecInitExpr((Expr *) tl, NULL), exprContext, slot, inputdesc)
-#else
-#define ExecBuildProjectionInfoCompat(tl, exprContext, slot, parent, inputdesc)                    \
-	ExecBuildProjectionInfo(tl, exprContext, slot, parent, inputdesc)
-#endif
+//#else
+//#define ExecBuildProjectionInfoCompat(tl, exprContext, slot, parent, inputdesc)                    \
+//	ExecBuildProjectionInfo(tl, exprContext, slot, parent, inputdesc)
+//#endif
 
-#if PG12_LT
-#define TM_Result HTSU_Result
+//#if PG12_LT
+//#define TM_Result HTSU_Result
+//
+//#define TM_Ok HeapTupleMayBeUpdated
+//#define TM_SelfModified HeapTupleSelfUpdated
+//#define TM_Updated HeapTupleUpdated
+//#define TM_BeingModified HeapTupleBeingUpdated
+//#define TM_WouldBlock HeapTupleWouldBlock
+//#define TM_Invisible HeapTupleInvisible
 
-#define TM_Ok HeapTupleMayBeUpdated
-#define TM_SelfModified HeapTupleSelfUpdated
-#define TM_Updated HeapTupleUpdated
-#define TM_BeingModified HeapTupleBeingUpdated
-#define TM_WouldBlock HeapTupleWouldBlock
-#define TM_Invisible HeapTupleInvisible
+//#define TM_FailureData HeapUpdateFailureData
+//#endif
 
-#define TM_FailureData HeapUpdateFailureData
-#endif
-
-#if PG12_LT
+//#if PG12_LT
 
 #define TupleTableSlotOps void
 #define TTSOpsVirtualP NULL
@@ -323,14 +331,14 @@
 #define TTSOpsMinimalTupleP NULL
 #define TTSOpsBufferHeapTupleP NULL
 
-#else
-
-#define TTSOpsVirtualP (&TTSOpsVirtual)
-#define TTSOpsHeapTupleP (&TTSOpsHeapTuple)
-#define TTSOpsMinimalTupleP (&TTSOpsMinimalTuple)
-#define TTSOpsBufferHeapTupleP (&TTSOpsBufferHeapTuple)
-
-#endif
+//#else
+//
+//#define TTSOpsVirtualP (&TTSOpsVirtual)
+//#define TTSOpsHeapTupleP (&TTSOpsHeapTuple)
+//#define TTSOpsMinimalTupleP (&TTSOpsMinimalTuple)
+//#define TTSOpsBufferHeapTupleP (&TTSOpsBufferHeapTuple)
+//
+//#endif
 
 /*
  * ExecInitExtraTupleSlot & MakeTupleTableSlot
@@ -342,7 +350,7 @@
  * https://github.com/postgres/postgres/commit/ad7dbee368a7cd9e595d2a957be784326b08c943).
  * We adopt the PG11 conventions so that we can take advantage of JITing more easily in the future.
  */
-#if PG11_LT
+//#if PG11_LT
 
 static inline TupleTableSlot *
 ExecInitExtraTupleSlotCompat(EState *estate, TupleDesc tupdesc, void *tts_ops)
@@ -373,21 +381,21 @@ MakeTupleTableSlotCompat(TupleDesc tupdesc, void *tts_ops)
 
 	return myslot;
 }
-#elif PG11
-
-#define ExecInitExtraTupleSlotCompat(estate, tupledesc, tts_ops)                                   \
-	ExecInitExtraTupleSlot(estate, tupledesc)
-#define MakeTupleTableSlotCompat(tupdesc, tts_ops) MakeTupleTableSlot(tupdesc)
-#define MakeSingleTupleTableSlotCompat(tupdesc, tts_ops) MakeSingleTupleTableSlot(tupdesc)
-
-#else /* PG12_GE */
-
-#define ExecInitExtraTupleSlotCompat(estate, tupdesc, tts_ops)                                     \
-	ExecInitExtraTupleSlot(estate, tupdesc, tts_ops)
-#define MakeTupleTableSlotCompat(tupdesc, tts_ops) MakeTupleTableSlot(tupdesc, tts_ops)
-#define MakeSingleTupleTableSlotCompat(tupdesc, tts_ops) MakeSingleTupleTableSlot(tupdesc, tts_ops)
-
-#endif
+//#elif PG11
+//
+//#define ExecInitExtraTupleSlotCompat(estate, tupledesc, tts_ops)                                   \
+//	ExecInitExtraTupleSlot(estate, tupledesc)
+//#define MakeTupleTableSlotCompat(tupdesc, tts_ops) MakeTupleTableSlot(tupdesc)
+//#define MakeSingleTupleTableSlotCompat(tupdesc, tts_ops) MakeSingleTupleTableSlot(tupdesc)
+//
+//#else /* PG12_GE */
+//
+//#define ExecInitExtraTupleSlotCompat(estate, tupdesc, tts_ops)                                     \
+//	ExecInitExtraTupleSlot(estate, tupdesc, tts_ops)
+//#define MakeTupleTableSlotCompat(tupdesc, tts_ops) MakeTupleTableSlot(tupdesc, tts_ops)
+//#define MakeSingleTupleTableSlotCompat(tupdesc, tts_ops) MakeSingleTupleTableSlot(tupdesc, tts_ops)
+//
+//#endif
 
 /* fmgr
  * In a9c35cf postgres changed how it calls SQL functions so that the number of
@@ -396,13 +404,19 @@ MakeTupleTableSlotCompat(TupleDesc tupdesc, void *tts_ops)
  * we do backport the interface, so that all our code will be compatible with
  * new versions.
  */
-#if PG12_LT
+//#if PG12_LT
 
 /* unlike the pg12 version, this is just a wrapper for FunctionCallInfoData */
-#define LOCAL_FCINFO(name, nargs)                                                                  \
+#define LOCAL_FCINFO(name, nnargs)                                                                  \
 	union                                                                                          \
 	{                                                                                              \
-		FunctionCallInfoData fcinfo;                                                               \
+		FunctionCallInfoData fcinfo = {                                                    \
+			.flinfo = NULL,								\
+			.context = NULL,							\
+			.resultinfo = NULL,							\
+			.fncollation = 0,							\
+			.isnull = false,							\
+		};                                                               \
 	} name##data;                                                                                  \
 	FunctionCallInfo name = &name##data.fcinfo
 
@@ -413,16 +427,16 @@ MakeTupleTableSlotCompat(TupleDesc tupdesc, void *tts_ops)
 #define FC_ARG(fcinfo, n) ((fcinfo)->arg[(n)])
 #define FC_NULL(fcinfo, n) ((fcinfo)->argnull[(n)])
 
-#else
-
-/* convenience macro to allocate FunctionCallInfoData on the heap */
-#define HEAP_FCINFO(nargs) palloc(SizeForFunctionCallInfo(nargs))
-
-/* getting arguments has a different API, so these macros unify the versions */
-#define FC_ARG(fcinfo, n) ((fcinfo)->args[(n)].value)
-#define FC_NULL(fcinfo, n) ((fcinfo)->args[(n)].isnull)
-
-#endif
+//#else
+//
+///* convenience macro to allocate FunctionCallInfoData on the heap */
+//#define HEAP_FCINFO(nargs) palloc(SizeForFunctionCallInfo(nargs))
+//
+///* getting arguments has a different API, so these macros unify the versions */
+//#define FC_ARG(fcinfo, n) ((fcinfo)->args[(n)].value)
+//#define FC_NULL(fcinfo, n) ((fcinfo)->args[(n)].isnull)
+//
+//#endif
 
 /* convenience setters */
 #define FC_SET_ARG(fcinfo, n, val)                                                                 \
@@ -478,11 +492,11 @@ get_attname_compat(Oid relid, AttrNumber attnum, bool missing_ok)
 //#endif
 
 /* get_projection_info_slot */
-#if PG96
+//#if PG96
 #define get_projection_info_slot_compat(pinfo) ((pinfo)->pi_slot)
-#else
-#define get_projection_info_slot_compat(pinfo) ((pinfo)->pi_state.resultslot)
-#endif
+//#else
+//#define get_projection_info_slot_compat(pinfo) ((pinfo)->pi_state.resultslot)
+//#endif
 
 /*
  * heap_attisnull
@@ -515,7 +529,7 @@ get_attname_compat(Oid relid, AttrNumber attnum, bool missing_ok)
  * by us, we might in the future want to use some of those flags depending on how
  * we eventually decide to work with declarative partitioning.
  */
-#if PG11_LT
+//#if PG11_LT
 /* Index flags */
 #define INDEX_CREATE_IS_PRIMARY (1 << 0)
 #define INDEX_CREATE_ADD_CONSTRAINT (1 << 1)
@@ -546,7 +560,7 @@ get_attname_compat(Oid relid, AttrNumber attnum, bool missing_ok)
 							flags,                                                                 \
 							constr_flags,                                                          \
 							allow_system_table_mods,                                               \
-							is_internal)                                                           \
+							IndexCreateExtraArgs)									\
 	index_create(heapRelation,                                                                     \
 				 indexRelationName,                                                                \
 				 indexRelationId,                                                                  \
@@ -566,72 +580,71 @@ get_attname_compat(Oid relid, AttrNumber attnum, bool missing_ok)
 				 allow_system_table_mods,                                                          \
 				 ((flags & INDEX_CREATE_SKIP_BUILD) != 0),                                         \
 				 ((flags & INDEX_CREATE_CONCURRENT) != 0),                                         \
-				 is_internal,                                                                      \
-				 ((flags & INDEX_CREATE_IF_NOT_EXISTS) != 0))
-#else
-#define index_create_compat(heapRelation,                                                          \
-							indexRelationName,                                                     \
-							indexRelationId,                                                       \
-							relFileNode,                                                           \
-							indexInfo,                                                             \
-							indexColNames,                                                         \
-							accessMethodObjectId,                                                  \
-							tableSpaceId,                                                          \
-							collationObjectId,                                                     \
-							classObjectId,                                                         \
-							coloptions,                                                            \
-							reloptions,                                                            \
-							flags,                                                                 \
-							constr_flags,                                                          \
-							allow_system_table_mods,                                               \
-							is_internal)                                                           \
-	index_create(heapRelation,                                                                     \
-				 indexRelationName,                                                                \
-				 indexRelationId,                                                                  \
-				 InvalidOid,                                                                       \
-				 InvalidOid,                                                                       \
-				 relFileNode,                                                                      \
-				 indexInfo,                                                                        \
-				 indexColNames,                                                                    \
-				 accessMethodObjectId,                                                             \
-				 tableSpaceId,                                                                     \
-				 collationObjectId,                                                                \
-				 classObjectId,                                                                    \
-				 coloptions,                                                                       \
-				 reloptions,                                                                       \
-				 flags,                                                                            \
-				 constr_flags,                                                                     \
-				 allow_system_table_mods,                                                          \
-				 is_internal,                                                                      \
-				 NULL)
-#endif
+				 IndexCreateExtraArgs)
+//#else
+//#define index_create_compat(heapRelation,                                                          \
+//							indexRelationName,                                                     \
+//							indexRelationId,                                                       \
+//							relFileNode,                                                           \
+//							indexInfo,                                                             \
+//							indexColNames,                                                         \
+//							accessMethodObjectId,                                                  \
+//							tableSpaceId,                                                          \
+//							collationObjectId,                                                     \
+//							classObjectId,                                                         \
+//							coloptions,                                                            \
+//							reloptions,                                                            \
+//							flags,                                                                 \
+//							constr_flags,                                                          \
+//							allow_system_table_mods,                                               \
+//							is_internal)                                                           \
+//	index_create(heapRelation,                                                                     \
+//				 indexRelationName,                                                                \
+//				 indexRelationId,                                                                  \
+//				 InvalidOid,                                                                       \
+//				 InvalidOid,                                                                       \
+//				 relFileNode,                                                                      \
+//				 indexInfo,                                                                        \
+//				 indexColNames,                                                                    \
+//				 accessMethodObjectId,                                                             \
+//				 tableSpaceId,                                                                     \
+//				 collationObjectId,                                                                \
+//				 classObjectId,                                                                    \
+//				 coloptions,                                                                       \
+//				 reloptions,                                                                       \
+//				 flags,                                                                            \
+//				 constr_flags,                                                                     \
+//				 allow_system_table_mods,                                                          \
+//				 is_internal,                                                                      \
+//				 NULL)
+//#endif
 
 /* InitResultRelInfo */
-#if PG96
+//#if PG96
 #define InitResultRelInfoCompat(result_rel_info,                                                   \
 								result_rel_desc,                                                   \
 								result_rel_index,                                                  \
 								instrument_options)                                                \
 	InitResultRelInfo(result_rel_info, result_rel_desc, result_rel_index, instrument_options)
-#else
-#define InitResultRelInfoCompat(result_rel_info,                                                   \
-								result_rel_desc,                                                   \
-								result_rel_index,                                                  \
-								instrument_options)                                                \
-	InitResultRelInfo(result_rel_info, result_rel_desc, result_rel_index, NULL, instrument_options)
-#endif
+//#else
+//#define InitResultRelInfoCompat(result_rel_info,                                                   \
+//								result_rel_desc,                                                   \
+//								result_rel_index,                                                  \
+//								instrument_options)                                                \
+//	InitResultRelInfo(result_rel_info, result_rel_desc, result_rel_index, NULL, instrument_options)
+//#endif
 
 /* make_op */
-#if PG96
+//#if PG96
 #define make_op_compat(pstate, opname, ltree, rtree, location)                                     \
 	make_op(pstate, opname, ltree, rtree, location)
-#else
-#define make_op_compat(pstate, opname, ltree, rtree, location)                                     \
-	make_op(pstate, opname, ltree, rtree, (pstate)->p_last_srf, location)
-#endif
+//#else
+//#define make_op_compat(pstate, opname, ltree, rtree, location)                                     \
+//	make_op(pstate, opname, ltree, rtree, (pstate)->p_last_srf, location)
+//#endif
 
 /* map_variable_attnos */
-#if PG96
+//#if PG96
 #define map_variable_attnos_compat(expr,                                                           \
 								   varno,                                                          \
 								   sublevels_up,                                                   \
@@ -640,22 +653,22 @@ get_attname_compat(Oid relid, AttrNumber attnum, bool missing_ok)
 								   rowtype,                                                        \
 								   found_whole_row)                                                \
 	map_variable_attnos(expr, varno, sublevels_up, map, map_size, found_whole_row)
-#else
-#define map_variable_attnos_compat(returning_clauses,                                              \
-								   varno,                                                          \
-								   sublevels_up,                                                   \
-								   map,                                                            \
-								   map_size,                                                       \
-								   rowtype,                                                        \
-								   found_whole_row)                                                \
-	map_variable_attnos(returning_clauses,                                                         \
-						varno,                                                                     \
-						sublevels_up,                                                              \
-						map,                                                                       \
-						map_size,                                                                  \
-						rowtype,                                                                   \
-						found_whole_row);
-#endif
+//#else
+//#define map_variable_attnos_compat(returning_clauses,                                              \
+//								   varno,                                                          \
+//								   sublevels_up,                                                   \
+//								   map,                                                            \
+//								   map_size,                                                       \
+//								   rowtype,                                                        \
+//								   found_whole_row)                                                \
+//	map_variable_attnos(returning_clauses,                                                         \
+//						varno,                                                                     \
+//						sublevels_up,                                                              \
+//						map,                                                                       \
+//						map_size,                                                                  \
+//						rowtype,                                                                   \
+//						found_whole_row);
+//#endif
 
 /*
  * ExplainPropertyInteger
@@ -697,15 +710,15 @@ get_attname_compat(Oid relid, AttrNumber attnum, bool missing_ok)
  * are nested.
  */
 
-#if PG11_LT
-#define ResultRelInfo_OnConflictProjInfoCompat(rri) (rri)->ri_onConflictSetProj
-#define ResultRelInfo_OnConflictWhereCompat(rri) (rri)->ri_onConflictSetWhere
+//#if PG11_LT
+//#define ResultRelInfo_OnConflictProjInfoCompat(rri) (rri)->ri_onConflictSetProj
+//#define ResultRelInfo_OnConflictWhereCompat(rri) (rri)->ri_onConflictSetWhere
 #define ResultRelInfo_OnConflictNotNull(rri) true
-#else
-#define ResultRelInfo_OnConflictProjInfoCompat(rri) (rri)->ri_onConflict->oc_ProjInfo
-#define ResultRelInfo_OnConflictWhereCompat(rri) (rri)->ri_onConflict->oc_WhereClause
-#define ResultRelInfo_OnConflictNotNull(rri) (rri)->ri_onConflict != NULL
-#endif
+//#else
+//#define ResultRelInfo_OnConflictProjInfoCompat(rri) (rri)->ri_onConflict->oc_ProjInfo
+//#define ResultRelInfo_OnConflictWhereCompat(rri) (rri)->ri_onConflict->oc_WhereClause
+//#define ResultRelInfo_OnConflictNotNull(rri) (rri)->ri_onConflict != NULL
+//#endif
 
 /* RangeVarGetRelidExtended
  *
@@ -730,12 +743,14 @@ get_attname_compat(Oid relid, AttrNumber attnum, bool missing_ok)
 
 /* RenameRelationInternal
  */
-#if PG12_LT
+//#if PG12_LT
+//#define RenameRelationInternalCompat(relid, name, is_internal, is_index)                           \
+//	RenameRelationInternal(relid, name, is_internal)
 #define RenameRelationInternalCompat(relid, name, is_internal, is_index)                           \
-	RenameRelationInternal(relid, name, is_internal)
-#else
-#define RenameRelationInternalCompat RenameRelationInternal
-#endif
+	RenameRelationInternal(relid, name)
+//#else
+//#define RenameRelationInternalCompat RenameRelationInternal
+//#endif
 
 /*
  * TransactionChain -> TransactionBlock
@@ -820,11 +835,11 @@ extern int oid_cmp(const void *p1, const void *p2);
  *#endif
  */
 
-#if PG12_GE
-#define ExecTypeFromTLCompat(tlist, hasoid) ExecTypeFromTL(tlist)
-#else
+//#if PG12_GE
+//#define ExecTypeFromTLCompat(tlist, hasoid) ExecTypeFromTL(tlist)
+//#else
 #define ExecTypeFromTLCompat(tlist, hasoid) ExecTypeFromTL(tlist, hasoid)
-#endif
+//#endif
 
 /* backport pg_add_s64_overflow/pg_sub_s64_overflow */
 #if PG11_LT
