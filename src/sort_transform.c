@@ -254,20 +254,20 @@ sort_transform_ec(PlannerInfo *root, EquivalenceClass *orig)
 			 * if the transform already exists for even one member, assume
 			 * exists for all
 			 */
-			EquivalenceClass *exist = get_eclass_for_sort_expr(root,
-															   transformed_expr,
-															   ec_mem->em_nullable_relids,
-															   opfamilies,
-															   type_oid,
-															   orig->ec_collation,
-															   orig->ec_sortref,
-															   ec_mem->em_relids,
-															   false);
+			//EquivalenceClass *exist = get_eclass_for_sort_expr(root,
+			//												   transformed_expr,
+			//												   ec_mem->em_nullable_relids,
+			//												   opfamilies,
+			//												   type_oid,
+			//												   orig->ec_collation,
+			//												   orig->ec_sortref,
+			//												   ec_mem->em_relids,
+			//												   false);
 
-			if (exist != NULL)
-			{
-				return exist;
-			}
+			//if (exist != NULL)
+			//{
+			//	return exist;
+			//}
 
 			em = makeNode(EquivalenceMember);
 
@@ -353,11 +353,11 @@ ts_sort_transform_optimization(PlannerInfo *root, RelOptInfo *rel)
 	if (transformed == NULL)
 		return;
 
-	new_pk = make_canonical_pathkey(root,
-									transformed,
-									last_pk->pk_opfamily,
-									last_pk->pk_strategy,
-									last_pk->pk_nulls_first);
+	//new_pk = make_canonical_pathkey(root,
+	//								transformed,
+	//								last_pk->pk_opfamily,
+	//								last_pk->pk_strategy,
+	//								last_pk->pk_nulls_first);
 
 	/*
 	 * create complete transformed pathkeys
@@ -366,8 +366,8 @@ ts_sort_transform_optimization(PlannerInfo *root, RelOptInfo *rel)
 	{
 		if (lfirst(lc) != last_pk)
 			transformed_query_pathkey = lappend(transformed_query_pathkey, lfirst(lc));
-		else
-			transformed_query_pathkey = lappend(transformed_query_pathkey, new_pk);
+		//else
+		//	transformed_query_pathkey = lappend(transformed_query_pathkey, new_pk);
 	}
 
 	/* search for indexes on transformed pathkeys */

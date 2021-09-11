@@ -15,9 +15,9 @@
 #include "utils.h"
 #include "time_bucket.h"
 
-#if !PG96
-#include <utils/fmgrprotos.h>
-#endif
+//#if !PG96
+//#include <utils/fmgrprotos.h>
+//#endif
 
 #define TIME_BUCKET(period, timestamp, offset, min, max, result)                                   \
 	do                                                                                             \

@@ -268,11 +268,13 @@ load_tsl(void)
 
 	snprintf(soname, MAX_SO_NAME_LEN, TS_LIBDIR "%s-%s", TSL_LIBRARY_NAME, TIMESCALEDB_VERSION_MOD);
 
-	tsl_startup_fn = load_external_function(
+	CFunInfo tsl_startup_cfn;
+	tsl_startup_cfn = load_external_function(
 		/* filename= */ soname,
 		/* funcname= */ "ts_module_init",
 		/* signalNotFound= */ false,
 		/* filehandle= */ &tsl_handle);
+	tsl_startup_fn = tsl_startup_cfn.user_fn;
 
 	if (tsl_handle == NULL || tsl_startup_fn == NULL)
 		goto loading_failed;
@@ -322,11 +324,11 @@ ts_enterprise_enabled(PG_FUNCTION_ARGS)
 PGDLLEXPORT Datum
 ts_current_license_key(PG_FUNCTION_ARGS)
 {
-#if PG96
+//#if PG96
 	if (!superuser())
-#else
-	if (!is_member_of_role(GetUserId(), DEFAULT_ROLE_READ_ALL_SETTINGS))
-#endif
+//#else
+//	if (!is_member_of_role(GetUserId(), DEFAULT_ROLE_READ_ALL_SETTINGS))
+//#endif
 		ereport(ERROR,
 				(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
 				 errmsg("must be superuser or a member of pg_read_all_settings to examine the "
@@ -370,7 +372,7 @@ ts_license_edition(PG_FUNCTION_ARGS)
 			break;
 		default:
 			elog(ERROR, "Invalid license key '%s'", ts_guc_license_key);
-			pg_unreachable();
+			//pg_unreachable();
 	}
 
 	PG_RETURN_TEXT_P(cstring_to_text(edition));

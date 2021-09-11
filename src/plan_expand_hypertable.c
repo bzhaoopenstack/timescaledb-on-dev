@@ -22,21 +22,21 @@
 #include <utils/syscache.h>
 
 #include "compat.h"
-#if PG11_LT /* PG11 consolidates pg_foo_fn.h -> pg_foo.h */
-#include <catalog/pg_constraint_fn.h>
+//#if PG11_LT /* PG11 consolidates pg_foo_fn.h -> pg_foo.h */
+//#include <catalog/pg_constraint_fn.h>
 #include <catalog/pg_inherits_fn.h>
-#endif
-#if PG11_GE
-#include <partitioning/partbounds.h>
-#include <optimizer/cost.h>
-#endif
+//#endif
+//#if PG11_GE
+//#include <partitioning/partbounds.h>
+//#include <optimizer/cost.h>
+//#endif
 
-#if PG12_LT
+//#if PG12_LT
 #include <optimizer/clauses.h>
 #include <optimizer/var.h>
-#elif PG12_GE
-#include <optimizer/optimizer.h>
-#endif
+//#elif PG12_GE
+//#include <optimizer/optimizer.h>
+//#endif
 
 #include "import/planner.h"
 #include "plan_expand_hypertable.h"
@@ -118,7 +118,7 @@ const_datum_get_int(Const *cnst)
 			(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 			 errmsg("can only use const_datum_get_int with integer types")));
 
-	pg_unreachable();
+	//pg_unreachable();
 }
 
 /*
@@ -446,7 +446,8 @@ process_quals(Node *quals, CollectQualCtx *ctx, bool is_outer_join)
 {
 	ListCell *lc;
 
-	ListCell *prev pg_attribute_unused() = NULL;
+	//ListCell *prev pg_attribute_unused() = NULL;
+	ListCell *prev;
 	List *additional_quals = NIL;
 
 	for (lc = list_head((List *) quals); lc != NULL; prev = lc, lc = lnext(lc))
@@ -761,7 +762,8 @@ get_explicit_chunk_oids(CollectQualCtx *ctx, Hypertable *ht)
 	/* function marked as STRICT so argument can't be NULL */
 	Assert(!chunks_arg->constisnull);
 
-	chunk_id_iterator = array_create_iterator(DatumGetArrayTypeP(chunks_arg->constvalue), 0, NULL);
+	//chunk_id_iterator = array_create_iterator(DatumGetArrayTypeP(chunks_arg->constvalue), 0, NULL);
+	chunk_id_iterator = array_create_iterator(DatumGetArrayTypeP(chunks_arg->constvalue), 0);
 
 	while (array_iterate(chunk_id_iterator, &elem, &isnull))
 	{
@@ -850,116 +852,116 @@ get_chunk_oids(CollectQualCtx *ctx, PlannerInfo *root, RelOptInfo *rel, Hypertab
 		return get_explicit_chunk_oids(ctx, ht);
 }
 
-#if PG11_GE
-
-/*
- * Create partition expressions for a hypertable.
- *
- * Build an array of partition expressions where each element represents valid
- * expressions on a particular partitioning key.
- *
- * The partition expressions are used by, e.g., group_by_has_partkey() to check
- * whether a GROUP BY clause covers all partitioning dimensions.
- *
- * For dimensions with a partitioning function, we can support either
- * expressions on the plain key (column) or the partitioning function applied
- * to the key. For instance, the queries
- *
- * SELECT time, device, avg(temp)
- * FROM hypertable
- * GROUP BY 1, 2;
- *
- * and
- *
- * SELECT time_func(time), device, avg(temp)
- * FROM hypertable
- * GROUP BY 1, 2;
- *
- * are both amenable to aggregate push down if "time" is supported by the
- * partitioning function "time_func" and "device" is also a partitioning
- * dimension.
- */
-static List **
-get_hypertable_partexprs(Hypertable *ht, Query *parse, Index varno)
-{
-	int i;
-	List **partexprs;
-
-	Assert(NULL != ht->space);
-
-	partexprs = palloc0(sizeof(List *) * ht->space->num_dimensions);
-
-	for (i = 0; i < ht->space->num_dimensions; i++)
-	{
-		Dimension *dim = &ht->space->dimensions[i];
-		Expr *expr;
-		HeapTuple tuple = SearchSysCacheAttNum(ht->main_table_relid, dim->column_attno);
-		Form_pg_attribute att;
-
-		if (!HeapTupleIsValid(tuple))
-			elog(ERROR, "cache lookup failed for attribute");
-
-		att = (Form_pg_attribute) GETSTRUCT(tuple);
-
-		expr = (Expr *)
-			makeVar(varno, dim->column_attno, att->atttypid, att->atttypmod, att->attcollation, 0);
-
-		ReleaseSysCache(tuple);
-
-		/* The expression on the partitioning key can be the raw key or the
-		 * partitioning function on the key */
-		if (NULL != dim->partitioning)
-			partexprs[i] = list_make2(expr, dim->partitioning->partfunc.func_fmgr.fn_expr);
-		else
-			partexprs[i] = list_make1(expr);
-	}
-
-	return partexprs;
-}
-
-#define PARTITION_STRATEGY_MULTIDIM 'm'
-
-/*
- * Partition info for hypertables.
- *
- * Build a "fake" partition scheme for a hypertable that makes the planner
- * believe this is a PostgreSQL partitioned table for planning purposes. In
- * particular, this will make the planner consider partitionwise aggregations
- * when applicable.
- *
- * Partitionwise aggregation can either be FULL or PARTIAL. The former means
- * that the aggregation can be performed independently on each partition
- * (chunk) without a finalize step which is needed in PARTIAL. FULL requires
- * that the GROUP BY clause contains all hypertable partitioning
- * dimensions. This requirement is enforced by creating a partitioning scheme
- * that covers multiple attributes, i.e., one per dimension. This works well
- * since the "shallow" (one-level hierarchy) of a multi-dimensional hypertable
- * is similar to a one-level partitioned PostgreSQL table where the
- * partitioning key covers multiple attributes.
- *
- * Note that we use a partition scheme with a strategy that does not exist in
- * PostgreSQL. This makes PostgreSQL raise errors when this partition scheme is
- * used in places that require a valid partition scheme with a supported
- * strategy.
- */
-static void
-build_hypertable_partition_info(Hypertable *ht, PlannerInfo *root, RelOptInfo *hyper_rel,
-								int nparts)
-{
-	PartitionScheme part_scheme = palloc0(sizeof(PartitionSchemeData));
-
-	/* We only set the info needed for planning */
-	part_scheme->partnatts = ht->space->num_dimensions;
-	part_scheme->strategy = PARTITION_STRATEGY_MULTIDIM;
-	hyper_rel->nparts = nparts;
-	hyper_rel->part_scheme = part_scheme;
-	hyper_rel->partexprs = get_hypertable_partexprs(ht, root->parse, hyper_rel->relid);
-	hyper_rel->nullable_partexprs = (List **) palloc0(sizeof(List *) * part_scheme->partnatts);
-	hyper_rel->boundinfo = palloc(sizeof(PartitionBoundInfoData));
-	hyper_rel->part_rels = palloc0(sizeof(*hyper_rel->part_rels) * nparts);
-}
-
-#endif /* PG11_GE */
+//#if PG11_GE
+//
+///*
+// * Create partition expressions for a hypertable.
+// *
+// * Build an array of partition expressions where each element represents valid
+// * expressions on a particular partitioning key.
+// *
+// * The partition expressions are used by, e.g., group_by_has_partkey() to check
+// * whether a GROUP BY clause covers all partitioning dimensions.
+// *
+// * For dimensions with a partitioning function, we can support either
+// * expressions on the plain key (column) or the partitioning function applied
+// * to the key. For instance, the queries
+// *
+// * SELECT time, device, avg(temp)
+// * FROM hypertable
+// * GROUP BY 1, 2;
+// *
+// * and
+// *
+// * SELECT time_func(time), device, avg(temp)
+// * FROM hypertable
+// * GROUP BY 1, 2;
+// *
+// * are both amenable to aggregate push down if "time" is supported by the
+// * partitioning function "time_func" and "device" is also a partitioning
+// * dimension.
+// */
+//static List **
+//get_hypertable_partexprs(Hypertable *ht, Query *parse, Index varno)
+//{
+//	int i;
+//	List **partexprs;
+//
+//	Assert(NULL != ht->space);
+//
+//	partexprs = palloc0(sizeof(List *) * ht->space->num_dimensions);
+//
+//	for (i = 0; i < ht->space->num_dimensions; i++)
+//	{
+//		Dimension *dim = &ht->space->dimensions[i];
+//		Expr *expr;
+//		//HeapTuple tuple = SearchSysCacheAttNum(ht->main_table_relid, dim->column_attno);
+//		Form_pg_attribute att;
+//
+//		//if (!HeapTupleIsValid(tuple))
+//		//	elog(ERROR, "cache lookup failed for attribute");
+//
+//		//att = (Form_pg_attribute) GETSTRUCT(tuple);
+//
+//		//expr = (Expr *)
+//		//	makeVar(varno, dim->column_attno, att->atttypid, att->atttypmod, att->attcollation, 0);
+//
+//		//ReleaseSysCache(tuple);
+//
+//		///* The expression on the partitioning key can be the raw key or the
+//		// * partitioning function on the key */
+//		//if (NULL != dim->partitioning)
+//		//	partexprs[i] = list_make2(expr, dim->partitioning->partfunc.func_fmgr.fn_expr);
+//		//else
+//		//	partexprs[i] = list_make1(expr);
+//	}
+//
+//	return partexprs;
+//}
+//
+//#define PARTITION_STRATEGY_MULTIDIM 'm'
+//
+///*
+// * Partition info for hypertables.
+// *
+// * Build a "fake" partition scheme for a hypertable that makes the planner
+// * believe this is a PostgreSQL partitioned table for planning purposes. In
+// * particular, this will make the planner consider partitionwise aggregations
+// * when applicable.
+// *
+// * Partitionwise aggregation can either be FULL or PARTIAL. The former means
+// * that the aggregation can be performed independently on each partition
+// * (chunk) without a finalize step which is needed in PARTIAL. FULL requires
+// * that the GROUP BY clause contains all hypertable partitioning
+// * dimensions. This requirement is enforced by creating a partitioning scheme
+// * that covers multiple attributes, i.e., one per dimension. This works well
+// * since the "shallow" (one-level hierarchy) of a multi-dimensional hypertable
+// * is similar to a one-level partitioned PostgreSQL table where the
+// * partitioning key covers multiple attributes.
+// *
+// * Note that we use a partition scheme with a strategy that does not exist in
+// * PostgreSQL. This makes PostgreSQL raise errors when this partition scheme is
+// * used in places that require a valid partition scheme with a supported
+// * strategy.
+// */
+//static void
+//build_hypertable_partition_info(Hypertable *ht, PlannerInfo *root, RelOptInfo *hyper_rel,
+//								int nparts)
+//{
+//	PartitionScheme part_scheme = palloc0(sizeof(PartitionSchemeData));
+//
+//	/* We only set the info needed for planning */
+//	part_scheme->partnatts = ht->space->num_dimensions;
+//	part_scheme->strategy = PARTITION_STRATEGY_MULTIDIM;
+//	hyper_rel->nparts = nparts;
+//	hyper_rel->part_scheme = part_scheme;
+//	hyper_rel->partexprs = get_hypertable_partexprs(ht, root->parse, hyper_rel->relid);
+//	hyper_rel->nullable_partexprs = (List **) palloc0(sizeof(List *) * part_scheme->partnatts);
+//	hyper_rel->boundinfo = palloc(sizeof(PartitionBoundInfoData));
+//	hyper_rel->part_rels = palloc0(sizeof(*hyper_rel->part_rels) * nparts);
+//}
+//
+//#endif /* PG11_GE */
 
 static bool
 timebucket_annotate_walker(Node *node, CollectQualCtx *ctx)
@@ -993,9 +995,9 @@ ts_plan_expand_timebucket_annotate(PlannerInfo *root, RelOptInfo *rel)
 		.rel = rel,
 		.restrictions = NIL,
 		.chunk_exclusion_func = NULL,
-		.all_quals = NIL,
 		.join_conditions = NIL,
 		.propagate_conditions = NIL,
+		.all_quals = NIL,
 	};
 
 	init_chunk_exclusion_func();
@@ -1026,16 +1028,16 @@ ts_plan_expand_hypertable_chunks(Hypertable *ht, PlannerInfo *root, RelOptInfo *
 		.rel = rel,
 		.restrictions = NIL,
 		.chunk_exclusion_func = NULL,
-		.all_quals = NIL,
 		.join_conditions = NIL,
 		.propagate_conditions = NIL,
+		.all_quals = NIL,
 		.join_level = 0,
 	};
 	Size old_rel_array_len;
 	Index first_chunk_index = 0;
-#if PG12_GE
-	Index i;
-#endif
+//#if PG12_GE
+//	Index i;
+//#endif
 
 	/* double check our permissions are valid */
 	Assert(rti != parse->resultRelation);
@@ -1046,9 +1048,9 @@ ts_plan_expand_hypertable_chunks(Hypertable *ht, PlannerInfo *root, RelOptInfo *
 		elog(ERROR, "unexpected permissions requested");
 
 		/* mark the parent as an append relation */
-#if PG12_LT
+//#if PG12_LT
 	rte->inh = true;
-#endif
+//#endif
 
 	init_chunk_exclusion_func();
 
@@ -1057,9 +1059,9 @@ ts_plan_expand_hypertable_chunks(Hypertable *ht, PlannerInfo *root, RelOptInfo *
 	/* check join_level bookkeeping is balanced */
 	Assert(ctx.join_level == 0);
 
-#if PG12_GE
-	rel->baserestrictinfo = remove_exclusion_fns(rel->baserestrictinfo);
-#endif
+//#if PG12_GE
+//	rel->baserestrictinfo = remove_exclusion_fns(rel->baserestrictinfo);
+//#endif
 
 	if (ctx.propagate_conditions != NIL)
 		propagate_join_quals(root, rel, &ctx);
@@ -1086,13 +1088,13 @@ ts_plan_expand_hypertable_chunks(Hypertable *ht, PlannerInfo *root, RelOptInfo *
 		   0,
 		   list_length(inh_oids) * sizeof(*root->simple_rte_array));
 
-#if PG11_GE
-	/* Adding partition info will make PostgreSQL consider the inheritance
-	 * children as part of a partitioned relation. This will enable
-	 * partitionwise aggregation. */
-	if (enable_partitionwise_aggregate)
-		build_hypertable_partition_info(ht, root, rel, list_length(inh_oids));
-#endif
+//#if PG11_GE
+//	/* Adding partition info will make PostgreSQL consider the inheritance
+//	 * children as part of a partitioned relation. This will enable
+//	 * partitionwise aggregation. */
+//	if (enable_partitionwise_aggregate)
+//		build_hypertable_partition_info(ht, root, rel, list_length(inh_oids));
+//#endif
 
 	foreach (l, inh_oids)
 	{
@@ -1101,11 +1103,11 @@ ts_plan_expand_hypertable_chunks(Hypertable *ht, PlannerInfo *root, RelOptInfo *
 		RangeTblEntry *childrte;
 		Index child_rtindex;
 		AppendRelInfo *appinfo;
-#if PG12_LT
+//#if PG12_LT
 		LOCKMODE chunk_lock = NoLock;
-#else
-		LOCKMODE chunk_lock = rte->rellockmode;
-#endif
+//#else
+//		LOCKMODE chunk_lock = rte->rellockmode;
+//#endif
 
 		/* Open rel if needed */
 
@@ -1142,9 +1144,9 @@ ts_plan_expand_hypertable_chunks(Hypertable *ht, PlannerInfo *root, RelOptInfo *
 		if (first_chunk_index == 0)
 			first_chunk_index = child_rtindex;
 		root->simple_rte_array[child_rtindex] = childrte;
-#if PG12_LT
+//#if PG12_LT
 		root->simple_rel_array[child_rtindex] = NULL;
-#endif
+//#endif
 
 		appinfo = makeNode(AppendRelInfo);
 		appinfo->parent_relid = rti;
@@ -1167,32 +1169,32 @@ ts_plan_expand_hypertable_chunks(Hypertable *ht, PlannerInfo *root, RelOptInfo *
 
 	root->append_rel_list = list_concat(root->append_rel_list, appinfos);
 
-#if PG11_GE
-	/*
-	 * PG11 introduces a separate array to make looking up children faster, see:
-	 * https://github.com/postgres/postgres/commit/7d872c91a3f9d49b56117557cdbb0c3d4c620687.
-	 */
-	setup_append_rel_array(root);
-#endif
+//#if PG11_GE
+//	/*
+//	 * PG11 introduces a separate array to make looking up children faster, see:
+//	 * https://github.com/postgres/postgres/commit/7d872c91a3f9d49b56117557cdbb0c3d4c620687.
+//	 */
+//	setup_append_rel_array(root);
+//#endif
 
-#if PG12_GE
-	/* In pg12 postgres will not set up the child rels for use, due to the games
-	 * we're playing with inheritance, so we must do it ourselves.
-	 * build_simple_rel will look things up in the append_rel_array, so we can
-	 * only use it after that array has been set up.
-	 */
-	i = 0;
-	for (i = 0; i < list_length(inh_oids); i++)
-	{
-		Index child_rtindex = first_chunk_index + i;
-		/* build_simple_rel will add the child to the relarray */
-		RelOptInfo *child_rel = build_simple_rel(root, child_rtindex, rel);
-
-		/* if we're performing partitionwise aggregation, we must populate part_rels */
-		if (rel->part_rels != NULL)
-			rel->part_rels[i] = child_rel;
-	}
-#endif
+//#if PG12_GE
+//	/* In pg12 postgres will not set up the child rels for use, due to the games
+//	 * we're playing with inheritance, so we must do it ourselves.
+//	 * build_simple_rel will look things up in the append_rel_array, so we can
+//	 * only use it after that array has been set up.
+//	 */
+//	i = 0;
+//	for (i = 0; i < list_length(inh_oids); i++)
+//	{
+//		Index child_rtindex = first_chunk_index + i;
+//		/* build_simple_rel will add the child to the relarray */
+//		RelOptInfo *child_rel = build_simple_rel(root, child_rtindex, rel);
+//
+//		/* if we're performing partitionwise aggregation, we must populate part_rels */
+//		if (rel->part_rels != NULL)
+//			rel->part_rels[i] = child_rel;
+//	}
+//#endif
 }
 
 void
@@ -1282,43 +1284,44 @@ propagate_join_quals(PlannerInfo *root, RelOptInfo *rel, CollectQualCtx *ctx)
 				Relids relids = pull_varnos((Node *) propagated);
 				RestrictInfo *restrictinfo;
 
-#if PG96
-				restrictinfo =
-					make_restrictinfo((Expr *) propagated, true, false, false, relids, NULL, NULL);
-#else
-				restrictinfo = make_restrictinfo((Expr *) propagated,
-												 true,
-												 false,
-												 false,
-												 ctx->root->qual_security_level,
-												 relids,
-												 NULL,
-												 NULL);
-#endif
+//#if PG96
+				//restrictinfo =
+				//	make_restrictinfo((Expr *) propagated, true, false, false, relids, NULL, NULL);
+				restrictinfo = make_restrictinfo((Expr *) propagated, true, false, false, 0, relids, NULL, NULL);
+//#else
+//				restrictinfo = make_restrictinfo((Expr *) propagated,
+//												 true,
+//												 false,
+//												 false,
+//												 ctx->root->qual_security_level,
+//												 relids,
+//												 NULL,
+//												 NULL);
+//#endif
 				ctx->restrictions = lappend(ctx->restrictions, restrictinfo);
-#if PG12_GE
-				/*
-				 * since hypertable expansion happens later in PG12 the propagated
-				 * constraints will not be pushed down to the actual scans but stay
-				 * as join filter. So we add them either as join filter or to
-				 * baserestrictinfo depending on whether they reference only
-				 * the currently processed relation or multiple relations.
-				 */
-				if (bms_num_members(relids) == 1 && bms_is_member(rel->relid, relids))
-				{
-					if (!list_member(rel->baserestrictinfo, restrictinfo))
-						rel->baserestrictinfo = lappend(rel->baserestrictinfo, restrictinfo);
-				}
-				else
-				{
-					root->parse->jointree->quals =
-						(Node *) lappend((List *) root->parse->jointree->quals, propagated);
-				}
-#else
+//#if PG12_GE
+//				/*
+//				 * since hypertable expansion happens later in PG12 the propagated
+//				 * constraints will not be pushed down to the actual scans but stay
+//				 * as join filter. So we add them either as join filter or to
+//				 * baserestrictinfo depending on whether they reference only
+//				 * the currently processed relation or multiple relations.
+//				 */
+//				if (bms_num_members(relids) == 1 && bms_is_member(rel->relid, relids))
+//				{
+//					if (!list_member(rel->baserestrictinfo, restrictinfo))
+//						rel->baserestrictinfo = lappend(rel->baserestrictinfo, restrictinfo);
+//				}
+//				else
+//				{
+//					root->parse->jointree->quals =
+//						(Node *) lappend((List *) root->parse->jointree->quals, propagated);
+//				}
+//#else
 				root->parse->jointree->quals =
 					(Node *) lappend((List *) root->parse->jointree->quals, propagated);
 
-#endif
+//#endif
 			}
 		}
 	}

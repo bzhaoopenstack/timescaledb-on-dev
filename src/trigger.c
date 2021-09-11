@@ -16,9 +16,9 @@
 #include "trigger.h"
 #include "compat.h"
 
-#if PG10_GE
-#include <parser/analyze.h>
-#endif
+//#if PG10_GE
+//#include <parser/analyze.h>
+//#endif
 
 /*
  * Replicate a trigger on a chunk.
@@ -43,22 +43,22 @@ ts_trigger_create_on_chunk(Oid trigger_oid, char *chunk_schema_name, char *chunk
 	Assert(list_length(deparsed_list) == 1);
 	deparsed_node = linitial(deparsed_list);
 
-#if PG96
+//#if PG96
 	stmt = (CreateTrigStmt *) deparsed_node;
-#else
-	do
-	{
-		RawStmt *rawstmt = (RawStmt *) deparsed_node;
-		ParseState *pstate = make_parsestate(NULL);
-		Query *query;
-
-		Assert(IsA(deparsed_node, RawStmt));
-		pstate->p_sourcetext = def;
-		query = transformTopLevelStmt(pstate, rawstmt);
-		free_parsestate(pstate);
-		stmt = (CreateTrigStmt *) query->utilityStmt;
-	} while (0);
-#endif
+//#else
+//	do
+//	{
+//		RawStmt *rawstmt = (RawStmt *) deparsed_node;
+//		ParseState *pstate = make_parsestate(NULL);
+//		Query *query;
+//
+//		Assert(IsA(deparsed_node, RawStmt));
+//		pstate->p_sourcetext = def;
+//		query = transformTopLevelStmt(pstate, rawstmt);
+//		free_parsestate(pstate);
+//		stmt = (CreateTrigStmt *) query->utilityStmt;
+//	} while (0);
+//#endif
 
 	Assert(IsA(stmt, CreateTrigStmt));
 	stmt->relation->relname = chunk_table_name;
@@ -105,13 +105,13 @@ create_trigger_handler(Trigger *trigger, void *arg)
 {
 	Chunk *chunk = arg;
 
-#if PG10_GE
-	if (TRIGGER_USES_TRANSITION_TABLE(trigger->tgnewtable) ||
-		TRIGGER_USES_TRANSITION_TABLE(trigger->tgoldtable))
-		ereport(ERROR,
-				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-				 errmsg("hypertables do not support transition tables in triggers")));
-#endif
+//#if PG10_GE
+//	if (TRIGGER_USES_TRANSITION_TABLE(trigger->tgnewtable) ||
+//		TRIGGER_USES_TRANSITION_TABLE(trigger->tgoldtable))
+//		ereport(ERROR,
+//				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+//				 errmsg("hypertables do not support transition tables in triggers")));
+//#endif
 	if (trigger_is_chunk_trigger(trigger))
 		ts_trigger_create_on_chunk(trigger->tgoid,
 								   NameStr(chunk->fd.schema_name),
@@ -150,31 +150,31 @@ ts_trigger_create_all_on_chunk(Chunk *chunk)
 		SetUserIdAndSecContext(saved_uid, sec_ctx);
 }
 
-#if PG10_GE
-static bool
-check_for_transition_table(Trigger *trigger, void *arg)
-{
-	bool *found = arg;
-
-	if (TRIGGER_USES_TRANSITION_TABLE(trigger->tgnewtable) ||
-		TRIGGER_USES_TRANSITION_TABLE(trigger->tgoldtable))
-	{
-		*found = true;
-		return false;
-	}
-
-	return true;
-}
-#endif
+//#if PG10_GE
+//static bool
+//check_for_transition_table(Trigger *trigger, void *arg)
+//{
+//	bool *found = arg;
+//
+//	if (TRIGGER_USES_TRANSITION_TABLE(trigger->tgnewtable) ||
+//		TRIGGER_USES_TRANSITION_TABLE(trigger->tgoldtable))
+//	{
+//		*found = true;
+//		return false;
+//	}
+//
+//	return true;
+//}
+//#endif
 
 bool
 ts_relation_has_transition_table_trigger(Oid relid)
 {
 	bool found = false;
 
-#if PG10_GE
-	for_each_trigger(relid, check_for_transition_table, &found);
-#endif
+//#if PG10_GE
+//	for_each_trigger(relid, check_for_transition_table, &found);
+//#endif
 
 	return found;
 }

@@ -7,7 +7,8 @@
 #include <c.h>
 #include <fmgr.h>
 
-#include <access/htup_details.h>
+//#include <access/htup_details.h>
+#include <access/htup.h>
 #include <catalog/pg_type.h>
 #include <commands/defrem.h>
 #include <nodes/parsenodes.h>

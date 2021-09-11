@@ -8,7 +8,8 @@
 #include <funcapi.h>
 #include <utils/typcache.h>
 #include <parser/parse_type.h>
-#include <access/htup_details.h>
+//#include <access/htup_details.h>
+#include <access/htup.h>
 #include <utils/lsyscache.h>
 #include <utils/syscache.h>
 #include <miscadmin.h>
@@ -26,11 +27,11 @@
 #include "compat.h"
 #include "guc.h"
 
-#if !PG96
-#include <utils/fmgrprotos.h>
-#else
+//#if !PG96
+//#include <utils/fmgrprotos.h>
+//#else
 #include <utils/date.h>
-#endif
+//#endif
 
 /* This function deforms its input argument `ts_interval_datum` into `FormData_ts_interval`
  * assuming it was read from a postgres table and so the datum represents a TupleHeader
@@ -175,7 +176,7 @@ ts_interval_from_sql_input_internal(Dimension *open_dim, Datum interval, Oid int
 HeapTuple
 ts_interval_form_heaptuple(FormData_ts_interval *invl)
 {
-	Oid typeid;
+	Oid typeiid;
 	TupleDesc olderthan_tupdesc;
 	Datum values[Natts_ts_interval];
 	bool nulls[Natts_ts_interval] = { false };
@@ -195,9 +196,8 @@ ts_interval_form_heaptuple(FormData_ts_interval *invl)
 			Int64GetDatum(invl->integer_interval);
 	}
 
-	typeid =
-		typenameTypeId(NULL, typeStringToTypeName(CATALOG_SCHEMA_NAME "." TS_INTERVAL_TYPE_NAME));
-	olderthan_tupdesc = lookup_type_cache(typeid, -1)->tupDesc;
+	//typeiid = typenameTypeId(NULL, typeStringToTypeName(CATALOG_SCHEMA_NAME "." TS_INTERVAL_TYPE_NAME));
+	olderthan_tupdesc = lookup_type_cache(typeiid, -1)->tupDesc;
 
 	olderthan_tupdesc = BlessTupleDesc(olderthan_tupdesc);
 	return heap_form_tuple(olderthan_tupdesc, values, nulls);
@@ -305,8 +305,8 @@ ts_interval_from_now_func_get_datum(int64 interval, Oid time_dim_type, Oid now_f
 			}
 			return Int64GetDatum(res);
 		}
-		default:
-			pg_unreachable();
+		//default:
+			//pg_unreachable();
 	}
 }
 
@@ -448,7 +448,7 @@ ts_interval_subtract_from_now(FormData_ts_interval *invl, Dimension *open_dim)
 		return ts_interval_from_now_func_get_datum(invl->integer_interval, type_oid, now_func);
 	}
 	/* suppress compiler warnings on MSVC */
-	pg_unreachable();
+	//pg_unreachable();
 	return 0;
 }
 

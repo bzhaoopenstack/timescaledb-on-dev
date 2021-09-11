@@ -12,11 +12,11 @@
 
 #include "compat.h"
 
-#if PG12_GE
-#include <nodes/pathnodes.h>
-#else
+//#if PG12_GE
+//#include <nodes/pathnodes.h>
+//#else
 #include <nodes/relation.h>
-#endif
+//#endif
 
 typedef struct TimescaleDBPrivate
 {

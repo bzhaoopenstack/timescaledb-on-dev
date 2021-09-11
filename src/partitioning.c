@@ -13,14 +13,15 @@
 #include <utils/inet.h>
 #include <utils/cash.h>
 #include <utils/date.h>
-#include <utils/jsonb.h>
+//#include <utils/jsonb.h>
 #include <utils/acl.h>
 #include <utils/rangetypes.h>
 #include <utils/memutils.h>
 #include <catalog/namespace.h>
 #include <catalog/pg_type.h>
 #include <access/hash.h>
-#include <access/htup_details.h>
+//#include <access/htup_details.h>
+#include <access/htup.h>
 #include <parser/parse_coerce.h>
 #include <nodes/makefuncs.h>
 #include <nodes/pg_list.h>
@@ -264,7 +265,7 @@ ts_partitioning_func_apply_slot(PartitioningInfo *pinfo, TupleTableSlot *slot, b
 	bool null;
 	Oid collation;
 
-	value = slot_getattr(slot, pinfo->column_attnum, &null);
+	//value = slot_getattr(slot, pinfo->column_attnum, &null);
 
 	if (NULL != isnull)
 		*isnull = null;
@@ -446,16 +447,16 @@ ts_get_partition_hash(PG_FUNCTION_ARGS)
 	if (pfc->tce->hash_proc == InvalidOid)
 		elog(ERROR, "could not find hash function for type %u", pfc->argtype);
 
-#if PG12_LT
+//#if PG12_LT
 	collation = InvalidOid;
-#else
-	/* use the supplied collation, if it exists, otherwise use the default for
-	 * the type
-	 */
-	collation = PG_GET_COLLATION();
-	if (!OidIsValid(collation))
-		collation = pfc->tce->typcollation;
-#endif
+//#else
+//	/* use the supplied collation, if it exists, otherwise use the default for
+//	 * the type
+//	 */
+//	collation = PG_GET_COLLATION();
+//	if (!OidIsValid(collation))
+//		collation = pfc->tce->typcollation;
+//#endif
 
 	hash = FunctionCall1Coll(&pfc->tce->hash_proc_finfo, collation, arg);
 

@@ -4,7 +4,7 @@
  * LICENSE-APACHE for a copy of the license.
  */
 #include <postgres.h>
-#include <access/tsmapi.h>
+//#include <access/tsmapi.h>
 #include <nodes/plannodes.h>
 #include <parser/parsetree.h>
 #include <optimizer/clauses.h>
@@ -34,17 +34,17 @@
 
 #include <catalog/pg_constraint.h>
 #include "compat.h"
-#if PG11_LT /* PG11 consolidates pg_foo_fn.h -> pg_foo.h */
-#include <catalog/pg_constraint_fn.h>
-#endif
+//#if PG11_LT /* PG11 consolidates pg_foo_fn.h -> pg_foo.h */
+//#include <catalog/pg_constraint_fn.h>
+//#endif
 #include "compat-msvc-exit.h"
 
-#if PG12_LT
+//#if PG12_LT
 #include <optimizer/var.h>
-#else
-#include <optimizer/appendinfo.h>
-#include <optimizer/optimizer.h>
-#endif
+//#else
+//#include <optimizer/appendinfo.h>
+//#include <optimizer/optimizer.h>
+//#endif
 
 #include <math.h>
 
@@ -77,7 +77,7 @@ void _planner_fini(void);
 static planner_hook_type prev_planner_hook;
 static set_rel_pathlist_hook_type prev_set_rel_pathlist_hook;
 static get_relation_info_hook_type prev_get_relation_info_hook;
-static create_upper_paths_hook_type prev_create_upper_paths_hook;
+//static create_upper_paths_hook_type prev_create_upper_paths_hook;
 static bool contain_param(Node *node);
 static void cagg_reorder_groupby_clause(RangeTblEntry *subq_rte, int rtno, List *outer_sortcl,
 										List *outer_tlist);
@@ -288,12 +288,13 @@ timescaledb_planner(Query *parse, int cursor_opts, ParamListInfo bound_params)
 		if (ts_extension_is_loaded())
 			preprocess_query((Node *) parse, parse);
 
-		if (prev_planner_hook != NULL)
-			/* Call any earlier hooks */
-			stmt = (prev_planner_hook)(parse, cursor_opts, bound_params);
-		else
-			/* Call the standard planner */
-			stmt = standard_planner(parse, cursor_opts, bound_params);
+		//if (prev_planner_hook != NULL)
+		//	/* Call any earlier hooks */
+		//	stmt = (prev_planner_hook)(parse, cursor_opts, bound_params);
+		//else
+		//	/* Call the standard planner */
+		//	stmt = standard_planner(parse, cursor_opts, bound_params);
+		stmt = standard_planner(parse, cursor_opts, bound_params);
 
 		if (ts_extension_is_loaded())
 		{
@@ -334,14 +335,14 @@ get_parent_rte(const PlannerInfo *root, Index rti)
 {
 	ListCell *lc;
 
-#if PG11_GE
-	/* Fast path when arrays are setup */
-	if (root->append_rel_array != NULL && root->append_rel_array[rti] != NULL)
-	{
-		AppendRelInfo *appinfo = root->append_rel_array[rti];
-		return planner_rt_fetch(appinfo->parent_relid, root);
-	}
-#endif
+//#if PG11_GE
+//	/* Fast path when arrays are setup */
+//	if (root->append_rel_array != NULL && root->append_rel_array[rti] != NULL)
+//	{
+//		AppendRelInfo *appinfo = root->append_rel_array[rti];
+//		return planner_rt_fetch(appinfo->parent_relid, root);
+//	}
+//#endif
 
 	foreach (lc, root->append_rel_list)
 	{
@@ -627,7 +628,7 @@ reenable_inheritance(PlannerInfo *root, RelOptInfo *rel, Index rti, RangeTblEntr
 		 * adding ours.
 		 */
 		rel->pathlist = NIL;
-		rel->partial_pathlist = NIL;
+		//rel->partial_pathlist = NIL;
 		ts_set_append_rel_pathlist(root, rel, rti, rte);
 	}
 }
@@ -671,10 +672,10 @@ apply_optimizations(PlannerInfo *root, TsRelType reltype, RelOptInfo *rel, Range
 		/* Do not optimize result relations (INSERT, UPDATE, DELETE) */
 		0 == root->parse->resultRelation)
 	{
-		TimescaleDBPrivate *private = ts_get_private_reloptinfo(rel);
-		bool ordered = private->appends_ordered;
-		int order_attno = private->order_attno;
-		List *nested_oids = private->nested_oids;
+		TimescaleDBPrivate *tsprivate = ts_get_private_reloptinfo(rel);
+		bool ordered = tsprivate->appends_ordered;
+		int order_attno = tsprivate->order_attno;
+		List *nested_oids = tsprivate->nested_oids;
 		ListCell *lc;
 
 		Assert(ht != NULL);
@@ -703,24 +704,24 @@ apply_optimizations(PlannerInfo *root, TsRelType reltype, RelOptInfo *rel, Range
 			}
 		}
 
-		foreach (lc, rel->partial_pathlist)
-		{
-			Path **pathptr = (Path **) &lfirst(lc);
+		//foreach (lc, rel->partial_pathlist)
+		//{
+		//	Path **pathptr = (Path **) &lfirst(lc);
 
-			switch (nodeTag(*pathptr))
-			{
-				case T_AppendPath:
-				case T_MergeAppendPath:
-					if (should_chunk_append(root, rel, *pathptr, false, 0))
-						*pathptr =
-							ts_chunk_append_path_create(root, rel, ht, *pathptr, true, false, NIL);
-					else if (ts_constraint_aware_append_possible(*pathptr))
-						*pathptr = ts_constraint_aware_append_path_create(root, ht, *pathptr);
-					break;
-				default:
-					break;
-			}
-		}
+		//	switch (nodeTag(*pathptr))
+		//	{
+		//		case T_AppendPath:
+		//		case T_MergeAppendPath:
+		//			if (should_chunk_append(root, rel, *pathptr, false, 0))
+		//				*pathptr =
+		//					ts_chunk_append_path_create(root, rel, ht, *pathptr, true, false, NIL);
+		//			else if (ts_constraint_aware_append_possible(*pathptr))
+		//				*pathptr = ts_constraint_aware_append_path_create(root, ht, *pathptr);
+		//			break;
+		//		default:
+		//			break;
+		//	}
+		//}
 	}
 }
 
@@ -972,15 +973,15 @@ replace_hypertable_insert_paths(PlannerInfo *root, List *pathlist)
 	{
 		Path *path = lfirst(lc);
 
-		if (IsA(path, ModifyTablePath) && ((ModifyTablePath *) path)->operation == CMD_INSERT)
-		{
-			ModifyTablePath *mt = (ModifyTablePath *) path;
-			RangeTblEntry *rte = planner_rt_fetch(linitial_int(mt->resultRelations), root);
-			Hypertable *ht = get_hypertable(rte->relid, CACHE_FLAG_CHECK);
+		//if (IsA(path, ModifyTablePath) && ((ModifyTablePath *) path)->operation == CMD_INSERT)
+		//{
+		//	ModifyTablePath *mt = (ModifyTablePath *) path;
+		//	RangeTblEntry *rte = planner_rt_fetch(linitial_int(mt->resultRelations), root);
+		//	Hypertable *ht = get_hypertable(rte->relid, CACHE_FLAG_CHECK);
 
-			if (NULL != ht)
-				path = ts_hypertable_insert_path_create(root, mt);
-		}
+		//	if (NULL != ht)
+		//		path = ts_hypertable_insert_path_create(root, mt);
+		//}
 
 		new_pathlist = lappend(new_pathlist, path);
 	}
@@ -988,61 +989,61 @@ replace_hypertable_insert_paths(PlannerInfo *root, List *pathlist)
 	return new_pathlist;
 }
 
-static void
-#if PG11_LT
-timescale_create_upper_paths_hook(PlannerInfo *root, UpperRelationKind stage, RelOptInfo *input_rel,
-								  RelOptInfo *output_rel)
-{
-	Query *parse = root->parse;
-	bool partials_found = false;
+//static void
+////#if PG11_LT
+//timescale_create_upper_paths_hook(PlannerInfo *root, UpperRelationKind stage, RelOptInfo *input_rel,
+//								  RelOptInfo *output_rel)
+//{
+//	Query *parse = root->parse;
+//	bool partials_found = false;
+//
+//	//if (prev_create_upper_paths_hook != NULL)
+//	//	prev_create_upper_paths_hook(root, stage, input_rel, output_rel);
+//#else
+//timescale_create_upper_paths_hook(PlannerInfo *root, UpperRelationKind stage, RelOptInfo *input_rel,
+//								  RelOptInfo *output_rel, void *extra)
+//{
+//	Query *parse = root->parse;
+//	bool partials_found = false;
+//
+//	if (prev_create_upper_paths_hook != NULL)
+//		prev_create_upper_paths_hook(root, stage, input_rel, output_rel, extra);
+//#endif
 
-	if (prev_create_upper_paths_hook != NULL)
-		prev_create_upper_paths_hook(root, stage, input_rel, output_rel);
-#else
-timescale_create_upper_paths_hook(PlannerInfo *root, UpperRelationKind stage, RelOptInfo *input_rel,
-								  RelOptInfo *output_rel, void *extra)
-{
-	Query *parse = root->parse;
-	bool partials_found = false;
-
-	if (prev_create_upper_paths_hook != NULL)
-		prev_create_upper_paths_hook(root, stage, input_rel, output_rel, extra);
-#endif
-
-	if (!ts_extension_is_loaded())
-		return;
-
-	if (ts_cm_functions->create_upper_paths_hook != NULL)
-		ts_cm_functions->create_upper_paths_hook(root, stage, input_rel, output_rel);
-
-	if (output_rel != NULL)
-	{
-		/* Modify for INSERTs on a hypertable */
-		if (output_rel->pathlist != NIL)
-			output_rel->pathlist = replace_hypertable_insert_paths(root, output_rel->pathlist);
-		if (parse->hasAggs && stage == UPPERREL_GROUP_AGG)
-		{
-			/* existing AggPaths are modified here.
-			 * No new AggPaths should be added after this if there
-			 * are partials*/
-			partials_found = ts_plan_process_partialize_agg(root, input_rel, output_rel);
-		}
-	}
-
-	if (ts_guc_disable_optimizations || input_rel == NULL || IS_DUMMY_REL(input_rel))
-		return;
-
-	if (!ts_guc_optimize_non_hypertables && !involves_hypertable(root, input_rel))
-		return;
-	if (stage == UPPERREL_GROUP_AGG && output_rel != NULL)
-	{
-		if (!partials_found)
-			ts_plan_add_hashagg(root, input_rel, output_rel);
-
-		if (parse->hasAggs)
-			ts_preprocess_first_last_aggregates(root, root->processed_tlist);
-	}
-}
+//	if (!ts_extension_is_loaded())
+//		return;
+//
+//	//if (ts_cm_functions->create_upper_paths_hook != NULL)
+//	//	ts_cm_functions->create_upper_paths_hook(root, stage, input_rel, output_rel);
+//
+//	if (output_rel != NULL)
+//	{
+//		/* Modify for INSERTs on a hypertable */
+//		if (output_rel->pathlist != NIL)
+//			output_rel->pathlist = replace_hypertable_insert_paths(root, output_rel->pathlist);
+//		//if (parse->hasAggs && stage == UPPERREL_GROUP_AGG)
+//		//{
+//		//	/* existing AggPaths are modified here.
+//		//	 * No new AggPaths should be added after this if there
+//		//	 * are partials*/
+//		//	partials_found = ts_plan_process_partialize_agg(root, input_rel, output_rel);
+//		//}
+//	}
+//
+//	if (ts_guc_disable_optimizations || input_rel == NULL || IS_DUMMY_REL(input_rel))
+//		return;
+//
+//	if (!ts_guc_optimize_non_hypertables && !involves_hypertable(root, input_rel))
+//		return;
+//	//if (stage == UPPERREL_GROUP_AGG && output_rel != NULL)
+//	//{
+//	//	if (!partials_found)
+//	//		ts_plan_add_hashagg(root, input_rel, output_rel);
+//
+//	//	if (parse->hasAggs)
+//	//		ts_preprocess_first_last_aggregates(root, root->processed_tlist);
+//	//}
+//}
 
 static bool
 contain_param_exec_walker(Node *node, void *context)
@@ -1180,23 +1181,23 @@ cagg_reorder_groupby_clause(RangeTblEntry *subq_rte, int rtno, List *outer_sortc
 void
 _planner_init(void)
 {
-	prev_planner_hook = planner_hook;
-	planner_hook = timescaledb_planner;
+	//prev_planner_hook = planner_hook;
+	//planner_hook = timescaledb_planner;
 	prev_set_rel_pathlist_hook = set_rel_pathlist_hook;
 	set_rel_pathlist_hook = timescaledb_set_rel_pathlist;
 
 	prev_get_relation_info_hook = get_relation_info_hook;
 	get_relation_info_hook = timescaledb_get_relation_info_hook;
 
-	prev_create_upper_paths_hook = create_upper_paths_hook;
-	create_upper_paths_hook = timescale_create_upper_paths_hook;
+	//prev_create_upper_paths_hook = create_upper_paths_hook;
+	//create_upper_paths_hook = timescale_create_upper_paths_hook;
 }
 
 void
 _planner_fini(void)
 {
-	planner_hook = prev_planner_hook;
+	//planner_hook = prev_planner_hook;
 	set_rel_pathlist_hook = prev_set_rel_pathlist_hook;
 	get_relation_info_hook = prev_get_relation_info_hook;
-	create_upper_paths_hook = prev_create_upper_paths_hook;
+	//create_upper_paths_hook = prev_create_upper_paths_hook;
 }

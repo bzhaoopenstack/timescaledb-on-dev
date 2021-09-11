@@ -15,13 +15,13 @@
 #include <utils/lsyscache.h>
 
 #include "compat.h"
-#if PG12_LT
+//#if PG12_LT
 #include <nodes/relation.h>
 #include <optimizer/var.h>
-#else
-#include <nodes/pathnodes.h>
-#include <optimizer/optimizer.h>
-#endif
+//#else
+//#include <nodes/pathnodes.h>
+//#include <optimizer/optimizer.h>
+//#endif
 
 #include "plan_partialize.h"
 #include "extension_constants.h"
@@ -63,36 +63,36 @@ check_for_partialize_function_call(Node *node, PartializeWalkerState *state)
 	if (state->looking_for_agg && !IsA(node, Aggref))
 		elog(ERROR, "the input to partialize must be an aggregate");
 
-	if (IsA(node, Aggref))
-	{
-		Aggref *aggref = castNode(Aggref, node);
-
-		if (state->looking_for_agg)
-		{
-			state->looking_for_agg = false;
-			aggref->aggsplit = AGGSPLIT_INITIAL_SERIAL;
-
-			if (aggref->aggtranstype == INTERNALOID &&
-				DO_AGGSPLIT_SERIALIZE(AGGSPLIT_INITIAL_SERIAL))
-				aggref->aggtype = BYTEAOID;
-			else
-				aggref->aggtype = aggref->aggtranstype;
-		}
-
-		/* We currently cannot handle cases like
-		 *     SELECT sum(i), partialize(sum(i)) ...
-		 *
-		 * We check for non-partial aggs to ensure that if any of the aggregates
-		 * in a statement are partialized, all of them have to be.
-		 */
-		else if (aggref->aggsplit != AGGSPLIT_INITIAL_SERIAL)
-			state->found_non_partial_agg = true;
-	}
-	else if (IsA(node, FuncExpr) && ((FuncExpr *) node)->funcid == state->fnoid)
-	{
-		state->found_partialize = true;
-		state->looking_for_agg = true;
-	}
+//	if (IsA(node, Aggref))
+//	{
+//		Aggref *aggref = castNode(Aggref, node);
+//
+//		if (state->looking_for_agg)
+//		{
+//			state->looking_for_agg = false;
+//			//aggref->aggsplit = AGGSPLIT_INITIAL_SERIAL;
+//
+//			//if (aggref->aggtranstype == INTERNALOID &&
+//			//	DO_AGGSPLIT_SERIALIZE(AGGSPLIT_INITIAL_SERIAL))
+//			//	aggref->aggtype = BYTEAOID;
+//			//else
+//			//	aggref->aggtype = aggref->aggtranstype;
+//		}
+//
+//		/* We currently cannot handle cases like
+//		 *     SELECT sum(i), partialize(sum(i)) ...
+//		 *
+//		 * We check for non-partial aggs to ensure that if any of the aggregates
+//		 * in a statement are partialized, all of them have to be.
+//		 */
+//		//else if (aggref->aggsplit != AGGSPLIT_INITIAL_SERIAL)
+//		//	state->found_non_partial_agg = true;
+//	}
+//	else if (IsA(node, FuncExpr) && ((FuncExpr *) node)->funcid == state->fnoid)
+//	{
+//		state->found_partialize = true;
+//		state->looking_for_agg = true;
+//	}
 
 	return expression_tree_walker(node, check_for_partialize_function_call, state);
 }
@@ -132,8 +132,8 @@ partialize_agg_paths(RelOptInfo *rel)
 	{
 		Path *path = lfirst(lc);
 
-		if (IsA(path, AggPath))
-			castNode(AggPath, path)->aggsplit = AGGSPLIT_INITIAL_SERIAL;
+		//if (IsA(path, AggPath))
+		//	castNode(AggPath, path)->aggsplit = AGGSPLIT_INITIAL_SERIAL;
 	}
 }
 
@@ -179,9 +179,9 @@ bool
 ts_plan_process_partialize_agg(PlannerInfo *root, RelOptInfo *input_rel, RelOptInfo *output_rel)
 {
 	Query *parse = root->parse;
-#if PG10_GE
-	Assert(IS_UPPER_REL(output_rel));
-#endif
+//#if PG10_GE
+//	Assert(IS_UPPER_REL(output_rel));
+//#endif
 
 	if (CMD_SELECT != parse->commandType || !parse->hasAggs)
 		return false;

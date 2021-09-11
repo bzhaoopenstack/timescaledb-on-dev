@@ -34,8 +34,10 @@
  */
 #include <postgres.h>
 
-#include <access/htup_details.h>
-#include <access/stratnum.h>
+//#include <access/htup_details.h>
+#include <access/htup.h>
+//#include <access/stratnum.h>
+#include <access/skey.h>
 #include <catalog/namespace.h>
 #include <catalog/pg_aggregate.h>
 #include <catalog/pg_proc.h>
@@ -57,11 +59,11 @@
 #include <utils/typcache.h>
 
 #include "compat.h"
-#if PG12_LT
+//#if PG12_LT
 #include <optimizer/clauses.h>
-#else
-#include <optimizer/optimizer.h>
-#endif
+//#else
+//#include <optimizer/optimizer.h>
+//#endif
 
 #include "plan_agg_bookend.h"
 #include "planner.h"
@@ -75,17 +77,17 @@ typedef struct FirstLastAggInfo
 	Expr *sort;				   /* Expression to use for ORDER BY */
 } FirstLastAggInfo;
 
-typedef struct MutatorContext
-{
-	MinMaxAggPath *mm_path;
-} MutatorContext;
+//typedef struct MutatorContext
+//{
+//	MinMaxAggPath *mm_path;
+//} MutatorContext;
 
 static bool find_first_last_aggs_walker(Node *node, List **context);
 static bool build_first_last_path(PlannerInfo *root, FirstLastAggInfo *flinfo, Oid eqop, Oid sortop,
 								  bool nulls_first);
 static void first_last_qp_callback(PlannerInfo *root, void *extra);
-static Node *mutate_aggref_node(Node *node, MutatorContext *context);
-static void replace_aggref_in_tlist(MinMaxAggPath *minmaxagg_path);
+//static Node *mutate_aggref_node(Node *node, MutatorContext *context);
+//static void replace_aggref_in_tlist(MinMaxAggPath *minmaxagg_path);
 
 /*
  * mutate_aggref_node
@@ -93,32 +95,32 @@ static void replace_aggref_in_tlist(MinMaxAggPath *minmaxagg_path);
  * Mutator function used by recursive `expression_tree_mutator`
  * to replace Aggref node with Param node
  */
-Node *
-mutate_aggref_node(Node *node, MutatorContext *context)
-{
-	if (node == NULL)
-		return NULL;
-	if (IsA(node, Aggref))
-	{
-		Aggref *aggref = (Aggref *) node;
-
-		/* See if the Aggref should be replaced by a Param */
-		if (context->mm_path != NULL && list_length(aggref->args) == 2)
-		{
-			TargetEntry *curTarget = (TargetEntry *) linitial(aggref->args);
-			ListCell *cell;
-
-			foreach (cell, context->mm_path->mmaggregates)
-			{
-				MinMaxAggInfo *mminfo = (MinMaxAggInfo *) lfirst(cell);
-
-				if (mminfo->aggfnoid == aggref->aggfnoid && equal(mminfo->target, curTarget->expr))
-					return (Node *) copyObject(mminfo->param);
-			}
-		}
-	}
-	return expression_tree_mutator(node, mutate_aggref_node, (void *) context);
-}
+//Node *
+//mutate_aggref_node(Node *node, MutatorContext *context)
+//{
+//	if (node == NULL)
+//		return NULL;
+//	if (IsA(node, Aggref))
+//	{
+//		Aggref *aggref = (Aggref *) node;
+//
+//		/* See if the Aggref should be replaced by a Param */
+//		//if (context->mm_path != NULL && list_length(aggref->args) == 2)
+//		//{
+//		//	TargetEntry *curTarget = (TargetEntry *) linitial(aggref->args);
+//		//	ListCell *cell;
+//
+//		//	foreach (cell, context->mm_path->mmaggregates)
+//		//	{
+//		//		MinMaxAggInfo *mminfo = (MinMaxAggInfo *) lfirst(cell);
+//
+//		//		if (mminfo->aggfnoid == aggref->aggfnoid && equal(mminfo->target, curTarget->expr))
+//		//			return (Node *) copyObject(mminfo->param);
+//		//	}
+//		//}
+//	}
+//	return expression_tree_mutator(node, mutate_aggref_node, (void *) context);
+//}
 
 /*
  * replace_aggref_in_tlist
@@ -129,17 +131,17 @@ mutate_aggref_node(Node *node, MutatorContext *context)
  * node. Param node passes output value from the subquery.
  *
  */
-void
-replace_aggref_in_tlist(MinMaxAggPath *minmaxagg_path)
-{
-	MutatorContext context;
-
-	context.mm_path = minmaxagg_path;
-
-	((Path *) minmaxagg_path)->pathtarget->exprs =
-		(List *) mutate_aggref_node((Node *) ((Path *) minmaxagg_path)->pathtarget->exprs,
-									(void *) &context);
-}
+//void
+//replace_aggref_in_tlist(MinMaxAggPath *minmaxagg_path)
+//{
+//	MutatorContext context;
+//
+//	context.mm_path = minmaxagg_path;
+//
+//	((Path *) minmaxagg_path)->pathtarget->exprs =
+//		(List *) mutate_aggref_node((Node *) ((Path *) minmaxagg_path)->pathtarget->exprs,
+//									(void *) &context);
+//}
 
 /* Stores function id (FIRST/LAST) with proper comparison strategy */
 typedef struct FuncStrategy
@@ -243,7 +245,7 @@ ts_preprocess_first_last_aggregates(PlannerInfo *root, List *tlist)
 	RelOptInfo *grouped_rel;
 	ListCell *lc;
 	List *mm_agg_list;
-	MinMaxAggPath *minmaxagg_path;
+	//MinMaxAggPath *minmaxagg_path;
 
 	/* minmax_aggs list should be empty at this point */
 	Assert(root->minmax_aggs == NIL);
@@ -374,10 +376,10 @@ ts_preprocess_first_last_aggregates(PlannerInfo *root, List *tlist)
 		FirstLastAggInfo *fl_info = (FirstLastAggInfo *) lfirst(lc);
 		MinMaxAggInfo *mminfo = fl_info->m_agg_info;
 
-		mminfo->param = SS_make_initplan_output_param(root,
-													  exprType((Node *) mminfo->target),
-													  -1,
-													  exprCollation((Node *) mminfo->target));
+		//mminfo->param = SS_make_initplan_output_param(root,
+		//											  exprType((Node *) mminfo->target),
+		//											  -1,
+		//											  exprCollation((Node *) mminfo->target));
 		mm_agg_list = lcons(mminfo, mm_agg_list);
 	}
 
@@ -393,15 +395,15 @@ ts_preprocess_first_last_aggregates(PlannerInfo *root, List *tlist)
 	 * never parallel-safe anyway, so that doesn't matter.  Likewise, it
 	 * doesn't matter that we haven't filled FDW-related fields in the rel.
 	 */
-	grouped_rel = fetch_upper_rel(root, UPPERREL_GROUP_AGG, NULL);
-	minmaxagg_path = create_minmaxagg_path(root,
-										   grouped_rel,
-										   create_pathtarget(root, tlist),
-										   mm_agg_list,
-										   (List *) parse->havingQual);
-	/* Let's replace Aggref node since we will use subquery we've generated  */
-	replace_aggref_in_tlist(minmaxagg_path);
-	add_path(grouped_rel, (Path *) minmaxagg_path);
+	//grouped_rel = fetch_upper_rel(root, UPPERREL_GROUP_AGG, NULL);
+	//minmaxagg_path = create_minmaxagg_path(root,
+	//									   grouped_rel,
+	//									   create_pathtarget(root, tlist),
+	//									   mm_agg_list,
+	//									   (List *) parse->havingQual);
+	///* Let's replace Aggref node since we will use subquery we've generated  */
+	//replace_aggref_in_tlist(minmaxagg_path);
+	//add_path(grouped_rel, (Path *) minmaxagg_path);
 }
 
 /*
@@ -469,24 +471,24 @@ find_first_last_aggs_walker(Node *node, List **context)
 		 * by adding the filter to the quals of the generated subquery.  For
 		 * now, just punt.
 		 */
-		if (aggref->aggfilter != NULL)
-			return true;
+		//if (aggref->aggfilter != NULL)
+		//	return true;
 
 		/* We sort by second argument (eg. time) */
-		sort_oid = lsecond_oid(aggref->aggargtypes);
+		//sort_oid = lsecond_oid(aggref->aggargtypes);
 
 		func_strategy = get_func_strategy(aggref->aggfnoid);
 		if (func_strategy == NULL)
 			return true; /* not first/last aggregate */
 
-		sort_tce = lookup_type_cache(sort_oid, TYPECACHE_BTREE_OPFAMILY);
-		aggsortop =
-			get_opfamily_member(sort_tce->btree_opf, sort_oid, sort_oid, func_strategy->strategy);
-		if (aggsortop == InvalidOid)
-			elog(ERROR,
-				 "Can't resolve sort operator oid for function oid: %d and type: %d",
-				 aggref->aggfnoid,
-				 sort_oid);
+		//sort_tce = lookup_type_cache(sort_oid, TYPECACHE_BTREE_OPFAMILY);
+		//aggsortop =
+		//	get_opfamily_member(sort_tce->btree_opf, sort_oid, sort_oid, func_strategy->strategy);
+		//if (aggsortop == InvalidOid)
+		//	elog(ERROR,
+		//		 "Can't resolve sort operator oid for function oid: %d and type: %d",
+		//		 aggref->aggfnoid,
+		//		 sort_oid);
 
 		/* Used in projection */
 		value = (TargetEntry *) linitial(aggref->args);
@@ -580,7 +582,7 @@ build_first_last_path(PlannerInfo *root, FirstLastAggInfo *fl_info, Oid eqop, Oi
 	subroot->parent_root = root;
 	/* reset subplan-related stuff */
 	subroot->plan_params = NIL;
-	subroot->outer_params = NULL;
+	//subroot->outer_params = NULL;
 	subroot->init_plans = NIL;
 	/* reset EquivalenceClass since we will create it later on */
 	subroot->eq_classes = NIL;
@@ -617,7 +619,7 @@ build_first_last_path(PlannerInfo *root, FirstLastAggInfo *fl_info, Oid eqop, Oi
 		makeTargetEntry(copyObject(mminfo->target), (AttrNumber) 1, pstrdup("value"), false);
 	sort_target = makeTargetEntry(copyObject(fl_info->sort), (AttrNumber) 2, pstrdup("sort"), true);
 	tlist = list_make2(value_target, sort_target);
-	subroot->processed_tlist = parse->targetList = tlist;
+	//subroot->processed_tlist = parse->targetList = tlist;
 
 	/* No HAVING, no DISTINCT, no aggregates anymore */
 	parse->havingQual = NULL;
@@ -632,7 +634,7 @@ build_first_last_path(PlannerInfo *root, FirstLastAggInfo *fl_info, Oid eqop, Oi
 	ntest->arg = copyObject(fl_info->sort);
 	/* we checked it wasn't a rowtype in find_minmax_aggs_walker */
 	ntest->argisrow = false;
-	ntest->location = -1;
+	//ntest->location = -1;
 
 	/* User might have had that in WHERE already */
 	if (!list_member((List *) parse->jointree->quals, ntest))
@@ -659,110 +661,110 @@ build_first_last_path(PlannerInfo *root, FirstLastAggInfo *fl_info, Oid eqop, Oi
 	subroot->tuple_fraction = 1.0;
 	subroot->limit_tuples = 1.0;
 
-#if PG12_GE
-	{
-		ListCell *lc;
-		/* min/max optimizations ususally happen before
-		 * inheritance-relations are expanded, and thus query_planner will
-		 * try to expand our hypertables if they are marked as
-		 * inheritance-relations. Since we do not want this, we must mark
-		 * hypertabls as non-inheritance now.
-		 */
-		foreach (lc, subroot->parse->rtable)
-		{
-			RangeTblEntry *rte = lfirst_node(RangeTblEntry, lc);
+//#if PG12_GE
+//	{
+//		ListCell *lc;
+//		/* min/max optimizations ususally happen before
+//		 * inheritance-relations are expanded, and thus query_planner will
+//		 * try to expand our hypertables if they are marked as
+//		 * inheritance-relations. Since we do not want this, we must mark
+//		 * hypertabls as non-inheritance now.
+//		 */
+//		foreach (lc, subroot->parse->rtable)
+//		{
+//			RangeTblEntry *rte = lfirst_node(RangeTblEntry, lc);
+//
+//			if (ts_rte_is_hypertable(rte))
+//			{
+//				ListCell *prev = NULL;
+//				ListCell *next = list_head(subroot->append_rel_list);
+//				Assert(rte->inh);
+//				rte->inh = false;
+//				/* query planner gets confused when entries in the
+//				 * append_rel_list refer to entreis in the relarray that
+//				 * don't exist. Since we need to rexpand hypertables in the
+//				 * subquery, all of the chunk entries will be invalid in
+//				 * this manner, so we remove them from the list
+//				 */
+//				/* TODO this can be made non-quadratic by storing all the
+//				 *      relids in a bitset, then iterating over the
+//				 *      append_rel_list once
+//				 */
+//				while (next != NULL)
+//				{
+//					AppendRelInfo *app = lfirst(next);
+//					if (app->parent_reloid == rte->relid)
+//					{
+//						subroot->append_rel_list =
+//							list_delete_cell(subroot->append_rel_list, next, prev);
+//						next = prev != NULL ? prev->next : list_head(subroot->append_rel_list);
+//					}
+//					else
+//					{
+//						prev = next;
+//						next = next->next;
+//					}
+//				}
+//			}
+//		}
+//	}
+//#endif
 
-			if (ts_rte_is_hypertable(rte))
-			{
-				ListCell *prev = NULL;
-				ListCell *next = list_head(subroot->append_rel_list);
-				Assert(rte->inh);
-				rte->inh = false;
-				/* query planner gets confused when entries in the
-				 * append_rel_list refer to entreis in the relarray that
-				 * don't exist. Since we need to rexpand hypertables in the
-				 * subquery, all of the chunk entries will be invalid in
-				 * this manner, so we remove them from the list
-				 */
-				/* TODO this can be made non-quadratic by storing all the
-				 *      relids in a bitset, then iterating over the
-				 *      append_rel_list once
-				 */
-				while (next != NULL)
-				{
-					AppendRelInfo *app = lfirst(next);
-					if (app->parent_reloid == rte->relid)
-					{
-						subroot->append_rel_list =
-							list_delete_cell(subroot->append_rel_list, next, prev);
-						next = prev != NULL ? prev->next : list_head(subroot->append_rel_list);
-					}
-					else
-					{
-						prev = next;
-						next = next->next;
-					}
-				}
-			}
-		}
-	}
-#endif
-
-	final_rel = query_planner(subroot,
-#if PG12_LT
-							  /* as of 333ed24 uses subroot->processed_tlist instead  */
-							  tlist,
-#endif
-							  first_last_qp_callback,
-							  NULL);
-
-#if PG12_GE
-	{
-		ListCell *lc;
-		/* we need to disable inheritance so the chunks are re-expanded correctly in the subroot */
-		foreach (lc, root->parse->rtable)
-		{
-			RangeTblEntry *rte = lfirst_node(RangeTblEntry, lc);
-
-			if (ts_rte_is_hypertable(rte))
-				rte->inh = true;
-		}
-	}
-#endif
+//	final_rel = query_planner(subroot,
+////#if PG12_LT
+//							  /* as of 333ed24 uses subroot->processed_tlist instead  */
+//							  tlist,
+////#endif
+//							  first_last_qp_callback,
+//							  NULL);
+//
+////#if PG12_GE
+////	{
+////		ListCell *lc;
+////		/* we need to disable inheritance so the chunks are re-expanded correctly in the subroot */
+////		foreach (lc, root->parse->rtable)
+////		{
+////			RangeTblEntry *rte = lfirst_node(RangeTblEntry, lc);
+////
+////			if (ts_rte_is_hypertable(rte))
+////				rte->inh = true;
+////		}
+////	}
+//#endif
 	/*
 	 * Since we didn't go through subquery_planner() to handle the subquery,
 	 * we have to do some of the same cleanup it would do, in particular cope
 	 * with params and initplans used within this subquery.  (This won't
 	 * matter if we end up not using the subplan.)
 	 */
-	SS_identify_outer_params(subroot);
-	SS_charge_for_initplans(subroot, final_rel);
+	//SS_identify_outer_params(subroot);
+	//SS_charge_for_initplans(subroot, final_rel);
 
 	/*
 	 * Get the best presorted path, that being the one that's cheapest for
 	 * fetching just one row.  If there's no such path, fail.
 	 */
-	if (final_rel->rows > 1.0)
-		path_fraction = 1.0 / final_rel->rows;
-	else
-		path_fraction = 1.0;
+	//if (final_rel->rows > 1.0)
+	//	path_fraction = 1.0 / final_rel->rows;
+	//else
+	//	path_fraction = 1.0;
 
-	sorted_path = get_cheapest_fractional_path_for_pathkeys(final_rel->pathlist,
-															subroot->query_pathkeys,
-															NULL,
-															path_fraction);
-	if (!sorted_path)
-		return false;
+	//sorted_path = get_cheapest_fractional_path_for_pathkeys(final_rel->pathlist,
+	//														subroot->query_pathkeys,
+	//														NULL,
+	//														path_fraction);
+	//if (!sorted_path)
+	//	return false;
 
 	/*
 	 * The path might not return exactly what we want, so fix that.  (We
 	 * assume that this won't change any conclusions about which was the
 	 * cheapest path.)
 	 */
-	sorted_path = apply_projection_to_path(subroot,
-										   final_rel,
-										   sorted_path,
-										   create_pathtarget(subroot, tlist));
+	//sorted_path = apply_projection_to_path(subroot,
+	//									   final_rel,
+	//									   sorted_path,
+	//									   create_pathtarget(subroot, tlist));
 
 	/*
 	 * Determine cost to get just the first row of the presorted path.
@@ -770,12 +772,12 @@ build_first_last_path(PlannerInfo *root, FirstLastAggInfo *fl_info, Oid eqop, Oi
 	 * Note: cost calculation here should match
 	 * compare_fractional_path_costs().
 	 */
-	path_cost = sorted_path->startup_cost +
-				path_fraction * (sorted_path->total_cost - sorted_path->startup_cost);
+	//path_cost = sorted_path->startup_cost +
+	//			path_fraction * (sorted_path->total_cost - sorted_path->startup_cost);
 
 	/* Save state for further processing */
 	mminfo->subroot = subroot;
-	mminfo->path = sorted_path;
+	//mminfo->path = sorted_path;
 	mminfo->pathcost = path_cost;
 
 	return true;
@@ -792,7 +794,7 @@ first_last_qp_callback(PlannerInfo *root, void *extra)
 	root->distinct_pathkeys = NIL;
 
 	root->sort_pathkeys =
-		make_pathkeys_for_sortclauses(root, root->parse->sortClause, root->parse->targetList);
+		make_pathkeys_for_sortclauses(root, root->parse->sortClause, root->parse->targetList, true);
 
 	root->query_pathkeys = root->sort_pathkeys;
 }

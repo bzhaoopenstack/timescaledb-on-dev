@@ -18,8 +18,9 @@
 #include <commands/trigger.h>
 #include <commands/tablecmds.h>
 #include <commands/cluster.h>
-#include <commands/event_trigger.h>
-#include <access/htup_details.h>
+//#include <commands/event_trigger.h>
+//#include <access/htup_details.h>
+#include <access/htup.h>
 #include <access/xact.h>
 #include <storage/lmgr.h>
 #include <utils/rel.h>
@@ -32,13 +33,15 @@
 #include <parser/parse_utilcmd.h>
 #include <commands/tablespace.h>
 
+#include <utils/acl.h>
+
 #include <catalog/pg_constraint.h>
 #include <catalog/pg_inherits.h>
 #include "compat.h"
-#if PG11_LT /* PG11 consolidates pg_foo_fn.h -> pg_foo.h */
+//#if PG11_LT /* PG11 consolidates pg_foo_fn.h -> pg_foo.h */
 #include <catalog/pg_inherits_fn.h>
-#include <catalog/pg_constraint_fn.h>
-#endif
+//#include <catalog/pg_constraint_fn.h>
+//#endif
 
 #include <miscadmin.h>
 
@@ -83,43 +86,44 @@ prev_ProcessUtility(ProcessUtilityArgs *args)
 {
 	if (prev_ProcessUtility_hook != NULL)
 	{
-#if !PG96
-		/* Call any earlier hooks */
-		(prev_ProcessUtility_hook)(args->pstmt,
-								   args->query_string,
-								   args->context,
-								   args->params,
-								   args->queryEnv,
-								   args->dest,
-								   args->completion_tag);
-#else
-		(prev_ProcessUtility_hook)(args->parsetree,
-								   args->query_string,
-								   args->context,
-								   args->params,
-								   args->dest,
-								   args->completion_tag);
-#endif
+		int error;
+//#if !PG96
+//		/* Call any earlier hooks */
+//		(prev_ProcessUtility_hook)(args->pstmt,
+//								   args->query_string,
+//								   args->context,
+//								   args->params,
+//								   args->queryEnv,
+//								   args->dest,
+//								   args->completion_tag);
+//#else
+		//(prev_ProcessUtility_hook)(args->parsetree,
+		//						   args->query_string,
+		//						   //args->context,
+		//						   args->params,
+		//						   args->dest,
+		//						   args->completion_tag);
+//#endif
 	}
 	else
 	{
 		/* Call the standard */
-#if !PG96
-		standard_ProcessUtility(args->pstmt,
-								args->query_string,
-								args->context,
-								args->params,
-								args->queryEnv,
-								args->dest,
-								args->completion_tag);
-#else
-		standard_ProcessUtility(args->parsetree,
-								args->query_string,
-								args->context,
-								args->params,
-								args->dest,
-								args->completion_tag);
-#endif
+//#if !PG96
+//		standard_ProcessUtility(args->pstmt,
+//								args->query_string,
+//								args->context,
+//								args->params,
+//								args->queryEnv,
+//								args->dest,
+//								args->completion_tag);
+//#else
+		//standard_ProcessUtility(args->parsetree,
+		//						args->query_string,
+		//						//args->context,
+		//						args->params,
+		//						args->dest,
+		//						args->completion_tag);
+//#endif
 	}
 }
 
@@ -150,8 +154,8 @@ check_chunk_alter_table_operation_allowed(Oid relid, AlterTableStmt *stmt)
 				case AT_SetStorage:
 				case AT_DropCluster:
 				case AT_ClusterOn:
-				case AT_EnableRowSecurity:
-				case AT_DisableRowSecurity:
+				//case AT_EnableRowSecurity:
+				//case AT_DisableRowSecurity:
 				case AT_SetTableSpace:
 					/* allowed on chunks */
 					break;
@@ -237,15 +241,15 @@ check_alter_table_allowed_on_ht_with_compression(Hypertable *ht, AlterTableStmt 
 				 * List things that we want to explicitly block for documentation purposes
 				 * But also block everything else as well.
 				 */
-#if PG12_LT
+//#if PG12_LT
 			case AT_AddOids:
 			case AT_DropOids:
 			case AT_AddOidsRecurse:
-#endif
-			case AT_EnableRowSecurity:
-			case AT_DisableRowSecurity:
-			case AT_ForceRowSecurity:
-			case AT_NoForceRowSecurity:
+//#endif
+			//case AT_EnableRowSecurity:
+			//case AT_DisableRowSecurity:
+			//case AT_ForceRowSecurity:
+			//case AT_NoForceRowSecurity:
 			default:
 				ereport(ERROR,
 						(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
@@ -259,11 +263,11 @@ check_alter_table_allowed_on_ht_with_compression(Hypertable *ht, AlterTableStmt 
 static void
 relation_not_only(RangeVar *rv)
 {
-#if !PG96
-	bool only = !rv->inh;
-#else
+//#if !PG96
+//	bool only = !rv->inh;
+//#else
 	bool only = (rv->inhOpt == INH_NO);
-#endif
+//#endif
 	if (only)
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
@@ -508,7 +512,7 @@ foreach_chunk_multitransaction(Oid relid, MemoryContext mctx, mt_process_chunk_t
  * Given this change it seemed easier to take rewrite this completely for 11 to
  * take advantage of the new changes.
  */
-#if PG11_LT
+//#if PG11_LT
 typedef struct VacuumCtx
 {
 	VacuumStmt *stmt;
@@ -524,7 +528,7 @@ vacuum_chunk(Hypertable *ht, Oid chunk_relid, void *arg)
 
 	ctx->stmt->relation->relname = NameStr(chunk->fd.table_name);
 	ctx->stmt->relation->schemaname = NameStr(chunk->fd.schema_name);
-	ExecVacuum(ctx->stmt, ctx->is_toplevel);
+	//ExecVacuum(ctx->stmt, ctx->is_toplevel);
 }
 
 /* Vacuums each chunk of a hypertable */
@@ -532,11 +536,11 @@ static bool
 process_vacuum(ProcessUtilityArgs *args)
 {
 	VacuumStmt *stmt = (VacuumStmt *) args->parsetree;
-	bool is_toplevel = (args->context == PROCESS_UTILITY_TOPLEVEL);
-	VacuumCtx ctx = {
-		.stmt = stmt,
-		.is_toplevel = is_toplevel,
-	};
+	//bool is_toplevel = (args->context == PROCESS_UTILITY_TOPLEVEL);
+	//VacuumCtx ctx = {
+	//	.stmt = stmt,
+	//	.is_toplevel = is_toplevel,
+	//};
 	Oid hypertable_oid;
 	Cache *hcache;
 	Hypertable *ht;
@@ -558,7 +562,7 @@ process_vacuum(ProcessUtilityArgs *args)
 
 	/* allow vacuum to be cross-commit */
 	hcache->release_on_commit = false;
-	foreach_chunk(ht, vacuum_chunk, &ctx);
+	//foreach_chunk(ht, vacuum_chunk, &ctx);
 	hcache->release_on_commit = true;
 
 	ts_cache_release(hcache);
@@ -576,91 +580,91 @@ process_vacuum(ProcessUtilityArgs *args)
 	 */
 	stmt->relation->relname = NameStr(ht->fd.table_name);
 	stmt->relation->schemaname = NameStr(ht->fd.schema_name);
-	ExecVacuum(stmt, is_toplevel);
+	//ExecVacuum(stmt, is_toplevel);
 
 	return true;
 }
-#else
-typedef struct VacuumCtx
-{
-	VacuumRelation *ht_vacuum_rel;
-	List *chunk_rels;
-} VacuumCtx;
-
-/* Adds a chunk to the list of tables to be vacuumed */
-static void
-add_chunk_to_vacuum(Hypertable *ht, Oid chunk_relid, void *arg)
-{
-	VacuumCtx *ctx = (VacuumCtx *) arg;
-	Chunk *chunk = ts_chunk_get_by_relid(chunk_relid, true);
-	VacuumRelation *chunk_vacuum_rel;
-	RangeVar *chunk_range_var = copyObject(ctx->ht_vacuum_rel->relation);
-
-	chunk_range_var->relname = NameStr(chunk->fd.table_name);
-	chunk_range_var->schemaname = NameStr(chunk->fd.schema_name);
-	chunk_vacuum_rel =
-		makeVacuumRelation(chunk_range_var, chunk_relid, ctx->ht_vacuum_rel->va_cols);
-
-	ctx->chunk_rels = lappend(ctx->chunk_rels, chunk_vacuum_rel);
-}
-
-/* Vacuums a hypertable and all of it's chunks */
-static bool
-process_vacuum(ProcessUtilityArgs *args)
-{
-	VacuumStmt *stmt = (VacuumStmt *) args->parsetree;
-	bool is_toplevel = (args->context == PROCESS_UTILITY_TOPLEVEL);
-	VacuumCtx ctx = {
-		.ht_vacuum_rel = NULL,
-		.chunk_rels = NIL,
-	};
-	ListCell *lc;
-	Cache *hcache;
-	Hypertable *ht;
-	bool affects_hypertable = false;
-
-	if (stmt->rels == NIL)
-		/* Vacuum is for all tables */
-		return false;
-
-	hcache = ts_hypertable_cache_pin();
-	foreach (lc, stmt->rels)
-	{
-		VacuumRelation *vacuum_rel = lfirst_node(VacuumRelation, lc);
-		Oid table_relid = vacuum_rel->oid;
-
-		if (!OidIsValid(table_relid) && vacuum_rel->relation != NULL)
-			table_relid = RangeVarGetRelid(vacuum_rel->relation, NoLock, true);
-
-		if (!OidIsValid(table_relid))
-			continue;
-
-		ht = ts_hypertable_cache_get_entry(hcache, table_relid, CACHE_FLAG_MISSING_OK);
-
-		if (!ht)
-			continue;
-
-		affects_hypertable = true;
-		process_add_hypertable(args, ht);
-		ctx.ht_vacuum_rel = vacuum_rel;
-		foreach_chunk(ht, add_chunk_to_vacuum, &ctx);
-	}
-	ts_cache_release(hcache);
-	if (!affects_hypertable)
-		return false;
-
-	stmt->rels = list_concat(ctx.chunk_rels, stmt->rels);
-	PreventCommandDuringRecovery((stmt->options && VACOPT_VACUUM) ? "VACUUM" : "ANALYZE");
-	/* ACL permission checks inside vacuum_rel and analyze_rel called by this ExecVacuum */
-	ExecVacuum(
-#if PG12_GE
-		args->parse_state,
-#endif
-		stmt,
-		is_toplevel);
-	return true;
-}
-#endif
+//#else
+//typedef struct VacuumCtx
+//{
+//	VacuumRelation *ht_vacuum_rel;
+//	List *chunk_rels;
+//} VacuumCtx;
+//
+///* Adds a chunk to the list of tables to be vacuumed */
+//static void
+//add_chunk_to_vacuum(Hypertable *ht, Oid chunk_relid, void *arg)
+//{
+//	VacuumCtx *ctx = (VacuumCtx *) arg;
+//	Chunk *chunk = ts_chunk_get_by_relid(chunk_relid, true);
+//	VacuumRelation *chunk_vacuum_rel;
+//	RangeVar *chunk_range_var = copyObject(ctx->ht_vacuum_rel->relation);
+//
+//	chunk_range_var->relname = NameStr(chunk->fd.table_name);
+//	chunk_range_var->schemaname = NameStr(chunk->fd.schema_name);
+//	chunk_vacuum_rel =
+//		makeVacuumRelation(chunk_range_var, chunk_relid, ctx->ht_vacuum_rel->va_cols);
+//
+//	ctx->chunk_rels = lappend(ctx->chunk_rels, chunk_vacuum_rel);
+//}
+//
+///* Vacuums a hypertable and all of it's chunks */
+//static bool
+//process_vacuum(ProcessUtilityArgs *args)
+//{
+//	VacuumStmt *stmt = (VacuumStmt *) args->parsetree;
+//	bool is_toplevel = (args->context == PROCESS_UTILITY_TOPLEVEL);
+//	VacuumCtx ctx = {
+//		.ht_vacuum_rel = NULL,
+//		.chunk_rels = NIL,
+//	};
+//	ListCell *lc;
+//	Cache *hcache;
+//	Hypertable *ht;
+//	bool affects_hypertable = false;
+//
+//	if (stmt->rels == NIL)
+//		/* Vacuum is for all tables */
+//		return false;
+//
+//	hcache = ts_hypertable_cache_pin();
+//	foreach (lc, stmt->rels)
+//	{
+//		VacuumRelation *vacuum_rel = lfirst_node(VacuumRelation, lc);
+//		Oid table_relid = vacuum_rel->oid;
+//
+//		if (!OidIsValid(table_relid) && vacuum_rel->relation != NULL)
+//			table_relid = RangeVarGetRelid(vacuum_rel->relation, NoLock, true);
+//
+//		if (!OidIsValid(table_relid))
+//			continue;
+//
+//		ht = ts_hypertable_cache_get_entry(hcache, table_relid, CACHE_FLAG_MISSING_OK);
+//
+//		if (!ht)
+//			continue;
+//
+//		affects_hypertable = true;
+//		process_add_hypertable(args, ht);
+//		ctx.ht_vacuum_rel = vacuum_rel;
+//		foreach_chunk(ht, add_chunk_to_vacuum, &ctx);
+//	}
+//	ts_cache_release(hcache);
+//	if (!affects_hypertable)
+//		return false;
+//
+//	stmt->rels = list_concat(ctx.chunk_rels, stmt->rels);
+//	PreventCommandDuringRecovery((stmt->options && VACOPT_VACUUM) ? "VACUUM" : "ANALYZE");
+//	/* ACL permission checks inside vacuum_rel and analyze_rel called by this ExecVacuum */
+//	ExecVacuum(
+//#if PG12_GE
+//		args->parse_state,
+//#endif
+//		stmt,
+//		is_toplevel);
+//	return true;
+//}
+//#endif
 
 static void
 process_truncate_chunk(Hypertable *ht, Oid chunk_relid, void *arg)
@@ -677,17 +681,18 @@ process_truncate_chunk(Hypertable *ht, Oid chunk_relid, void *arg)
 static bool
 relation_should_recurse(RangeVar *rv)
 {
-#if !PG96
-	return rv->inh;
-#else
+//#if !PG96
+//	return rv->inh;
+//#else
 	if (rv->inhOpt == INH_DEFAULT)
 	{
-		char *inherit_guc = GetConfigOptionByName("SQL_inheritance", NULL, false);
+		//char *inherit_guc = GetConfigOptionByName("SQL_inheritance", NULL, false);
+		char *inherit_guc = GetConfigOptionByName("SQL_inheritance", NULL);
 
 		return strncmp(inherit_guc, "on", 2) == 0;
 	}
 	return rv->inhOpt == INH_YES;
-#endif
+//#endif
 }
 
 /* handle forwading TRUNCATEs to the chunks of a hypertable */
@@ -978,13 +983,13 @@ process_drop_tablespace(ProcessUtilityArgs *args)
 	return false;
 }
 
-#if PG11_LT
+//#if PG11_LT
 #define IS_TABLESPACE(STMT) ((STMT) == ACL_OBJECT_TABLESPACE)
 #define IS_TABLE(STMT) ((STMT) == ACL_OBJECT_RELATION)
-#else
-#define IS_TABLESPACE(STMT) ((STMT) == OBJECT_TABLESPACE)
-#define IS_TABLE(STMT) ((STMT) == OBJECT_TABLE)
-#endif
+//#else
+//#define IS_TABLESPACE(STMT) ((STMT) == OBJECT_TABLESPACE)
+//#define IS_TABLE(STMT) ((STMT) == OBJECT_TABLE)
+//#endif
 
 /*
  * Handle GRANT / REVOKE.
@@ -1116,25 +1121,25 @@ reindex_chunk(Hypertable *ht, Oid chunk_relid, void *arg)
 	ReindexStmt *stmt = (ReindexStmt *) args->parsetree;
 	Chunk *chunk = ts_chunk_get_by_relid(chunk_relid, true);
 
-	switch (stmt->kind)
-	{
-		case REINDEX_OBJECT_TABLE:
-			stmt->relation->relname = NameStr(chunk->fd.table_name);
-			stmt->relation->schemaname = NameStr(chunk->fd.schema_name);
-			ReindexTable(stmt->relation,
-						 stmt->options
-#if PG12_GE
-						 ,
-						 stmt->concurrent /* TODO test */
-#endif
-			);
-			break;
-		case REINDEX_OBJECT_INDEX:
-			/* Not supported, a.t.m. See note in process_reindex(). */
-			break;
-		default:
-			break;
-	}
+//	switch (stmt->kind)
+//	{
+//		case REINDEX_OBJECT_TABLE:
+//			stmt->relation->relname = NameStr(chunk->fd.table_name);
+//			stmt->relation->schemaname = NameStr(chunk->fd.schema_name);
+//			ReindexTable(stmt->relation,
+//						 stmt->options
+////#if PG12_GE
+////						 ,
+////						 stmt->concurrent /* TODO test */
+////#endif
+//			);
+//			break;
+//		case REINDEX_OBJECT_INDEX:
+//			/* Not supported, a.t.m. See note in process_reindex(). */
+//			break;
+//		default:
+//			break;
+//	}
 }
 
 /*
@@ -1161,48 +1166,48 @@ process_reindex(ProcessUtilityArgs *args)
 
 	hcache = ts_hypertable_cache_pin();
 
-	switch (stmt->kind)
-	{
-		case REINDEX_OBJECT_TABLE:
-			ht = ts_hypertable_cache_get_entry(hcache, relid, CACHE_FLAG_MISSING_OK);
+	//switch (stmt->kind)
+	//{
+	//	case REINDEX_OBJECT_TABLE:
+	//		ht = ts_hypertable_cache_get_entry(hcache, relid, CACHE_FLAG_MISSING_OK);
 
-			if (NULL != ht)
-			{
-				PreventCommandDuringRecovery("REINDEX");
-				ts_hypertable_permissions_check_by_id(ht->fd.id);
+	//		if (NULL != ht)
+	//		{
+	//			PreventCommandDuringRecovery("REINDEX");
+	//			ts_hypertable_permissions_check_by_id(ht->fd.id);
 
-				if (foreach_chunk(ht, reindex_chunk, args) >= 0)
-					ret = true;
+	//			if (foreach_chunk(ht, reindex_chunk, args) >= 0)
+	//				ret = true;
 
-				process_add_hypertable(args, ht);
-			}
-			break;
-		case REINDEX_OBJECT_INDEX:
-			ht = ts_hypertable_cache_get_entry(hcache,
-											   IndexGetRelation(relid, true),
-											   CACHE_FLAG_MISSING_OK);
+	//			process_add_hypertable(args, ht);
+	//		}
+	//		break;
+	//	case REINDEX_OBJECT_INDEX:
+	//		ht = ts_hypertable_cache_get_entry(hcache,
+	//										   IndexGetRelation(relid, true),
+	//										   CACHE_FLAG_MISSING_OK);
 
-			if (NULL != ht)
-			{
-				process_add_hypertable(args, ht);
-				ts_hypertable_permissions_check_by_id(ht->fd.id);
+	//		if (NULL != ht)
+	//		{
+	//			process_add_hypertable(args, ht);
+	//			ts_hypertable_permissions_check_by_id(ht->fd.id);
 
-				/*
-				 * Recursing to chunks is currently not supported. Need to
-				 * look up all chunk indexes that corresponds to the
-				 * hypertable's index.
-				 */
-				ereport(ERROR,
-						(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-						 errmsg("reindexing of a specific index on a hypertable is unsupported"),
-						 errhint(
-							 "As a workaround, it is possible to run REINDEX TABLE to reindex all "
-							 "indexes on a hypertable, including all indexes on chunks.")));
-			}
-			break;
-		default:
-			break;
-	}
+	//			/*
+	//			 * Recursing to chunks is currently not supported. Need to
+	//			 * look up all chunk indexes that corresponds to the
+	//			 * hypertable's index.
+	//			 */
+	//			ereport(ERROR,
+	//					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+	//					 errmsg("reindexing of a specific index on a hypertable is unsupported"),
+	//					 errhint(
+	//						 "As a workaround, it is possible to run REINDEX TABLE to reindex all "
+	//						 "indexes on a hypertable, including all indexes on chunks.")));
+	//		}
+	//		break;
+	//	default:
+	//		break;
+	//}
 
 	ts_cache_release(hcache);
 
@@ -1435,9 +1440,9 @@ process_rename(ProcessUtilityArgs *args)
 		case OBJECT_INDEX:
 			process_rename_index(args, hcache, relid, stmt);
 			break;
-		case OBJECT_TABCONSTRAINT:
-			process_rename_constraint(args, hcache, relid, stmt);
-			break;
+		//case OBJECT_TABCONSTRAINT:
+		//	process_rename_constraint(args, hcache, relid, stmt);
+		//	break;
 		case OBJECT_VIEW:
 			process_rename_view(relid, stmt);
 			break;
@@ -1456,15 +1461,15 @@ static void
 process_altertable_change_owner_chunk(Hypertable *ht, Oid chunk_relid, void *arg)
 {
 	AlterTableCmd *cmd = arg;
-	Oid roleid = get_rolespec_oid(cmd->newowner, false);
+	//Oid roleid = get_rolespec_oid(cmd->newowner, false);
 
-	ATExecChangeOwner(chunk_relid, roleid, false, AccessExclusiveLock);
+	//ATExecChangeOwner(chunk_relid, roleid, false, AccessExclusiveLock);
 }
 
 static void
 process_altertable_change_owner(Hypertable *ht, AlterTableCmd *cmd)
 {
-	Assert(IsA(cmd->newowner, RoleSpec));
+	//Assert(IsA(cmd->newowner, RoleSpec));
 
 	foreach_chunk(ht, process_altertable_change_owner_chunk, cmd);
 
@@ -1675,19 +1680,19 @@ typedef struct HypertableIndexOptions
 	bool ht_hasoid;
 
 	/* Concurrency testing options. */
-#ifdef DEBUG
-	/*
-	 * If barrier_table is a valid Oid we try to acquire a lock on it at the
-	 * start of each chunks sub-transaction.
-	 */
-	Oid barrier_table;
-
-	/*
-	 * if max_chunks >= 0 we'll create indicies on at most max_chunks, and
-	 * leave the table marked as Invalid when the command ends.
-	 */
-	int32 max_chunks;
-#endif
+//#ifdef DEBUG
+//	/*
+//	 * If barrier_table is a valid Oid we try to acquire a lock on it at the
+//	 * start of each chunks sub-transaction.
+//	 */
+//	Oid barrier_table;
+//
+//	/*
+//	 * if max_chunks >= 0 we'll create indicies on at most max_chunks, and
+//	 * leave the table marked as Invalid when the command ends.
+//	 */
+//	int32 max_chunks;
+//#endif
 } HypertableIndexOptions;
 
 typedef struct CreateIndexInfo
@@ -1749,35 +1754,35 @@ process_index_chunk_multitransaction(int32 hypertable_id, Oid chunk_relid, void 
 	StartTransactionCommand();
 	PushActiveSnapshot(GetTransactionSnapshot());
 
-#ifdef DEBUG
-	if (info->extended_options.max_chunks == 0)
-	{
-		PopActiveSnapshot();
-		CommitTransactionCommand();
-		return;
-	}
-
-	/*
-	 * if max_chunks is < 0 then we're indexing all the chunks, if it's >= 0
-	 * then we're only indexing some of the chunks, and leaving the root index
-	 * marked as invalid
-	 */
-	if (info->extended_options.max_chunks > 0)
-		info->extended_options.max_chunks -= 1;
-
-	if (OidIsValid(info->extended_options.barrier_table))
-	{
-		/*
-		 * For isolation tests, and debugging, it's useful to be able to
-		 * pause CREATE INDEX immediately before it starts working on chunks.
-		 * We acquire and immediately release a lock on a barrier table to do
-		 * this.
-		 */
-		Relation barrier = relation_open(info->extended_options.barrier_table, AccessExclusiveLock);
-
-		relation_close(barrier, AccessExclusiveLock);
-	}
-#endif
+//#ifdef DEBUG
+//	if (info->extended_options.max_chunks == 0)
+//	{
+//		PopActiveSnapshot();
+//		CommitTransactionCommand();
+//		return;
+//	}
+//
+//	/*
+//	 * if max_chunks is < 0 then we're indexing all the chunks, if it's >= 0
+//	 * then we're only indexing some of the chunks, and leaving the root index
+//	 * marked as invalid
+//	 */
+//	if (info->extended_options.max_chunks > 0)
+//		info->extended_options.max_chunks -= 1;
+//
+//	if (OidIsValid(info->extended_options.barrier_table))
+//	{
+//		/*
+//		 * For isolation tests, and debugging, it's useful to be able to
+//		 * pause CREATE INDEX immediately before it starts working on chunks.
+//		 * We acquire and immediately release a lock on a barrier table to do
+//		 * this.
+//		 */
+//		Relation barrier = relation_open(info->extended_options.barrier_table, AccessExclusiveLock);
+//
+//		relation_close(barrier, AccessExclusiveLock);
+//	}
+//#endif
 
 	/*
 	 * Change user since chunks are typically located in an internal schema
@@ -1832,28 +1837,28 @@ process_index_chunk_multitransaction(int32 hypertable_id, Oid chunk_relid, void 
 typedef enum HypertableIndexFlags
 {
 	HypertableIndexFlagMultiTransaction = 0,
-#ifdef DEBUG
-	HypertableIndexFlagBarrierTable,
-	HypertableIndexFlagMaxChunks,
-#endif
+//#ifdef DEBUG
+//	HypertableIndexFlagBarrierTable,
+//	HypertableIndexFlagMaxChunks,
+//#endif
 } HypertableIndexFlags;
 
 static const WithClauseDefinition index_with_clauses[] = {
 	[HypertableIndexFlagMultiTransaction] = {.arg_name = "transaction_per_chunk", .type_id = BOOLOID,},
-#ifdef DEBUG
-	[HypertableIndexFlagBarrierTable] = {.arg_name = "barrier_table", .type_id = REGCLASSOID,},
-	[HypertableIndexFlagMaxChunks] = {.arg_name = "max_chunks", .type_id = INT4OID, .default_val = Int32GetDatum(-1)},
-#endif
+//#ifdef DEBUG
+//	[HypertableIndexFlagBarrierTable] = {.arg_name = "barrier_table", .type_id = REGCLASSOID,},
+//	[HypertableIndexFlagMaxChunks] = {.arg_name = "max_chunks", .type_id = INT4OID, .default_val = Int32GetDatum(-1)},
+//#endif
 };
 
 static bool
 multitransaction_create_index_mark_valid(CreateIndexInfo info)
 {
-#ifdef DEBUG
-	return info.extended_options.max_chunks < 0;
-#else
+//#ifdef DEBUG
+//	return info.extended_options.max_chunks < 0;
+//#else
 	return true;
-#endif
+//#endif
 }
 
 /*
@@ -1874,9 +1879,9 @@ process_index_start(ProcessUtilityArgs *args)
 	WithClauseResult *parsed_with_clauses;
 	CreateIndexInfo info = {
 		.stmt = stmt,
-#ifdef DEBUG
-		.extended_options = {0, .max_chunks = -1,},
-#endif
+//#ifdef DEBUG
+//		.extended_options = {0, .max_chunks = -1,},
+//#endif
 	};
 	ObjectAddress root_table_index;
 	Relation main_table_relation;
@@ -1917,12 +1922,12 @@ process_index_start(ProcessUtilityArgs *args)
 
 	info.extended_options.multitransaction =
 		DatumGetBool(parsed_with_clauses[HypertableIndexFlagMultiTransaction].parsed);
-#ifdef DEBUG
-	info.extended_options.max_chunks =
-		DatumGetInt32(parsed_with_clauses[HypertableIndexFlagMaxChunks].parsed);
-	info.extended_options.barrier_table =
-		DatumGetObjectId(parsed_with_clauses[HypertableIndexFlagBarrierTable].parsed);
-#endif
+//#ifdef DEBUG
+//	info.extended_options.max_chunks =
+//		DatumGetInt32(parsed_with_clauses[HypertableIndexFlagMaxChunks].parsed);
+//	info.extended_options.barrier_table =
+//		DatumGetObjectId(parsed_with_clauses[HypertableIndexFlagBarrierTable].parsed);
+//#endif
 
 	/* Make sure this index is allowed */
 	if (stmt->concurrent)
@@ -1952,11 +1957,11 @@ process_index_start(ProcessUtilityArgs *args)
 	/* root_table_index will have 0 objectId if the index already exists
 	 * and if_not_exists is true. In that case there is nothing else
 	 * to do here. */
-	if (!OidIsValid(root_table_index.objectId) && stmt->if_not_exists)
-	{
-		ts_cache_release(hcache);
-		return true;
-	}
+	//if (!OidIsValid(root_table_index.objectId) && stmt->if_not_exists)
+	//{
+	//	ts_cache_release(hcache);
+	//	return true;
+	//}
 	Assert(OidIsValid(root_table_index.objectId));
 	info.obj.objectId = root_table_index.objectId;
 
@@ -2087,7 +2092,7 @@ process_cluster_start(ProcessUtilityArgs *args)
 
 	if (NULL != ht)
 	{
-		bool is_top_level = (args->context == PROCESS_UTILITY_TOPLEVEL);
+		//bool is_top_level = (args->context == PROCESS_UTILITY_TOPLEVEL);
 		Oid index_relid;
 		Relation index_rel;
 		List *chunk_indexes;
@@ -2103,7 +2108,7 @@ process_cluster_start(ProcessUtilityArgs *args)
 		 * If CLUSTER is run inside a user transaction block; we bail out or
 		 * otherwise we'd be holding locks way too long.
 		 */
-		PreventInTransactionBlock(is_top_level, "CLUSTER");
+		//PreventInTransactionBlock(is_top_level, "CLUSTER");
 
 		process_add_hypertable(args, ht);
 
@@ -2153,13 +2158,13 @@ process_cluster_start(ProcessUtilityArgs *args)
 		 * The list of chunks and their indexes need to be on a memory context
 		 * that will survive moving to a new transaction for each chunk
 		 */
-		mcxt = AllocSetContextCreate(PortalContext, "Hypertable cluster", ALLOCSET_DEFAULT_SIZES);
+		//mcxt = AllocSetContextCreate(PortalContext, "Hypertable cluster", ALLOCSET_DEFAULT_SIZES);
 
 		/*
 		 * Get a list of chunks and indexes that correspond to the
 		 * hypertable's index
 		 */
-		old = MemoryContextSwitchTo(mcxt);
+		//old = MemoryContextSwitchTo(mcxt);
 		chunk_indexes = ts_chunk_index_get_mappings(ht, index_relid);
 
 		if (list_length(chunk_indexes) > 0)
@@ -2181,7 +2186,7 @@ process_cluster_start(ProcessUtilityArgs *args)
 				  chunk_index_mappings_cmp);
 		}
 
-		MemoryContextSwitchTo(old);
+		//MemoryContextSwitchTo(old);
 
 		hcache->release_on_commit = false;
 
@@ -2213,13 +2218,18 @@ process_cluster_start(ProcessUtilityArgs *args)
 			 * issue if an OID gets reassigned between two subtransactions
 			 */
 			cluster_rel(cim->chunkoid,
+						InvalidOid,
 						cim->indexoid,
-#if PG12_LT
+//#if PG12_LT
 						true,
-						stmt->verbose
-#else
-						stmt->options
-#endif
+						stmt->verbose,
+						-1,
+						-1,
+						&stmt->memUsage,
+						true
+//#else
+//						stmt->options
+//#endif
 			);
 			PopActiveSnapshot();
 			CommitTransactionCommand();
@@ -2325,7 +2335,8 @@ static void
 process_alter_column_type_end(Hypertable *ht, AlterTableCmd *cmd)
 {
 	ColumnDef *coldef = (ColumnDef *) cmd->def;
-	Oid new_type = TypenameGetTypid(typename_get_unqual_name(coldef->typeName));
+	//Oid new_type = TypenameGetTypid(typename_get_unqual_name(coldef->typeName));
+	Oid new_type = TypenameGetTypid(typename_get_unqual_name(coldef->typname));
 	Dimension *dim = ts_hyperspace_get_dimension_by_name(ht->space, DIMENSION_TYPE_ANY, cmd->name);
 
 	if (NULL == dim)
@@ -2408,41 +2419,41 @@ process_altertable_set_tablespace_end(Hypertable *ht, AlterTableCmd *cmd)
 	}
 }
 
-static void
-process_altertable_end_index(Node *parsetree, CollectedCommand *cmd)
-{
-	AlterTableStmt *stmt = (AlterTableStmt *) parsetree;
-	Oid indexrelid = AlterTableLookupRelation(stmt, NoLock);
-	Oid tablerelid = IndexGetRelation(indexrelid, false);
-	Cache *hcache;
-	Hypertable *ht;
-
-	if (!OidIsValid(tablerelid))
-		return;
-
-	ht = ts_hypertable_cache_get_cache_and_entry(tablerelid, CACHE_FLAG_MISSING_OK, &hcache);
-
-	if (NULL != ht)
-	{
-		ListCell *lc;
-
-		foreach (lc, stmt->cmds)
-		{
-			AlterTableCmd *cmd = (AlterTableCmd *) lfirst(lc);
-
-			switch (cmd->subtype)
-			{
-				case AT_SetTableSpace:
-					ts_chunk_index_set_tablespace(ht, indexrelid, cmd->name);
-					break;
-				default:
-					break;
-			}
-		}
-	}
-
-	ts_cache_release(hcache);
-}
+//static void
+//process_altertable_end_index(Node *parsetree, CollectedCommand *cmd)
+//{
+//	AlterTableStmt *stmt = (AlterTableStmt *) parsetree;
+//	Oid indexrelid = AlterTableLookupRelation(stmt, NoLock);
+//	Oid tablerelid = IndexGetRelation(indexrelid, false);
+//	Cache *hcache;
+//	Hypertable *ht;
+//
+//	if (!OidIsValid(tablerelid))
+//		return;
+//
+//	ht = ts_hypertable_cache_get_cache_and_entry(tablerelid, CACHE_FLAG_MISSING_OK, &hcache);
+//
+//	if (NULL != ht)
+//	{
+//		ListCell *lc;
+//
+//		foreach (lc, stmt->cmds)
+//		{
+//			AlterTableCmd *cmd = (AlterTableCmd *) lfirst(lc);
+//
+//			switch (cmd->subtype)
+//			{
+//				case AT_SetTableSpace:
+//					ts_chunk_index_set_tablespace(ht, indexrelid, cmd->name);
+//					break;
+//				default:
+//					break;
+//			}
+//		}
+//	}
+//
+//	ts_cache_release(hcache);
+//}
 
 static inline void
 process_altertable_chunk_set_tablespace(AlterTableCmd *cmd, Oid relid)
@@ -2551,26 +2562,26 @@ process_altertable_start_table(ProcessUtilityArgs *args)
 				if (ht != NULL)
 					process_alter_column_type_start(ht, cmd);
 				break;
-#if !PG96
-			case AT_AttachPartition:
-			{
-				RangeVar *relation;
-				PartitionCmd *partstmt;
-
-				partstmt = (PartitionCmd *) cmd->def;
-				relation = partstmt->name;
-				Assert(NULL != relation);
-
-				if (InvalidOid != ts_hypertable_relid(relation))
-				{
-					ereport(ERROR,
-							(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-							 errmsg("hypertables do not support native "
-									"postgres partitioning")));
-				}
-				break;
-			}
-#endif
+//#if !PG96
+//			case AT_AttachPartition:
+//			{
+//				RangeVar *relation;
+//				PartitionCmd *partstmt;
+//
+//				partstmt = (PartitionCmd *) cmd->def;
+//				relation = partstmt->name;
+//				Assert(NULL != relation);
+//
+//				if (InvalidOid != ts_hypertable_relid(relation))
+//				{
+//					ereport(ERROR,
+//							(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+//							 errmsg("hypertables do not support native "
+//									"postgres partitioning")));
+//				}
+//				break;
+//			}
+//#endif
 			case AT_SetRelOptions:
 			{
 				if (num_cmds != 1)
@@ -2775,11 +2786,11 @@ process_altertable_end_subcmd(Hypertable *ht, Node *parsetree, ObjectAddress *ob
 		case AT_ClusterOn:
 			process_altertable_clusteron_end(ht, cmd);
 			break;
-		case AT_SetUnLogged:
-			ereport(ERROR,
-					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-					 errmsg("logging cannot be turned off for hypertables")));
-			break;
+		//case AT_SetUnLogged:
+		//	ereport(ERROR,
+		//			(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+		//			 errmsg("logging cannot be turned off for hypertables")));
+		//	break;
 		case AT_ReplicaIdentity:
 			ereport(ERROR,
 					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
@@ -2794,9 +2805,9 @@ process_altertable_end_subcmd(Hypertable *ht, Node *parsetree, ObjectAddress *ob
 					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 					 errmsg("hypertables do not support rules")));
 			break;
-		case AT_AlterConstraint:
-			process_altertable_alter_constraint_end(ht, cmd);
-			break;
+		//case AT_AlterConstraint:
+		//	process_altertable_alter_constraint_end(ht, cmd);
+		//	break;
 		case AT_ValidateConstraint:
 		case AT_ValidateConstraintRecurse:
 			process_altertable_validate_constraint_end(ht, cmd);
@@ -2804,9 +2815,9 @@ process_altertable_end_subcmd(Hypertable *ht, Node *parsetree, ObjectAddress *ob
 		case AT_SetRelOptions:
 		case AT_ResetRelOptions:
 		case AT_ReplaceRelOptions:
-#if PG12_LT
+//#if PG12_LT
 		case AT_AddOids:
-#endif
+//#endif
 		case AT_DropOids:
 		case AT_SetOptions:
 		case AT_ResetOptions:
@@ -2822,37 +2833,37 @@ process_altertable_end_subcmd(Hypertable *ht, Node *parsetree, ObjectAddress *ob
 					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 					 errmsg("hypertables do not support inheritance")));
 		case AT_SetStatistics:
-		case AT_SetLogged:
+		//case AT_SetLogged:
 		case AT_SetStorage:
 		case AT_ColumnDefault:
 #ifdef PG_HAS_COOKEDCOLUMNDEFAULT
 		case AT_CookedColumnDefault:
 #endif
 		case AT_SetNotNull:
-#if PG12_GE
-		case AT_CheckNotNull: /*TODO test*/
-#endif
+//#if PG12_GE
+//		case AT_CheckNotNull: /*TODO test*/
+//#endif
 		case AT_DropNotNull:
 		case AT_AddOf:
 		case AT_DropOf:
-#if PG10_GE
-		case AT_AddIdentity:
-		case AT_SetIdentity:
-		case AT_DropIdentity:
-#endif
+//#if PG10_GE
+//		case AT_AddIdentity:
+//		case AT_SetIdentity:
+//		case AT_DropIdentity:
+//#endif
 			/* all of the above are handled by default recursion */
 			break;
-		case AT_EnableRowSecurity:
-		case AT_DisableRowSecurity:
-		case AT_ForceRowSecurity:
-		case AT_NoForceRowSecurity:
-			/* RLS commands should not recurse to chunks */
-			break;
+		//case AT_EnableRowSecurity:
+		//case AT_DisableRowSecurity:
+		//case AT_ForceRowSecurity:
+		//case AT_NoForceRowSecurity:
+		//	/* RLS commands should not recurse to chunks */
+		//	break;
 		case AT_ReAddConstraint:
 		case AT_ReAddIndex:
-#if PG12_LT
+//#if PG12_LT
 		case AT_AddOidsRecurse:
-#endif
+//#endif
 
 			/*
 			 * all of the above are internal commands that are hit in tests
@@ -2876,22 +2887,22 @@ process_altertable_end_subcmd(Hypertable *ht, Node *parsetree, ObjectAddress *ob
 		case AT_ProcessedConstraint:	   /* internal command never hit in our
 											* test code, so don't know how to
 											* handle */
-		case AT_ReAddComment:			   /* internal command never hit in our test
-											* code, so don't know how to handle */
+		//case AT_ReAddComment:			   /* internal command never hit in our test
+		//									* code, so don't know how to handle */
 		case AT_AddColumnToView:		   /* only used with views */
 		case AT_AlterColumnGenericOptions: /* only used with foreign tables */
 		case AT_GenericOptions:			   /* only used with foreign tables */
-#if PG11_GE
-		case AT_ReAddDomainConstraint: /* We should handle this in future,
-										* new subset of constraints in PG11
-										* currently not hit in test code */
-#endif
-#if PG10_GE
-		case AT_AttachPartition: /* handled in
-								  * process_altertable_start_table but also
-								  * here as failsafe */
-		case AT_DetachPartition:
-#endif
+//#if PG11_GE
+//		case AT_ReAddDomainConstraint: /* We should handle this in future,
+//										* new subset of constraints in PG11
+//										* currently not hit in test code */
+//#endif
+//#if PG10_GE
+//		case AT_AttachPartition: /* handled in
+//								  * process_altertable_start_table but also
+//								  * here as failsafe */
+//		case AT_DetachPartition:
+//#endif
 			ereport(ERROR,
 					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 					 errmsg("operation not supported on hypertables %d", cmd->subtype)));
@@ -2899,80 +2910,80 @@ process_altertable_end_subcmd(Hypertable *ht, Node *parsetree, ObjectAddress *ob
 	}
 }
 
-static void
-process_altertable_end_simple_cmd(Hypertable *ht, CollectedCommand *cmd)
-{
-	AlterTableStmt *stmt = (AlterTableStmt *) cmd->parsetree;
+//static void
+//process_altertable_end_simple_cmd(Hypertable *ht, CollectedCommand *cmd)
+//{
+//	AlterTableStmt *stmt = (AlterTableStmt *) cmd->parsetree;
+//
+//	Assert(IsA(stmt, AlterTableStmt));
+//	process_altertable_end_subcmd(ht, linitial(stmt->cmds), &cmd->d.simple.secondaryObject);
+//}
 
-	Assert(IsA(stmt, AlterTableStmt));
-	process_altertable_end_subcmd(ht, linitial(stmt->cmds), &cmd->d.simple.secondaryObject);
-}
+//static void
+//process_altertable_end_subcmds(Hypertable *ht, List *cmds)
+//{
+//	ListCell *lc;
+//
+//	foreach (lc, cmds)
+//	{
+//		CollectedATSubcmd *cmd = lfirst(lc);
+//
+//		process_altertable_end_subcmd(ht, cmd->parsetree, &cmd->address);
+//	}
+//}
 
-static void
-process_altertable_end_subcmds(Hypertable *ht, List *cmds)
-{
-	ListCell *lc;
-
-	foreach (lc, cmds)
-	{
-		CollectedATSubcmd *cmd = lfirst(lc);
-
-		process_altertable_end_subcmd(ht, cmd->parsetree, &cmd->address);
-	}
-}
-
-static void
-process_altertable_end_table(Node *parsetree, CollectedCommand *cmd)
-{
-	AlterTableStmt *stmt = (AlterTableStmt *) parsetree;
-	Oid relid;
-	Cache *hcache;
-	Hypertable *ht;
-
-	Assert(IsA(stmt, AlterTableStmt));
-
-	relid = AlterTableLookupRelation(stmt, NoLock);
-
-	if (!OidIsValid(relid))
-		return;
-
-	ht = ts_hypertable_cache_get_cache_and_entry(relid, CACHE_FLAG_MISSING_OK, &hcache);
-
-	if (NULL != ht)
-	{
-		switch (cmd->type)
-		{
-			case SCT_Simple:
-				process_altertable_end_simple_cmd(ht, cmd);
-				break;
-			case SCT_AlterTable:
-				process_altertable_end_subcmds(ht, cmd->d.alterTable.subcmds);
-				break;
-			default:
-				break;
-		}
-	}
-
-	ts_cache_release(hcache);
-}
-
-static void
-process_altertable_end(Node *parsetree, CollectedCommand *cmd)
-{
-	AlterTableStmt *stmt = (AlterTableStmt *) parsetree;
-
-	switch (stmt->relkind)
-	{
-		case OBJECT_TABLE:
-			process_altertable_end_table(parsetree, cmd);
-			break;
-		case OBJECT_INDEX:
-			process_altertable_end_index(parsetree, cmd);
-			break;
-		default:
-			break;
-	}
-}
+//static void
+//process_altertable_end_table(Node *parsetree, CollectedCommand *cmd)
+//{
+//	AlterTableStmt *stmt = (AlterTableStmt *) parsetree;
+//	Oid relid;
+//	Cache *hcache;
+//	Hypertable *ht;
+//
+//	Assert(IsA(stmt, AlterTableStmt));
+//
+//	relid = AlterTableLookupRelation(stmt, NoLock);
+//
+//	if (!OidIsValid(relid))
+//		return;
+//
+//	ht = ts_hypertable_cache_get_cache_and_entry(relid, CACHE_FLAG_MISSING_OK, &hcache);
+//
+//	if (NULL != ht)
+//	{
+//		switch (cmd->type)
+//		{
+//			case SCT_Simple:
+//				process_altertable_end_simple_cmd(ht, cmd);
+//				break;
+//			case SCT_AlterTable:
+//				process_altertable_end_subcmds(ht, cmd->d.alterTable.subcmds);
+//				break;
+//			default:
+//				break;
+//		}
+//	}
+//
+//	ts_cache_release(hcache);
+//}
+//
+//static void
+//process_altertable_end(Node *parsetree, CollectedCommand *cmd)
+//{
+//	AlterTableStmt *stmt = (AlterTableStmt *) parsetree;
+//
+//	switch (stmt->relkind)
+//	{
+//		case OBJECT_TABLE:
+//			process_altertable_end_table(parsetree, cmd);
+//			break;
+//		case OBJECT_INDEX:
+//			process_altertable_end_index(parsetree, cmd);
+//			break;
+//		default:
+//			break;
+//	}
+//}
 
 static bool
 process_create_trigger_start(ProcessUtilityArgs *args)
@@ -3017,11 +3028,11 @@ process_create_rule_start(ProcessUtilityArgs *args)
 static void
 check_supported_pg_version_for_compression()
 {
-#if PG10_LT
+//#if PG10_LT
 	ereport(ERROR,
 			(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 			 errmsg("compression is not supported with postgres version older than 10")));
-#endif
+//#endif
 }
 
 /* ALTER TABLE <name> SET ( timescaledb.compress, ...) */
@@ -3100,14 +3111,14 @@ process_viewstmt(ProcessUtilityArgs *args)
 				 errmsg("only timescaledb parameters allowed in WITH clause for continuous "
 						"aggregate")));
 
-#if PG10_GE
-	return ts_cm_functions->process_cagg_viewstmt(stmt,
-												  args->query_string,
-												  args->pstmt,
-												  parse_results);
-#else
+//#if PG10_GE
+//	return ts_cm_functions->process_cagg_viewstmt(stmt,
+//												  args->query_string,
+//												  args->pstmt,
+//												  parse_results);
+//#else
 	return ts_cm_functions->process_cagg_viewstmt(stmt, args->query_string, NULL, parse_results);
-#endif
+//#endif
 }
 
 static bool
@@ -3153,7 +3164,7 @@ process_refresh_mat_view_start(ProcessUtilityArgs *args)
 	if (materialization_id == -1)
 		return false;
 
-	PreventInTransactionBlock(args->context == PROCESS_UTILITY_TOPLEVEL, "REFRESH");
+	//PreventInTransactionBlock(args->context == PROCESS_UTILITY_TOPLEVEL, "REFRESH");
 
 	PopActiveSnapshot();
 	CommitTransactionCommand();
@@ -3262,21 +3273,21 @@ process_ddl_command_start(ProcessUtilityArgs *args)
 /*
  * Handle DDL commands after they've been processed by PostgreSQL.
  */
-static void
-process_ddl_command_end(CollectedCommand *cmd)
-{
-	switch (nodeTag(cmd->parsetree))
-	{
-		case T_CreateStmt:
-			process_create_table_end(cmd->parsetree);
-			break;
-		case T_AlterTableStmt:
-			process_altertable_end(cmd->parsetree, cmd);
-			break;
-		default:
-			break;
-	}
-}
+//static void
+//process_ddl_command_end(CollectedCommand *cmd)
+//{
+//	switch (nodeTag(cmd->parsetree))
+//	{
+//		case T_CreateStmt:
+//			process_create_table_end(cmd->parsetree);
+//			break;
+//		case T_AlterTableStmt:
+//			process_altertable_end(cmd->parsetree, cmd);
+//			break;
+//		default:
+//			break;
+//	}
+//}
 
 static void
 process_drop_constraint_on_chunk(Hypertable *ht, Oid chunk_relid, void *arg)
@@ -3440,117 +3451,117 @@ process_ddl_sql_drop(EventTriggerDropObject *obj)
  * ProcessUtility hook for DDL commands that have not yet been processed by
  * PostgreSQL.
  */
-static void
-timescaledb_ddl_command_start(
-#if PG10_GE
-	PlannedStmt *pstmt,
-#else
-	Node *parsetree,
-#endif
-	const char *query_string, ProcessUtilityContext context, ParamListInfo params,
-#if PG10_GE
-	QueryEnvironment *queryEnv,
-#endif
-	DestReceiver *dest, char *completion_tag)
-{
-	ProcessUtilityArgs args = {
-		.query_string = query_string,
-		.context = context,
-		.params = params,
-		.dest = dest,
-		.completion_tag = completion_tag,
-#if PG10_GE
-		.pstmt = pstmt,
-		.parsetree = pstmt->utilityStmt,
-		.queryEnv = queryEnv,
-		.parse_state = make_parsestate(NULL),
-#else
-		.parsetree = parsetree,
-#endif
-		.hypertable_list = NIL
-	};
+//static void
+//timescaledb_ddl_command_start(
+////#if PG10_GE
+////	PlannedStmt *pstmt,
+////#else
+//	Node *parsetree,
+////#endif
+//	const char *query_string, ProcessUtilityContext context, ParamListInfo params,
+////#if PG10_GE
+////	QueryEnvironment *queryEnv,
+////#endif
+//	DestReceiver *dest, char *completion_tag)
+//{
+//	ProcessUtilityArgs args = {
+//		.query_string = query_string,
+//		.context = context,
+//		.params = params,
+//		.dest = dest,
+//		.completion_tag = completion_tag,
+////#if PG10_GE
+////		.pstmt = pstmt,
+////		.parsetree = pstmt->utilityStmt,
+////		.queryEnv = queryEnv,
+////		.parse_state = make_parsestate(NULL),
+////#else
+//		.parsetree = parsetree,
+////#endif
+//		.hypertable_list = NIL
+//	};
+//
+//	bool altering_timescaledb = false;
+//	bool handled;
+//
+////#if PG10_GE
+////	args.parse_state->p_sourcetext = query_string;
+////#endif
+//
+//	if (IsA(args.parsetree, AlterExtensionStmt))
+//	{
+//		AlterExtensionStmt *stmt = (AlterExtensionStmt *) args.parsetree;
+//
+//		altering_timescaledb = (strcmp(stmt->extname, EXTENSION_NAME) == 0);
+//	}
+//
+//	/*
+//	 * We don't want to load the extension if we just got the command to alter
+//	 * it.
+//	 */
+//	if (altering_timescaledb || !ts_extension_is_loaded())
+//	{
+//		prev_ProcessUtility(&args);
+//		return;
+//	}
+//
+//	/*
+//	 * Process Utility/DDL operation locally then pass it on for
+//	 * execution in TSL.
+//	 */
+//	handled = process_ddl_command_start(&args);
+//
+//	/*
+//	 * We need to run tsl-side ddl_command_start hook before
+//	 * standard process utility hook to maintain proper invocation
+//	 * order of sql_drop and ddl_command_end triggers.
+//	 */
+//	if (ts_cm_functions->ddl_command_start)
+//		ts_cm_functions->ddl_command_start(&args);
+//
+//	if (!handled)
+//		prev_ProcessUtility(&args);
+//}
 
-	bool altering_timescaledb = false;
-	bool handled;
-
-#if PG10_GE
-	args.parse_state->p_sourcetext = query_string;
-#endif
-
-	if (IsA(args.parsetree, AlterExtensionStmt))
-	{
-		AlterExtensionStmt *stmt = (AlterExtensionStmt *) args.parsetree;
-
-		altering_timescaledb = (strcmp(stmt->extname, EXTENSION_NAME) == 0);
-	}
-
-	/*
-	 * We don't want to load the extension if we just got the command to alter
-	 * it.
-	 */
-	if (altering_timescaledb || !ts_extension_is_loaded())
-	{
-		prev_ProcessUtility(&args);
-		return;
-	}
-
-	/*
-	 * Process Utility/DDL operation locally then pass it on for
-	 * execution in TSL.
-	 */
-	handled = process_ddl_command_start(&args);
-
-	/*
-	 * We need to run tsl-side ddl_command_start hook before
-	 * standard process utility hook to maintain proper invocation
-	 * order of sql_drop and ddl_command_end triggers.
-	 */
-	if (ts_cm_functions->ddl_command_start)
-		ts_cm_functions->ddl_command_start(&args);
-
-	if (!handled)
-		prev_ProcessUtility(&args);
-}
-
-static void
-process_ddl_event_command_end(EventTriggerData *trigdata)
-{
-	ListCell *lc;
-
-	/* Inhibit collecting new commands while in the trigger */
-	EventTriggerInhibitCommandCollection();
-
-	if (ts_cm_functions->ddl_command_end)
-		ts_cm_functions->ddl_command_end(trigdata);
-
-	switch (nodeTag(trigdata->parsetree))
-	{
-		case T_AlterTableStmt:
-		case T_CreateTrigStmt:
-		case T_CreateStmt:
-		case T_IndexStmt:
-			foreach (lc, ts_event_trigger_ddl_commands())
-				process_ddl_command_end(lfirst(lc));
-			break;
-		default:
-			break;
-	}
-
-	EventTriggerUndoInhibitCommandCollection();
-}
-
-static void
-process_ddl_event_sql_drop(EventTriggerData *trigdata)
-{
-	ListCell *lc;
-	List *dropped_objects = ts_event_trigger_dropped_objects();
-
-	if (ts_cm_functions->sql_drop)
-		ts_cm_functions->sql_drop(dropped_objects);
-
-	foreach (lc, dropped_objects)
-		process_ddl_sql_drop(lfirst(lc));
-}
+//static void
+//process_ddl_event_command_end(EventTriggerData *trigdata)
+//{
+//	ListCell *lc;
+//
+//	/* Inhibit collecting new commands while in the trigger */
+//	EventTriggerInhibitCommandCollection();
+//
+//	if (ts_cm_functions->ddl_command_end)
+//		ts_cm_functions->ddl_command_end(trigdata);
+//
+//	switch (nodeTag(trigdata->parsetree))
+//	{
+//		case T_AlterTableStmt:
+//		case T_CreateTrigStmt:
+//		case T_CreateStmt:
+//		case T_IndexStmt:
+//			foreach (lc, ts_event_trigger_ddl_commands())
+//				process_ddl_command_end(lfirst(lc));
+//			break;
+//		default:
+//			break;
+//	}
+//
+//	EventTriggerUndoInhibitCommandCollection();
+//}
+//
+//static void
+//process_ddl_event_sql_drop(EventTriggerData *trigdata)
+//{
+//	ListCell *lc;
+//	List *dropped_objects = ts_event_trigger_dropped_objects();
+//
+//	if (ts_cm_functions->sql_drop)
+//		ts_cm_functions->sql_drop(dropped_objects);
+//
+//	foreach (lc, dropped_objects)
+//		process_ddl_sql_drop(lfirst(lc));
+//}
 
 TS_FUNCTION_INFO_V1(ts_timescaledb_process_ddl_event);
 
@@ -3561,18 +3572,18 @@ TS_FUNCTION_INFO_V1(ts_timescaledb_process_ddl_event);
 Datum
 ts_timescaledb_process_ddl_event(PG_FUNCTION_ARGS)
 {
-	EventTriggerData *trigdata = (EventTriggerData *) fcinfo->context;
+	//EventTriggerData *trigdata = (EventTriggerData *) fcinfo->context;
 
-	if (!CALLED_AS_EVENT_TRIGGER(fcinfo))
-		elog(ERROR, "not fired by event trigger manager");
+	//if (!CALLED_AS_EVENT_TRIGGER(fcinfo))
+	//	elog(ERROR, "not fired by event trigger manager");
 
 	if (!ts_extension_is_loaded())
 		PG_RETURN_NULL();
 
-	if (strcmp("ddl_command_end", trigdata->event) == 0)
-		process_ddl_event_command_end(trigdata);
-	else if (strcmp("sql_drop", trigdata->event) == 0)
-		process_ddl_event_sql_drop(trigdata);
+	//if (strcmp("ddl_command_end", trigdata->event) == 0)
+	//	process_ddl_event_command_end(trigdata);
+	//else if (strcmp("sql_drop", trigdata->event) == 0)
+	//	process_ddl_event_sql_drop(trigdata);
 
 	PG_RETURN_NULL();
 }
@@ -3621,7 +3632,7 @@ void
 _process_utility_init(void)
 {
 	prev_ProcessUtility_hook = ProcessUtility_hook;
-	ProcessUtility_hook = timescaledb_ddl_command_start;
+	//ProcessUtility_hook = timescaledb_ddl_command_start;
 	RegisterXactCallback(process_utility_xact_abort, NULL);
 	RegisterSubXactCallback(process_utility_subxact_abort, NULL);
 }

@@ -10,11 +10,11 @@
 
 #include "compat.h"
 
-#if PG12_GE
-#include <nodes/pathnodes.h>
-#else
+//#if PG12_GE
+//#include <nodes/pathnodes.h>
+//#else
 #include <nodes/relation.h>
-#endif
+//#endif
 
 extern void ts_set_rel_size(PlannerInfo *root, RelOptInfo *rel, Index rti, RangeTblEntry *rte);
 extern void ts_set_append_rel_pathlist(PlannerInfo *root, RelOptInfo *rel, Index rti,

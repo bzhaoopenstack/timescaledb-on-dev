@@ -15,6 +15,8 @@
 #include <miscadmin.h>
 #include <funcapi.h>
 
+#include <knl/knl_session.h>
+
 #include "hypertable_cache.h"
 #include "errors.h"
 #include "catalog.h"
@@ -87,15 +89,18 @@ tablespace_scan_internal(int indexid, ScanKeyData *scankey, int nkeys, tuple_fou
 	Catalog *catalog = ts_catalog_get();
 	ScannerCtx scanctx = {
 		.table = catalog_get_table_id(catalog, TABLESPACE),
-		.index = catalog_get_index(catalog, TABLESPACE, indexid),
 		.nkeys = nkeys,
-		.scankey = scankey,
-		.tuple_found = tuple_found,
-		.filter = tuple_filter,
-		.data = data,
-		.limit = limit,
 		.lockmode = lockmode,
 		.scandirection = ForwardScanDirection,
+		.result_mctx = NULL,
+		.scankey = scankey,
+		.tuple_found = tuple_found,
+		.data = data,
+		.index = catalog_get_index(catalog, TABLESPACE, indexid),
+		.limit = limit,
+		.norderbys = NULL,
+		.want_itup = NULL,
+		.filter = tuple_filter,
 	};
 
 	return ts_scanner_scan(&scanctx);
@@ -170,6 +175,9 @@ tablespace_validate_revoke_internal(const char *tspcname, tuple_found_func tuple
 	TablespaceScanInfo info = {
 		.database_info = ts_catalog_database_info_get(),
 		.hcache = ts_hypertable_cache_pin(),
+		.userid = NULL,
+		.num_filtered = NULL,
+		.stopcount = NULL,
 		.data = stmt,
 	};
 
@@ -212,12 +220,12 @@ revoke_tuple_found(TupleInfo *ti, void *data)
 
 	foreach (lc_role, stmt->grantees)
 	{
-		RoleSpec *role = lfirst(lc_role);
-		Oid roleoid = get_role_oid_or_public(role->rolename);
+		//RoleSpec *role = lfirst(lc_role);
+		//Oid roleoid = get_role_oid_or_public(role->rolename);
 
 		/* Check if this is a role we're interested in */
-		if (!OidIsValid(roleoid))
-			continue;
+		//if (!OidIsValid(roleoid))
+		//	continue;
 
 		/*
 		 * A revoke on a tablespace can only be for 'CREATE' (or ALL), so no
@@ -254,15 +262,15 @@ revoke_role_tuple_found(TupleInfo *ti, void *data)
 
 	foreach (lc_role, stmt->grantee_roles)
 	{
-		RoleSpec *rolespec = lfirst(lc_role);
-#if PG96
-		Oid grantee = get_rolespec_oid((Node *) rolespec, true);
-#else
-		Oid grantee = get_rolespec_oid(rolespec, true);
-#endif
+		//RoleSpec *rolespec = lfirst(lc_role);
+//#if PG96
+		//Oid grantee = get_rolespec_oid((Node *) rolespec, true);
+//#else
+//		Oid grantee = get_rolespec_oid(rolespec, true);
+//#endif
 		/* Only interested in revokes on table owners */
-		if (grantee != relowner)
-			continue;
+		//if (grantee != relowner)
+		//	continue;
 
 		/*
 		 * No need to check which role that was revoked since we are only
@@ -337,6 +345,9 @@ ts_tablespace_delete(int32 hypertable_id, const char *tspcname)
 	ScanKeyData scankey[2];
 	TablespaceScanInfo info = {
 		.database_info = ts_catalog_database_info_get(),
+		.hcache = NULL,
+		.userid = NULL,
+		.num_filtered = NULL,
 		.stopcount = (NULL != tspcname),
 	};
 	int num_deleted, nkeys = 0;
@@ -484,7 +495,7 @@ ts_tablespace_attach_internal(Name tspcname, Oid hypertable_oid, bool if_not_att
 	 * Which was handled in a similar way. (See
 	 * tablecmds.c::ATPrepSetTableSpace)
 	 */
-	if (tspc_oid != MyDatabaseTableSpace)
+	if (tspc_oid != u_sess->proc_cxt.MyDatabaseTableSpace)
 	{
 		/*
 		 * Note that we check against the table owner rather than the current
@@ -497,8 +508,8 @@ ts_tablespace_attach_internal(Name tspcname, Oid hypertable_oid, bool if_not_att
 			ereport(ERROR,
 					(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
 					 errmsg("permission denied for tablespace \"%s\" by table owner \"%s\"",
-							NameStr(*tspcname),
-							GetUserNameFromId(ownerid, true))));
+							NameStr(*tspcname), GetUserNameFromId(ownerid))));
+							//GetUserNameFromId(ownerid, true))));
 	}
 	ht = ts_hypertable_cache_get_cache_and_entry(hypertable_oid, CACHE_FLAG_NONE, &hcache);
 

@@ -8,7 +8,7 @@
 #include <funcapi.h>
 #include <access/genam.h>
 #include <access/heapam.h>
-#include <access/htup_details.h>
+//#include <access/htup_details.h>
 #include <access/htup.h>
 #include <access/xact.h>
 #include <catalog/indexing.h>
@@ -28,9 +28,9 @@
 #include <utils/syscache.h>
 
 #include "compat.h"
-#if !PG96
-#include <utils/fmgrprotos.h>
-#endif
+//#if !PG96
+//#include <utils/fmgrprotos.h>
+//#endif
 
 #include "chunk.h"
 #include "utils.h"
@@ -46,13 +46,13 @@ ts_pg_timestamp_to_unix_microseconds(PG_FUNCTION_ARGS)
 	TimestampTz timestamp = PG_GETARG_TIMESTAMPTZ(0);
 	int64 microseconds;
 
-	if (timestamp < MIN_TIMESTAMP)
-		ereport(ERROR,
-				(errcode(ERRCODE_DATETIME_VALUE_OUT_OF_RANGE), errmsg("timestamp out of range")));
+	//if (timestamp < MIN_TIMESTAMP)
+	//	ereport(ERROR,
+	//			(errcode(ERRCODE_DATETIME_VALUE_OUT_OF_RANGE), errmsg("timestamp out of range")));
 
-	if (timestamp >= (END_TIMESTAMP - TS_EPOCH_DIFF_MICROSECONDS))
-		ereport(ERROR,
-				(errcode(ERRCODE_DATETIME_VALUE_OUT_OF_RANGE), errmsg("timestamp out of range")));
+	//if (timestamp >= (END_TIMESTAMP - TS_EPOCH_DIFF_MICROSECONDS))
+	//	ereport(ERROR,
+	//			(errcode(ERRCODE_DATETIME_VALUE_OUT_OF_RANGE), errmsg("timestamp out of range")));
 
 #ifdef HAVE_INT64_TIMESTAMP
 	microseconds = timestamp + TS_EPOCH_DIFF_MICROSECONDS;
@@ -87,9 +87,9 @@ ts_pg_unix_microseconds_to_timestamp(PG_FUNCTION_ARGS)
 	 * of the supported date range (Julian end date), so INT64_MAX is the
 	 * natural upper bound for this function.
 	 */
-	if (microseconds < TS_INTERNAL_TIMESTAMP_MIN)
-		ereport(ERROR,
-				(errcode(ERRCODE_DATETIME_VALUE_OUT_OF_RANGE), errmsg("timestamp out of range")));
+	//if (microseconds < TS_INTERNAL_TIMESTAMP_MIN)
+	//	ereport(ERROR,
+	//			(errcode(ERRCODE_DATETIME_VALUE_OUT_OF_RANGE), errmsg("timestamp out of range")));
 
 #ifdef HAVE_INT64_TIMESTAMP
 	timestamp = microseconds - TS_EPOCH_DIFF_MICROSECONDS;
@@ -309,7 +309,7 @@ ts_internal_to_time_value(int64 value, Oid type)
 			if (ts_type_is_int8_binary_compatible(type))
 				return Int64GetDatum(value);
 			elog(ERROR, "unknown time type OID %d in ts_internal_to_time_value", type);
-			pg_unreachable();
+			//pg_unreachable();
 	}
 }
 
@@ -351,7 +351,7 @@ ts_internal_to_interval_value(int64 value, Oid type)
 			return DirectFunctionCall1(ts_pg_unix_microseconds_to_interval, Int64GetDatum(value));
 		default:
 			elog(ERROR, "unknown time type OID %d in ts_internal_to_interval_value", type);
-			pg_unreachable();
+			//pg_unreachable();
 	}
 }
 
@@ -368,7 +368,7 @@ ts_integer_to_internal_value(int64 value, Oid type)
 			return Int64GetDatum(value);
 		default:
 			elog(ERROR, "unknown time type OID %d in ts_internal_to_time_value", type);
-			pg_unreachable();
+			//pg_unreachable();
 	}
 }
 
@@ -531,11 +531,11 @@ ts_lookup_proc_filtered(const char *schema, const char *funcname, Oid *rettype, 
 			if (rettype)
 				*rettype = procform->prorettype;
 
-#if PG12_LT
+//#if PG12_LT
 			func = HeapTupleGetOid(proctup);
-#else
-			func = procform->oid;
-#endif
+//#else
+//			func = procform->oid;
+//#endif
 			break;
 		}
 	}
@@ -564,12 +564,12 @@ ts_get_operator(const char *name, Oid namespaceId, Oid left, Oid right)
 						  ObjectIdGetDatum(namespaceId));
 	if (HeapTupleIsValid(tup))
 	{
-#if PG12_LT
+//#if PG12_LT
 		opoid = HeapTupleGetOid(tup);
-#else
-		Form_pg_operator oprform = (Form_pg_operator) GETSTRUCT(tup);
-		opoid = oprform->oid;
-#endif
+//#else
+//		Form_pg_operator oprform = (Form_pg_operator) GETSTRUCT(tup);
+//		opoid = oprform->oid;
+//#endif
 		ReleaseSysCache(tup);
 	}
 
@@ -603,19 +603,19 @@ AppendRelInfo *
 ts_get_appendrelinfo(PlannerInfo *root, Index rti, bool missing_ok)
 {
 	ListCell *lc;
-#if PG11_GE
-	/* use append_rel_array if it has been setup */
-	if (root->append_rel_array)
-	{
-		if (root->append_rel_array[rti])
-			return root->append_rel_array[rti];
-		if (!missing_ok)
-			ereport(ERROR,
-					(errcode(ERRCODE_INTERNAL_ERROR),
-					 errmsg("no appendrelinfo found for index %d", rti)));
-		return NULL;
-	}
-#endif
+//#if PG11_GE
+//	/* use append_rel_array if it has been setup */
+//	if (root->append_rel_array)
+//	{
+//		if (root->append_rel_array[rti])
+//			return root->append_rel_array[rti];
+//		if (!missing_ok)
+//			ereport(ERROR,
+//					(errcode(ERRCODE_INTERNAL_ERROR),
+//					 errmsg("no appendrelinfo found for index %d", rti)));
+//		return NULL;
+//	}
+//#endif
 
 	foreach (lc, root->append_rel_list)
 	{
@@ -667,8 +667,8 @@ ts_has_row_security(Oid relid)
 	if (!HeapTupleIsValid(tuple))
 		elog(ERROR, "cache lookup failed for relid %d", relid);
 	classform = (Form_pg_class) GETSTRUCT(tuple);
-	relrowsecurity = classform->relrowsecurity;
-	relforcerowsecurity = classform->relforcerowsecurity;
+	//relrowsecurity = classform->relrowsecurity;
+	//relforcerowsecurity = classform->relforcerowsecurity;
 	ReleaseSysCache(tuple);
 	return (relrowsecurity || relforcerowsecurity);
 }

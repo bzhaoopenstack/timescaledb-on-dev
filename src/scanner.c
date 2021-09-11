@@ -7,7 +7,8 @@
 #include <access/relscan.h>
 #include <access/xact.h>
 #include <storage/lmgr.h>
-#include <storage/bufmgr.h>
+//#include <storage/bufmgr.h>
+#include <storage/buf/bufmgr.h>
 #include <utils/rel.h>
 
 #include "scanner.h"
@@ -173,9 +174,9 @@ ts_scanner_start_scan(ScannerCtx *ctx, InternalScannerCtx *ictx)
 	ictx->tinfo.scanrel = ictx->tablerel;
 	ictx->tinfo.desc = tuple_desc;
 	ictx->tinfo.mctx = ctx->result_mctx == NULL ? CurrentMemoryContext : ctx->result_mctx;
-#if PG12_GE /* TODO we should not materialize a HeapTuple unless needed */
-	ictx->tinfo.slot = MakeSingleTupleTableSlot(tuple_desc, &TTSOpsBufferHeapTuple);
-#endif
+//#if PG12_GE /* TODO we should not materialize a HeapTuple unless needed */
+//	ictx->tinfo.slot = MakeSingleTupleTableSlot(tuple_desc, &TTSOpsBufferHeapTuple);
+//#endif
 
 	/* Call pre-scan handler, if any. */
 	if (ctx->prescan != NULL)
@@ -220,28 +221,28 @@ ts_scanner_next(ScannerCtx *ctx, InternalScannerCtx *ictx)
 		{
 			ictx->tinfo.count++;
 
-			/*if (ctx->tuplock)
-			 *{
-			 *	Buffer buffer;
-			 *	TM_FailureData hufd;
-                         *
-			 *	ictx->tinfo.lockresult = heap_lock_tuple(ictx->tablerel,
-			 *											 ictx->tinfo.tuple,
-			 *											 GetCurrentCommandId(false),
-			 *											 ctx->tuplock->lockmode,
-			 *											 ctx->tuplock->waitpolicy,
-			 *											 ctx->tuplock->follow_updates,
-			 *											 &buffer,
-			 *											 &hufd);
-                         *
-			 *	/*
-			 *	 * A tuple lock pins the underlying buffer, so we need to
-			 *	 * unpin it.
-			 *	 */
-			 *	ReleaseBuffer(buffer);
-			 *}
-                         */
-
+//			/*if (ctx->tuplock)
+//			 *{
+//			 *	Buffer buffer;
+//			 *	TM_FailureData hufd;
+//                         *
+//			 *	ictx->tinfo.lockresult = heap_lock_tuple(ictx->tablerel,
+//			 *											 ictx->tinfo.tuple,
+//			 *											 GetCurrentCommandId(false),
+//			 *											 ctx->tuplock->lockmode,
+//			 *											 ctx->tuplock->waitpolicy,
+//			 *											 ctx->tuplock->follow_updates,
+//			 *											 &buffer,
+//			 *											 &hufd);
+//                         *
+//			 *	/*
+//			 *	 * A tuple lock pins the underlying buffer, so we need to
+//			 *	 * unpin it.
+//			 *	 */
+//			 *	ReleaseBuffer(buffer);
+//			 *}
+//                         */
+//
 			/* stop at a valid tuple */
 			return &ictx->tinfo;
 		}

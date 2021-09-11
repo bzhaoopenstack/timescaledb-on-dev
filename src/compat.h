@@ -190,43 +190,43 @@
  * partitioned tables, InvalidOid otherwise.
  * The PG96 interface is used for compatibility.
  */
-#if PG96
+//#if PG96
 #define DefineIndexCompat DefineIndex
-#elif PG10
-#define DefineIndexCompat(relationId,                                                              \
-						  stmt,                                                                    \
-						  indexRelationId,                                                         \
-						  is_alter_table,                                                          \
-						  check_rights,                                                            \
-						  skip_build,                                                              \
-						  quiet)                                                                   \
-	DefineIndex(relationId,                                                                        \
-				stmt,                                                                              \
-				indexRelationId,                                                                   \
-				is_alter_table,                                                                    \
-				check_rights,                                                                      \
-				false,                                                                             \
-				skip_build,                                                                        \
-				quiet)
-#else
-#define DefineIndexCompat(relationId,                                                              \
-						  stmt,                                                                    \
-						  indexRelationId,                                                         \
-						  is_alter_table,                                                          \
-						  check_rights,                                                            \
-						  skip_build,                                                              \
-						  quiet)                                                                   \
-	DefineIndex(relationId,                                                                        \
-				stmt,                                                                              \
-				indexRelationId,                                                                   \
-				InvalidOid,                                                                        \
-				InvalidOid,                                                                        \
-				is_alter_table,                                                                    \
-				check_rights,                                                                      \
-				false,                                                                             \
-				skip_build,                                                                        \
-				quiet)
-#endif
+//#elif PG10
+//#define DefineIndexCompat(relationId,                                                              \
+//						  stmt,                                                                    \
+//						  indexRelationId,                                                         \
+//						  is_alter_table,                                                          \
+//						  check_rights,                                                            \
+//						  skip_build,                                                              \
+//						  quiet)                                                                   \
+//	DefineIndex(relationId,                                                                        \
+//				stmt,                                                                              \
+//				indexRelationId,                                                                   \
+//				is_alter_table,                                                                    \
+//				check_rights,                                                                      \
+//				false,                                                                             \
+//				skip_build,                                                                        \
+//				quiet)
+//#else
+//#define DefineIndexCompat(relationId,                                                              \
+//						  stmt,                                                                    \
+//						  indexRelationId,                                                         \
+//						  is_alter_table,                                                          \
+//						  check_rights,                                                            \
+//						  skip_build,                                                              \
+//						  quiet)                                                                   \
+//	DefineIndex(relationId,                                                                        \
+//				stmt,                                                                              \
+//				indexRelationId,                                                                   \
+//				InvalidOid,                                                                        \
+//				InvalidOid,                                                                        \
+//				is_alter_table,                                                                    \
+//				check_rights,                                                                      \
+//				false,                                                                             \
+//				skip_build,                                                                        \
+//				quiet)
+//#endif
 
 //#if PG96
 #define DefineRelationCompat(stmt, relkind, ownerid, typaddress, queryString)                      \
@@ -727,7 +727,7 @@ get_attname_compat(Oid relid, AttrNumber attnum, bool missing_ok)
  * https://github.com/postgres/postgres/commit/d87510a524f36a630cfb34cc392e95e959a1b0dc) We do not
  * define RVR_SKIP_LOCKED as cannot yet emulate it
  */
-#if PG11_LT
+//#if PG11_LT
 #define RVR_MISSING_OK (1 << 0)
 #define RVR_NOWAIT (1 << 1)
 #define RangeVarGetRelidExtendedCompat(relation, lockmode, flags, callback, callback_arg)          \
@@ -735,11 +735,13 @@ get_attname_compat(Oid relid, AttrNumber attnum, bool missing_ok)
 							 lockmode,                                                             \
 							 (flags & RVR_MISSING_OK) != 0,                                        \
 							 (flags & RVR_NOWAIT) != 0,                                            \
+							 false,                                                               \
+							 false,                                                                \
 							 callback,                                                             \
 							 callback_arg)
-#else
-#define RangeVarGetRelidExtendedCompat RangeVarGetRelidExtended
-#endif
+//#else
+//#define RangeVarGetRelidExtendedCompat RangeVarGetRelidExtended
+//#endif
 
 /* RenameRelationInternal
  */
@@ -761,9 +763,9 @@ get_attname_compat(Oid relid, AttrNumber attnum, bool missing_ok)
  * use one of the functions in this family, but making this general in case we
  * use the others in the future).
  */
-#if PG11_LT
+//#if PG11_LT
 #define PreventInTransactionBlock PreventTransactionChain
-#endif
+//#endif
 
 /*
  * TupleDescAttr
