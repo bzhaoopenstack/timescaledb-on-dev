@@ -8,7 +8,7 @@
 #include <access/xact.h>
 #include <access/heapam.h>
 #include "../compat-msvc-enter.h"
-#include <postmaster/bgworker.h>
+//#include <postmaster/bgworker.h>
 #include <commands/extension.h>
 #include <commands/user.h>
 #include <miscadmin.h>
@@ -20,7 +20,9 @@
 #include <nodes/print.h>
 #include <commands/dbcommands.h>
 #include <commands/defrem.h>
-#include <access/parallel.h>
+//#include <access/parallel.h>
+
+#include <knl/knl_session.h>
 
 #include "extension_utils.c"
 #include "export.h"
@@ -87,16 +89,16 @@ PG_MODULE_MAGIC;
  * for 9.6 and, unfortunately, can't do much about 9.6 Windows installs.
  */
 
-#if PG96
-#ifdef WIN32
-#define CalledInParallelWorker() false
-#else
-#define CalledInParallelWorker() IsParallelWorker()
-#endif /* WIN32 */
-#else
-#define CalledInParallelWorker()                                                                   \
-	(MyBgworkerEntry != NULL && (MyBgworkerEntry->bgw_flags & BGWORKER_CLASS_PARALLEL) != 0)
-#endif /* PG96 */
+//#if PG96
+//#ifdef WIN32
+//#define CalledInParallelWorker() false
+//#else
+//#define CalledInParallelWorker() IsParallelWorker()
+//#endif /* WIN32 */
+//#else
+//#define CalledInParallelWorker()                                                                   \
+//	(MyBgworkerEntry != NULL && (MyBgworkerEntry->bgw_flags & BGWORKER_CLASS_PARALLEL) != 0)
+//#endif /* PG96 */
 extern void TSDLLEXPORT _PG_init(void);
 extern void TSDLLEXPORT _PG_fini(void);
 
@@ -221,16 +223,16 @@ drop_owned_statement_drops_extension(DropOwnedStmt *stmt)
 	Assert(IsTransactionState());
 	extension_owner_oid = extension_owner();
 
-	role_ids = roleSpecsToIds(stmt->roles);
+	//role_ids = roleSpecsToIds(stmt->roles);
 
 	/* Check privileges */
-	foreach (lc, role_ids)
-	{
-		Oid role_id = lfirst_oid(lc);
+	//foreach (lc, role_ids)
+	//{
+	//	Oid role_id = lfirst_oid(lc);
 
-		if (role_id == extension_owner_oid)
-			return true;
-	}
+	//	if (role_id == extension_owner_oid)
+	//		return true;
+	//}
 	return false;
 }
 
@@ -423,12 +425,12 @@ post_analyze_hook(ParseState *pstate, Query *query)
 				 * a rollback) the scheduler
 				 */
 				{
-					ts_bgw_message_send_and_wait(RESTART, MyDatabaseId);
+					ts_bgw_message_send_and_wait(RESTART, u_sess->proc_cxt.MyDatabaseId);
 				}
 				break;
 			case T_DropOwnedStmt:
 				if (drop_owned_statement_drops_extension((DropOwnedStmt *) query->utilityStmt))
-					ts_bgw_message_send_and_wait(RESTART, MyDatabaseId);
+					ts_bgw_message_send_and_wait(RESTART, u_sess->proc_cxt.MyDatabaseId);
 				break;
 			case T_RenameStmt:
 				if (((RenameStmt *) query->utilityStmt)->renameType == OBJECT_DATABASE)
@@ -491,7 +493,7 @@ extension_mark_loader_present()
 void
 _PG_init(void)
 {
-	if (!process_shared_preload_libraries_in_progress)
+	if (!u_sess->misc_cxt.process_shared_preload_libraries_in_progress)
 	{
 		extension_load_without_preload();
 	}
@@ -530,17 +532,17 @@ _PG_init(void)
 	 */
 	prev_post_parse_analyze_hook = post_parse_analyze_hook;
 	/* register shmem startup hook for the background worker stuff */
-	prev_shmem_startup_hook = shmem_startup_hook;
+	prev_shmem_startup_hook = t_thrd.storage_cxt.shmem_startup_hook;
 
 	post_parse_analyze_hook = post_analyze_hook;
-	shmem_startup_hook = timescale_shmem_startup_hook;
+	t_thrd.storage_cxt.shmem_startup_hook = timescale_shmem_startup_hook;
 }
 
 void
 _PG_fini(void)
 {
 	post_parse_analyze_hook = prev_post_parse_analyze_hook;
-	shmem_startup_hook = prev_shmem_startup_hook;
+	t_thrd.storage_cxt.shmem_startup_hook = prev_shmem_startup_hook;
 	/* No way to unregister relcache callback */
 }
 
@@ -575,8 +577,8 @@ static void inline do_load()
 	 * handled by the parallel worker infrastructure which restores the
 	 * library state.
 	 */
-	if (CalledInParallelWorker())
-		return;
+	//if (CalledInParallelWorker())
+	//	return;
 
 	/*
 	 * Set the config option to let versions 0.9.0 and 0.9.1 know that the
@@ -600,8 +602,9 @@ static void inline do_load()
 	 */
 	PG_TRY();
 	{
-		PGFunction ts_post_load_init =
-			load_external_function(soname, POST_LOAD_INIT_FN, false, NULL);
+		//PGFunction ts_post_load_init =
+		//	load_external_function(soname, POST_LOAD_INIT_FN, false, NULL);
+		PGFunction ts_post_load_init;
 
 		if (ts_post_load_init != NULL)
 			DirectFunctionCall1(ts_post_load_init, CharGetDatum(0));

@@ -20,7 +20,7 @@
 #define table_close(r, l) heap_close(r, l)
 
 #define table_beginscan(rel, snapshot, nkeys, keys) heap_beginscan(rel, snapshot, nkeys, keys)
-#define table_beginscan_catalog(rel, nkeys, keys) heap_beginscan_catalog(rel, nkeys, keys)
+//#define table_beginscan_catalog(rel, nkeys, keys) heap_beginscan_catalog(rel, nkeys, keys)
 #define table_endscan(scan) heap_endscan(scan)
 
 #define table_slot_create(rel, reglist) ts_table_slot_create(rel, reglist)

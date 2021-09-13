@@ -8,10 +8,11 @@
 /* BGW includes below */
 /* These are always necessary for a bgworker */
 #include <miscadmin.h>
-#include <postmaster/bgworker.h>
+//#include <postmaster/bgworker.h>
 #include <storage/ipc.h>
 #include <storage/latch.h>
-#include <storage/lwlock.h>
+//#include <storage/lwlock.h>
+#include <storage/lock/lwlock.h>
 #include <storage/proc.h>
 #include <storage/shmem.h>
 
@@ -20,7 +21,8 @@
 
 /* needed for getting database list*/
 #include <access/heapam.h>
-#include <access/htup_details.h>
+//#include <access/htup_details.h>
+#include <access/htup.h>
 #include <catalog/pg_database.h>
 #include <utils/snapmgr.h>
 #include <access/xact.h>
@@ -39,6 +41,8 @@
 
 /* for allocating the htab storage */
 #include <utils/memutils.h>
+
+#include <knl/knl_session.h>
 
 /* for getting settings correct before loading the versioned scheduler */
 #include "catalog/pg_db_role_setting.h"
@@ -97,7 +101,7 @@ static void launcher_sighup(SIGNAL_ARGS)
 	int save_errno = errno;
 
 	got_SIGHUP = true;
-	SetLatch(MyLatch);
+	//SetLatch(MyLatch);
 
 	errno = save_errno;
 }
@@ -122,8 +126,7 @@ TS_FUNCTION_INFO_V1(ts_bgw_db_scheduler_entrypoint);
 typedef struct DbHashEntry
 {
 	Oid db_oid;									 /* key for the hash table, must be first */
-	BackgroundWorkerHandle *db_scheduler_handle; /* needed to shut down
-												  * properly */
+	//BackgroundWorkerHandle *db_scheduler_handle; /* needed to shut down  * properly */
 	SchedulerState state;
 	VirtualTransactionId vxid;
 	int state_transition_failures;
@@ -174,100 +177,100 @@ report_error_on_worker_register_failure(DbHashEntry *entry)
  * Additionally, we're wrapping these calls to make sure we never have a NULL
  * handle, if we have a null handle, we return normal things.
  */
-static BgwHandleStatus
-get_background_worker_pid(BackgroundWorkerHandle *handle, pid_t *pidp)
-{
-	BgwHandleStatus status;
-	pid_t pid;
+//static BgwHandleStatus
+//get_background_worker_pid(BackgroundWorkerHandle *handle, pid_t *pidp)
+//{
+//	BgwHandleStatus status;
+//	pid_t pid;
+//
+//	if (handle == NULL)
+//		status = BGWH_STOPPED;
+//	else
+//	{
+//		status = GetBackgroundWorkerPid(handle, &pid);
+//		if (pidp != NULL)
+//			*pidp = pid;
+//	}
+//
+//	if (status == BGWH_POSTMASTER_DIED)
+//		bgw_on_postmaster_death();
+//	return status;
+//}
 
-	if (handle == NULL)
-		status = BGWH_STOPPED;
-	else
-	{
-		status = GetBackgroundWorkerPid(handle, &pid);
-		if (pidp != NULL)
-			*pidp = pid;
-	}
+//static void
+//wait_for_background_worker_startup(BackgroundWorkerHandle *handle, pid_t *pidp)
+//{
+//	BgwHandleStatus status;
+//
+//	if (handle == NULL)
+//		status = BGWH_STOPPED;
+//	else
+//		status = WaitForBackgroundWorkerStartup(handle, pidp);
+//
+//	/*
+//	 * We don't care whether we get BGWH_STOPPED or BGWH_STARTED here, because
+//	 * the worker could have started and stopped very quickly before we read
+//	 * it. We can't get BGWH_NOT_YET_STARTED as that's what we're waiting for.
+//	 * We do care if the Postmaster died however.
+//	 */
+//
+//	if (status == BGWH_POSTMASTER_DIED)
+//		bgw_on_postmaster_death();
+//
+//	Assert(status == BGWH_STOPPED || status == BGWH_STARTED);
+//	return;
+//}
 
-	if (status == BGWH_POSTMASTER_DIED)
-		bgw_on_postmaster_death();
-	return status;
-}
+//static void
+//wait_for_background_worker_shutdown(BackgroundWorkerHandle *handle)
+//{
+//	BgwHandleStatus status;
+//
+//	if (handle == NULL)
+//		status = BGWH_STOPPED;
+//	else
+//		status = WaitForBackgroundWorkerShutdown(handle);
+//
+//	/* We can only ever get BGWH_STOPPED stopped unless the Postmaster died. */
+//	if (status == BGWH_POSTMASTER_DIED)
+//		bgw_on_postmaster_death();
+//
+//	Assert(status == BGWH_STOPPED);
+//	return;
+//}
 
-static void
-wait_for_background_worker_startup(BackgroundWorkerHandle *handle, pid_t *pidp)
-{
-	BgwHandleStatus status;
+//static void
+//terminate_background_worker(BackgroundWorkerHandle *handle)
+//{
+//	if (handle == NULL)
+//		return;
+//	else
+//		TerminateBackgroundWorker(handle);
+//}
 
-	if (handle == NULL)
-		status = BGWH_STOPPED;
-	else
-		status = WaitForBackgroundWorkerStartup(handle, pidp);
-
-	/*
-	 * We don't care whether we get BGWH_STOPPED or BGWH_STARTED here, because
-	 * the worker could have started and stopped very quickly before we read
-	 * it. We can't get BGWH_NOT_YET_STARTED as that's what we're waiting for.
-	 * We do care if the Postmaster died however.
-	 */
-
-	if (status == BGWH_POSTMASTER_DIED)
-		bgw_on_postmaster_death();
-
-	Assert(status == BGWH_STOPPED || status == BGWH_STARTED);
-	return;
-}
-
-static void
-wait_for_background_worker_shutdown(BackgroundWorkerHandle *handle)
-{
-	BgwHandleStatus status;
-
-	if (handle == NULL)
-		status = BGWH_STOPPED;
-	else
-		status = WaitForBackgroundWorkerShutdown(handle);
-
-	/* We can only ever get BGWH_STOPPED stopped unless the Postmaster died. */
-	if (status == BGWH_POSTMASTER_DIED)
-		bgw_on_postmaster_death();
-
-	Assert(status == BGWH_STOPPED);
-	return;
-}
-
-static void
-terminate_background_worker(BackgroundWorkerHandle *handle)
-{
-	if (handle == NULL)
-		return;
-	else
-		TerminateBackgroundWorker(handle);
-}
-
-extern void
-ts_bgw_cluster_launcher_register(void)
-{
-	BackgroundWorker worker;
-
-	memset(&worker, 0, sizeof(worker));
-	/* set up worker settings for our main worker */
-	snprintf(worker.bgw_name, BGW_MAXLEN, "TimescaleDB Background Worker Launcher");
-	worker.bgw_flags = BGWORKER_SHMEM_ACCESS | BGWORKER_BACKEND_DATABASE_CONNECTION;
-	worker.bgw_restart_time = BGW_LAUNCHER_RESTART_TIME_S;
-
-	/*
-	 * Starting at BgWorkerStart_RecoveryFinished means we won't ever get
-	 * started on a hot_standby see
-	 * https://www.postgresql.org/docs/10/static/bgworker.html as it's not
-	 * documented in bgworker.c.
-	 */
-	worker.bgw_start_time = BgWorkerStart_RecoveryFinished;
-	worker.bgw_notify_pid = 0;
-	snprintf(worker.bgw_library_name, BGW_MAXLEN, EXTENSION_NAME);
-	snprintf(worker.bgw_function_name, BGW_MAXLEN, "ts_bgw_cluster_launcher_main");
-	RegisterBackgroundWorker(&worker);
-}
+//extern void
+//ts_bgw_cluster_launcher_register(void)
+//{
+//	//BackgroundWorker worker;
+//
+//	//memset(&worker, 0, sizeof(worker));
+//	/* set up worker settings for our main worker */
+//	snprintf(worker.bgw_name, BGW_MAXLEN, "TimescaleDB Background Worker Launcher");
+//	//worker.bgw_flags = BGWORKER_SHMEM_ACCESS | BGWORKER_BACKEND_DATABASE_CONNECTION;
+//	//worker.bgw_restart_time = BGW_LAUNCHER_RESTART_TIME_S;
+//
+//	/*
+//	 * Starting at BgWorkerStart_RecoveryFinished means we won't ever get
+//	 * started on a hot_standby see
+//	 * https://www.postgresql.org/docs/10/static/bgworker.html as it's not
+//	 * documented in bgworker.c.
+//	 */
+//	worker.bgw_start_time = BgWorkerStart_RecoveryFinished;
+//	worker.bgw_notify_pid = 0;
+//	snprintf(worker.bgw_library_name, BGW_MAXLEN, EXTENSION_NAME);
+//	snprintf(worker.bgw_function_name, BGW_MAXLEN, "ts_bgw_cluster_launcher_main");
+//	RegisterBackgroundWorker(&worker);
+//}
 
 /*
  * Register a background worker that calls the main TimescaleDB background
@@ -276,24 +279,24 @@ ts_bgw_cluster_launcher_register(void)
  * and waiting on any txns that it needs to, if we pass along a vxid in the
  * bgw_extra field of the BgWorker.
  */
-static bool
-register_entrypoint_for_db(Oid db_id, VirtualTransactionId vxid, BackgroundWorkerHandle **handle)
-{
-	BackgroundWorker worker;
-
-	memset(&worker, 0, sizeof(worker));
-	snprintf(worker.bgw_name, BGW_MAXLEN, "TimescaleDB Background Worker Scheduler");
-	worker.bgw_flags = BGWORKER_SHMEM_ACCESS | BGWORKER_BACKEND_DATABASE_CONNECTION;
-	worker.bgw_restart_time = BGW_NEVER_RESTART;
-	worker.bgw_start_time = BgWorkerStart_RecoveryFinished;
-	snprintf(worker.bgw_library_name, BGW_MAXLEN, EXTENSION_NAME);
-	snprintf(worker.bgw_function_name, BGW_MAXLEN, BGW_ENTRYPOINT_FUNCNAME);
-	worker.bgw_notify_pid = MyProcPid;
-	worker.bgw_main_arg = ObjectIdGetDatum(db_id);
-	memcpy(worker.bgw_extra, &vxid, sizeof(VirtualTransactionId));
-
-	return RegisterDynamicBackgroundWorker(&worker, handle);
-}
+//static bool
+//register_entrypoint_for_db(Oid db_id, VirtualTransactionId vxid, BackgroundWorkerHandle **handle)
+//{
+//	BackgroundWorker worker;
+//
+//	memset(&worker, 0, sizeof(worker));
+//	snprintf(worker.bgw_name, BGW_MAXLEN, "TimescaleDB Background Worker Scheduler");
+//	worker.bgw_flags = BGWORKER_SHMEM_ACCESS | BGWORKER_BACKEND_DATABASE_CONNECTION;
+//	worker.bgw_restart_time = BGW_NEVER_RESTART;
+//	worker.bgw_start_time = BgWorkerStart_RecoveryFinished;
+//	snprintf(worker.bgw_library_name, BGW_MAXLEN, EXTENSION_NAME);
+//	snprintf(worker.bgw_function_name, BGW_MAXLEN, BGW_ENTRYPOINT_FUNCNAME);
+//	worker.bgw_notify_pid = t_thrd.proc_cxt.MyProcPid;
+//	worker.bgw_main_arg = ObjectIdGetDatum(db_id);
+//	memcpy(worker.bgw_extra, &vxid, sizeof(VirtualTransactionId));
+//
+//	return RegisterDynamicBackgroundWorker(&worker, handle);
+//}
 
 /* Initializes the launcher's hash table of schedulers.
  * Return value is guaranteed to be not-null, because otherwise the function
@@ -302,11 +305,14 @@ register_entrypoint_for_db(Oid db_id, VirtualTransactionId vxid, BackgroundWorke
 static HTAB *
 init_database_htab(void)
 {
-	HASHCTL info = { .keysize = sizeof(Oid), .entrysize = sizeof(DbHashEntry) };
+	//HASHCTL info = { .keysize = sizeof(Oid), .entrysize = sizeof(DbHashEntry) };
+	HASHCTL hinfo;
+	hinfo.keysize = sizeof(Oid);
+	hinfo.entrysize = sizeof(DbHashEntry);
 
 	return hash_create("launcher_db_htab",
 					   ts_guc_max_background_workers,
-					   &info,
+					   &hinfo,
 					   HASH_BLOBS | HASH_ELEM);
 }
 
@@ -320,7 +326,7 @@ db_hash_entry_create_if_not_exists(HTAB *db_htab, Oid db_oid)
 	db_he = (DbHashEntry *) hash_search(db_htab, &db_oid, HASH_ENTER, &found);
 	if (!found)
 	{
-		db_he->db_scheduler_handle = NULL;
+		//db_he->db_scheduler_handle = NULL;
 		db_he->state = ENABLED;
 		SetInvalidVirtualTransactionId(db_he->vxid);
 		db_he->state_transition_failures = 0;
@@ -363,22 +369,22 @@ populate_database_htab(HTAB *db_htab)
 	(void) GetTransactionSnapshot();
 
 	rel = table_open(DatabaseRelationId, AccessShareLock);
-	scan = table_beginscan_catalog(rel, 0, NULL);
+	//scan = table_beginscan_catalog(rel, 0, NULL);
 
-	while (HeapTupleIsValid(tup = heap_getnext(scan, ForwardScanDirection)))
-	{
-		Form_pg_database pgdb = (Form_pg_database) GETSTRUCT(tup);
-
-		if (!pgdb->datallowconn || pgdb->datistemplate)
-			continue; /* don't bother with dbs that don't allow
-					   * connections or are templates */
-#if PG12_LT
-		db_hash_entry_create_if_not_exists(db_htab, HeapTupleGetOid(tup));
-#else
-		db_hash_entry_create_if_not_exists(db_htab, pgdb->oid);
-#endif
-	}
-	heap_endscan(scan);
+//	while (HeapTupleIsValid(tup = heap_getnext(scan, ForwardScanDirection)))
+//	{
+//		Form_pg_database pgdb = (Form_pg_database) GETSTRUCT(tup);
+//
+//		if (!pgdb->datallowconn || pgdb->datistemplate)
+//			continue; /* don't bother with dbs that don't allow
+//					   * connections or are templates */
+////#if PG12_LT
+//		db_hash_entry_create_if_not_exists(db_htab, HeapTupleGetOid(tup));
+////#else
+////		db_hash_entry_create_if_not_exists(db_htab, pgdb->oid);
+////#endif
+//	}
+//	heap_endscan(scan);
 	table_close(rel, AccessShareLock);
 
 	CommitTransactionCommand();
@@ -397,7 +403,7 @@ static void
 scheduler_state_trans_disabled_to_enabled(DbHashEntry *entry)
 {
 	Assert(entry->state == DISABLED);
-	Assert(entry->db_scheduler_handle == NULL);
+	//Assert(entry->db_scheduler_handle == NULL);
 	scheduler_modify_state(entry, ENABLED);
 }
 
@@ -405,7 +411,7 @@ static void
 scheduler_state_trans_enabled_to_allocated(DbHashEntry *entry)
 {
 	Assert(entry->state == ENABLED);
-	Assert(entry->db_scheduler_handle == NULL);
+	//Assert(entry->db_scheduler_handle == NULL);
 	/* Reserve a spot for this scheduler with BGW counter */
 	if (!ts_bgw_total_workers_increment())
 	{
@@ -419,12 +425,12 @@ static void
 scheduler_state_trans_started_to_allocated(DbHashEntry *entry)
 {
 	Assert(entry->state == STARTED);
-	Assert(get_background_worker_pid(entry->db_scheduler_handle, NULL) == BGWH_STOPPED);
-	if (entry->db_scheduler_handle != NULL)
-	{
-		pfree(entry->db_scheduler_handle);
-		entry->db_scheduler_handle = NULL;
-	}
+	//Assert(get_background_worker_pid(entry->db_scheduler_handle, NULL) == BGWH_STOPPED);
+	//if (entry->db_scheduler_handle != NULL)
+	//{
+	//	pfree(entry->db_scheduler_handle);
+	//	entry->db_scheduler_handle = NULL;
+	//}
 	scheduler_modify_state(entry, ALLOCATED);
 }
 
@@ -435,17 +441,17 @@ scheduler_state_trans_allocated_to_started(DbHashEntry *entry)
 	bool worker_registered;
 
 	Assert(entry->state == ALLOCATED);
-	Assert(entry->db_scheduler_handle == NULL);
+	//Assert(entry->db_scheduler_handle == NULL);
 
-	worker_registered =
-		register_entrypoint_for_db(entry->db_oid, entry->vxid, &entry->db_scheduler_handle);
+	//worker_registered =
+	//	register_entrypoint_for_db(entry->db_oid, entry->vxid, &entry->db_scheduler_handle);
 
-	if (!worker_registered)
-	{
-		report_error_on_worker_register_failure(entry);
-		return;
-	}
-	wait_for_background_worker_startup(entry->db_scheduler_handle, &worker_pid);
+	//if (!worker_registered)
+	//{
+	//	report_error_on_worker_register_failure(entry);
+	//	return;
+	//}
+	//wait_for_background_worker_startup(entry->db_scheduler_handle, &worker_pid);
 	SetInvalidVirtualTransactionId(entry->vxid);
 	scheduler_modify_state(entry, STARTED);
 }
@@ -454,7 +460,7 @@ static void
 scheduler_state_trans_enabled_to_disabled(DbHashEntry *entry)
 {
 	Assert(entry->state == ENABLED);
-	Assert(entry->db_scheduler_handle == NULL);
+	//Assert(entry->db_scheduler_handle == NULL);
 	scheduler_modify_state(entry, DISABLED);
 }
 
@@ -462,7 +468,7 @@ static void
 scheduler_state_trans_allocated_to_disabled(DbHashEntry *entry)
 {
 	Assert(entry->state == ALLOCATED);
-	Assert(entry->db_scheduler_handle == NULL);
+	//Assert(entry->db_scheduler_handle == NULL);
 
 	ts_bgw_total_workers_decrement();
 	scheduler_modify_state(entry, DISABLED);
@@ -472,14 +478,14 @@ static void
 scheduler_state_trans_started_to_disabled(DbHashEntry *entry)
 {
 	Assert(entry->state == STARTED);
-	Assert(get_background_worker_pid(entry->db_scheduler_handle, NULL) == BGWH_STOPPED);
+	//Assert(get_background_worker_pid(entry->db_scheduler_handle, NULL) == BGWH_STOPPED);
 
 	ts_bgw_total_workers_decrement();
-	if (entry->db_scheduler_handle != NULL)
-	{
-		pfree(entry->db_scheduler_handle);
-		entry->db_scheduler_handle = NULL;
-	}
+	//if (entry->db_scheduler_handle != NULL)
+	//{
+	//	pfree(entry->db_scheduler_handle);
+	//	entry->db_scheduler_handle = NULL;
+	//}
 	scheduler_modify_state(entry, DISABLED);
 }
 
@@ -497,8 +503,8 @@ scheduler_state_trans_automatic(DbHashEntry *entry)
 			scheduler_state_trans_allocated_to_started(entry);
 			break;
 		case STARTED:
-			if (get_background_worker_pid(entry->db_scheduler_handle, NULL) == BGWH_STOPPED)
-				scheduler_state_trans_started_to_disabled(entry);
+			//if (get_background_worker_pid(entry->db_scheduler_handle, NULL) == BGWH_STOPPED)
+			//	scheduler_state_trans_started_to_disabled(entry);
 			break;
 		case DISABLED:
 			break;
@@ -533,14 +539,14 @@ launcher_pre_shmem_cleanup(int code, Datum arg)
 		 * Stop everyone (or at least tell the Postmaster we don't care about
 		 * them anymore)
 		 */
-		while ((current_entry = hash_seq_search(&hash_seq)) != NULL)
-		{
-			if (current_entry->db_scheduler_handle != NULL)
-			{
-				terminate_background_worker(current_entry->db_scheduler_handle);
-				pfree(current_entry->db_scheduler_handle);
-			}
-		}
+		//while ((current_entry = hash_seq_search(&hash_seq)) != NULL)
+		//{
+		//	if (current_entry->db_scheduler_handle != NULL)
+		//	{
+		//		terminate_background_worker(current_entry->db_scheduler_handle);
+		//		pfree(current_entry->db_scheduler_handle);
+		//	}
+		//}
 
 		hash_destroy(db_htab);
 	}
@@ -604,8 +610,8 @@ message_stop_action(HTAB *db_htab, BgwMessage *message)
 			scheduler_state_trans_allocated_to_disabled(entry);
 			break;
 		case STARTED:
-			terminate_background_worker(entry->db_scheduler_handle);
-			wait_for_background_worker_shutdown(entry->db_scheduler_handle);
+			//terminate_background_worker(entry->db_scheduler_handle);
+			//wait_for_background_worker_shutdown(entry->db_scheduler_handle);
 			scheduler_state_trans_started_to_disabled(entry);
 			break;
 		case DISABLED:
@@ -643,8 +649,8 @@ message_restart_action(HTAB *db_htab, BgwMessage *message, VirtualTransactionId 
 		case ALLOCATED:
 			break;
 		case STARTED:
-			terminate_background_worker(entry->db_scheduler_handle);
-			wait_for_background_worker_shutdown(entry->db_scheduler_handle);
+			//terminate_background_worker(entry->db_scheduler_handle);
+			//wait_for_background_worker_shutdown(entry->db_scheduler_handle);
 			scheduler_state_trans_started_to_allocated(entry);
 			break;
 		case DISABLED:
@@ -733,14 +739,14 @@ ts_bgw_cluster_launcher_main(PG_FUNCTION_ARGS)
 
 	HTAB *db_htab;
 
-	pqsignal(SIGINT, StatementCancelHandler);
-	pqsignal(SIGTERM, launcher_sigterm);
-	pqsignal(SIGHUP, launcher_sighup);
+	//pqsignal(SIGINT, StatementCancelHandler);
+	//pqsignal(SIGTERM, launcher_sigterm);
+	//pqsignal(SIGHUP, launcher_sighup);
 
 	/* Some SIGHUPS may already have been dropped, so we must load the file here */
 	got_SIGHUP = false;
 	ProcessConfigFile(PGC_SIGHUP);
-	BackgroundWorkerUnblockSignals();
+	//BackgroundWorkerUnblockSignals();
 	ereport(DEBUG1, (errmsg("TimescaleDB background worker launcher started")));
 
 	/* set counter back to zero on restart */
@@ -760,8 +766,8 @@ ts_bgw_cluster_launcher_main(PG_FUNCTION_ARGS)
 		proc_exit(0);
 	}
 	/* Connect to the db, no db name yet, so can only access shared catalogs */
-	BackgroundWorkerInitializeConnectionCompat(NULL, NULL);
-	pgstat_report_appname(MyBgworkerEntry->bgw_name);
+	//BackgroundWorkerInitializeConnectionCompat(NULL, NULL);
+	//pgstat_report_appname(MyBgworkerEntry->bgw_name);
 	ereport(LOG, (errmsg("TimescaleDB background worker launcher connected to shared catalogs")));
 
 	htab_storage = MemoryContextAllocZero(TopMemoryContext, sizeof(*htab_storage));
@@ -794,10 +800,10 @@ ts_bgw_cluster_launcher_main(PG_FUNCTION_ARGS)
 		if (handled_msgs)
 			continue;
 
-		wl_rc = WaitLatchCompat(MyLatch,
-								WL_LATCH_SET | WL_POSTMASTER_DEATH | WL_TIMEOUT,
-								BGW_LAUNCHER_POLL_TIME_MS);
-		ResetLatch(MyLatch);
+		//wl_rc = WaitLatchCompat(MyLatch,
+		//						WL_LATCH_SET | WL_POSTMASTER_DEATH | WL_TIMEOUT,
+		//						BGW_LAUNCHER_POLL_TIME_MS);
+		//ResetLatch(MyLatch);
 		if (wl_rc & WL_POSTMASTER_DEATH)
 			bgw_on_postmaster_death();
 
@@ -834,7 +840,7 @@ database_is_template_check(void)
 	Form_pg_database pgdb;
 	HeapTuple tuple;
 
-	tuple = SearchSysCache1(DATABASEOID, ObjectIdGetDatum(MyDatabaseId));
+	tuple = SearchSysCache1(DATABASEOID, ObjectIdGetDatum(u_sess->proc_cxt.MyDatabaseId));
 	if (!HeapTupleIsValid(tuple))
 		ereport(ERROR,
 				(errmsg("TimescaleDB background worker failed to find entry for database in "
@@ -871,11 +877,12 @@ process_settings(Oid databaseid)
 	relsetting = heap_open(DbRoleSettingRelationId, AccessShareLock);
 
 	/* read all the settings under the same snapshot for efficiency */
-	snapshot = RegisterSnapshot(GetCatalogSnapshot(DbRoleSettingRelationId));
+	//snapshot = RegisterSnapshot(GetCatalogSnapshot(DbRoleSettingRelationId));
+	snapshot = RegisterSnapshot(GetCatalogSnapshot());
 
 	/* Later settings are ignored if set earlier. */
-	ApplySetting(snapshot, databaseid, InvalidOid, relsetting, PGC_S_DATABASE);
-	ApplySetting(snapshot, InvalidOid, InvalidOid, relsetting, PGC_S_GLOBAL);
+	//ApplySetting(snapshot, databaseid, InvalidOid, relsetting, PGC_S_DATABASE);
+	//ApplySetting(snapshot, InvalidOid, InvalidOid, relsetting, PGC_S_GLOBAL);
 
 	UnregisterSnapshot(snapshot);
 	heap_close(relsetting, AccessShareLock);
@@ -893,16 +900,16 @@ process_settings(Oid databaseid)
 extern Datum
 ts_bgw_db_scheduler_entrypoint(PG_FUNCTION_ARGS)
 {
-	Oid db_id = DatumGetObjectId(MyBgworkerEntry->bgw_main_arg);
+	//Oid db_id = DatumGetObjectId(MyBgworkerEntry->bgw_main_arg);
 	bool ts_installed = false;
 	char version[MAX_VERSION_LEN];
 	VirtualTransactionId vxid;
 
-	pqsignal(SIGINT, StatementCancelHandler);
-	pqsignal(SIGTERM, entrypoint_sigterm);
-	BackgroundWorkerUnblockSignals();
-	BackgroundWorkerInitializeConnectionByOidCompat(db_id, InvalidOid);
-	pgstat_report_appname(MyBgworkerEntry->bgw_name);
+	//pqsignal(SIGINT, StatementCancelHandler);
+	//pqsignal(SIGTERM, entrypoint_sigterm);
+	//BackgroundWorkerUnblockSignals();
+	//BackgroundWorkerInitializeConnectionByOidCompat(db_id, InvalidOid);
+	//pgstat_report_appname(MyBgworkerEntry->bgw_name);
 
 	/*
 	 * Wait until whatever vxid that potentially called us finishes before we
@@ -912,7 +919,7 @@ ts_bgw_db_scheduler_entrypoint(PG_FUNCTION_ARGS)
 	 */
 	StartTransactionCommand();
 	(void) GetTransactionSnapshot();
-	memcpy(&vxid, MyBgworkerEntry->bgw_extra, sizeof(VirtualTransactionId));
+	//memcpy(&vxid, MyBgworkerEntry->bgw_extra, sizeof(VirtualTransactionId));
 	if (VirtualTransactionIdIsValid(vxid))
 		VirtualXactLock(vxid, true);
 	CommitTransactionCommand();
@@ -930,7 +937,7 @@ ts_bgw_db_scheduler_entrypoint(PG_FUNCTION_ARGS)
 	 */
 	database_is_template_check();
 	/*  Process any config changes caused by an ALTER DATABASE */
-	process_settings(MyDatabaseId);
+	process_settings(u_sess->proc_cxt.MyDatabaseId);
 	ts_installed = ts_loader_extension_exists();
 	if (ts_installed)
 		StrNCpy(version, ts_loader_extension_version(), MAX_VERSION_LEN);
@@ -943,8 +950,8 @@ ts_bgw_db_scheduler_entrypoint(PG_FUNCTION_ARGS)
 		PGFunction versioned_scheduler_main;
 
 		snprintf(soname, MAX_SO_NAME_LEN, "%s-%s", EXTENSION_SO, version);
-		versioned_scheduler_main =
-			load_external_function(soname, BGW_DB_SCHEDULER_FUNCNAME, false, NULL);
+		//versioned_scheduler_main =
+		//	load_external_function(soname, BGW_DB_SCHEDULER_FUNCNAME, false, NULL);
 		if (versioned_scheduler_main == NULL)
 			ereport(LOG,
 					(errmsg("TimescaleDB version %s does not have a background worker, exiting",

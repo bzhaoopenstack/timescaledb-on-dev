@@ -7,7 +7,8 @@
 #include <postgres.h>
 
 #include <miscadmin.h>
-#include <storage/lwlock.h>
+//#include <storage/lwlock.h>
+#include <storage/lock/lwlock.h>
 #include <utils/hsearch.h>
 #include <storage/spin.h>
 #include <storage/shmem.h>

@@ -7,10 +7,12 @@
 #include <postgres.h>
 #include <fmgr.h>
 #include <miscadmin.h>
-#include <storage/lwlock.h>
+//#include <storage/lwlock.h>
+#include <storage/lock/lwlock.h>
 #include <storage/shmem.h>
 
 #include "loader/lwlocks.h"
+
 
 #define TS_LWLOCKS_SHMEM_NAME "ts_lwlocks_shmem"
 #define CHUNK_APPEND_LWLOCK_TRANCHE_NAME "ts_chunk_append_lwlock_tranche"
@@ -37,7 +39,7 @@ ts_lwlocks_shmem_startup()
 	if (!found)
 	{
 		memset(ts_lwlocks, 0, sizeof(TSLWLocks));
-		ts_lwlocks->chunk_append = &(GetNamedLWLockTranche(CHUNK_APPEND_LWLOCK_TRANCHE_NAME))->lock;
+		//ts_lwlocks->chunk_append = &(GetNamedLWLockTranche(CHUNK_APPEND_LWLOCK_TRANCHE_NAME))->lock;
 	}
 	LWLockRelease(AddinShmemInitLock);
 
@@ -53,6 +55,6 @@ ts_lwlocks_shmem_startup()
 void
 ts_lwlocks_shmem_alloc()
 {
-	RequestNamedLWLockTranche(CHUNK_APPEND_LWLOCK_TRANCHE_NAME, 1);
+	//RequestNamedLWLockTranche(CHUNK_APPEND_LWLOCK_TRANCHE_NAME, 1);
 	RequestAddinShmemSpace(sizeof(TSLWLocks));
 }

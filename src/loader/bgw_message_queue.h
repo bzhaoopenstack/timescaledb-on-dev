@@ -7,7 +7,7 @@
 #define TIMESCALEDB_BGW_MESSAGE_QUEUE_H
 
 #include <postgres.h>
-#include <storage/dsm.h>
+//#include <storage/dsm.h>
 
 typedef enum BgwMessageType
 {
@@ -22,7 +22,7 @@ typedef struct BgwMessage
 
 	pid_t sender_pid;
 	Oid db_oid;
-	dsm_handle ack_dsm_handle;
+	//dsm_handle ack_dsm_handle;
 
 } BgwMessage;
 
