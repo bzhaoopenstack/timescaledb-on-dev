@@ -15,7 +15,8 @@
  * our manipulations.
  */
 #include <postgres.h>
-#include <access/htup_details.h>
+//#include <access/htup_details.h>
+#include <access/htup.h>
 #include <catalog/pg_collation.h>
 #include <catalog/pg_statistic.h>
 #include <executor/nodeAgg.h>
@@ -32,20 +33,20 @@
 #include <utils/rel.h>
 
 #include "compat.h"
-#if PG12_LT
+//#if PG12_LT
 #include <optimizer/clauses.h>
 #include <optimizer/subselect.h>
 #include <optimizer/var.h>
-#else
-#include <optimizer/optimizer.h>
-#endif
+//#else
+//#include <optimizer/optimizer.h>
+//#endif
 
 #include "planner.h"
 
-#if PG12_GE || (PG11 && PG_VERSION_NUM >= 110002) || (PG10 && PG_VERSION_NUM >= 100007) ||         \
-	(PG96 && PG_VERSION_NUM >= 90612)
-#include <optimizer/paramassign.h>
-#else
+//#if PG12_GE || (PG11 && PG_VERSION_NUM >= 110002) || (PG10 && PG_VERSION_NUM >= 100007) ||         \
+//	(PG96 && PG_VERSION_NUM >= 90612)
+//#include <optimizer/paramassign.h>
+//#else
 /*
  * these functions need to be backported to allow timescaledb built on older versions
  * to work with latest pg version
@@ -54,7 +55,7 @@ static Param *replace_nestloop_param_var(PlannerInfo *root, Var *var);
 static Param *replace_nestloop_param_placeholdervar(PlannerInfo *root, PlaceHolderVar *phv);
 static Param *generate_new_exec_param(PlannerInfo *root, Oid paramtype, int32 paramtypmod,
 									  Oid paramcollation);
-#endif
+//#endif
 
 static EquivalenceMember *find_ec_member_for_tle(EquivalenceClass *ec, TargetEntry *tle,
 												 Relids relids);
@@ -170,12 +171,12 @@ ts_estimate_hashagg_tablesize(struct Path *path, const struct AggClauseCosts *ag
 	size_t hashentrysize;
 
 	/* Estimate per-hash-entry space at tuple width... */
-	hashentrysize = MAXALIGN(path->pathtarget->width) + MAXALIGN(SizeofMinimalTupleHeader);
+	//hashentrysize = MAXALIGN(path->pathtarget->width) + MAXALIGN(SizeofMinimalTupleHeader);
 
 	/* plus space for pass-by-ref transition values... */
-	hashentrysize += agg_costs->transitionSpace;
+	//hashentrysize += agg_costs->transitionSpace;
 	/* plus the per-hash-entry overhead */
-	hashentrysize += hash_agg_entry_size(agg_costs->numAggs);
+	//hashentrysize += hash_agg_entry_size(agg_costs->numAggs);
 
 	/*
 	 * Note that this disregards the effect of fill-factor and growth policy
@@ -183,7 +184,7 @@ ts_estimate_hashagg_tablesize(struct Path *path, const struct AggClauseCosts *ag
 	 * fill-factor is relatively high. It'd be hard to meaningfully factor in
 	 * "double-in-size" growth policies here.
 	 */
-	return hashentrysize * dNumGroups;
+	//return hashentrysize * dNumGroups;
 }
 
 /* copied verbatim from planner.c */
@@ -197,35 +198,35 @@ ts_make_partial_grouping_target(struct PlannerInfo *root, PathTarget *grouping_t
 	int i;
 	struct ListCell *lc;
 
-	partial_target = create_empty_pathtarget();
+	//partial_target = create_empty_pathtarget();
 	non_group_cols = NIL;
 
 	i = 0;
-	foreach (lc, grouping_target->exprs)
-	{
-		struct Expr *expr = (struct Expr *) lfirst(lc);
-		unsigned int sgref = get_pathtarget_sortgroupref(grouping_target, i);
+	//foreach (lc, grouping_target->exprs)
+	//{
+	//	struct Expr *expr = (struct Expr *) lfirst(lc);
+	//	unsigned int sgref = get_pathtarget_sortgroupref(grouping_target, i);
 
-		if (sgref && parse->groupClause &&
-			get_sortgroupref_clause_noerr(sgref, parse->groupClause) != NULL)
-		{
-			/*
-			 * It's a grouping column, so add it to the partial_target as-is.
-			 * (This allows the upper agg step to repeat the grouping calcs.)
-			 */
-			add_column_to_pathtarget(partial_target, expr, sgref);
-		}
-		else
-		{
-			/*
-			 * Non-grouping column, so just remember the expression for later
-			 * call to pull_var_clause.
-			 */
-			non_group_cols = lappend(non_group_cols, expr);
-		}
+	//	if (sgref && parse->groupClause &&
+	//		get_sortgroupref_clause_noerr(sgref, parse->groupClause) != NULL)
+	//	{
+	//		/*
+	//		 * It's a grouping column, so add it to the partial_target as-is.
+	//		 * (This allows the upper agg step to repeat the grouping calcs.)
+	//		 */
+	//		add_column_to_pathtarget(partial_target, expr, sgref);
+	//	}
+	//	else
+	//	{
+	//		/*
+	//		 * Non-grouping column, so just remember the expression for later
+	//		 * call to pull_var_clause.
+	//		 */
+	//		non_group_cols = lappend(non_group_cols, expr);
+	//	}
 
-		i++;
-	}
+	//	i++;
+	//}
 
 	/*
 	 * If there's a HAVING clause, we'll need the Vars/Aggrefs it uses, too.
@@ -240,48 +241,48 @@ ts_make_partial_grouping_target(struct PlannerInfo *root, PathTarget *grouping_t
 	 * be present already.)  Note this includes Vars used in resjunk items, so
 	 * we are covering the needs of ORDER BY and window specifications.
 	 */
-	non_group_exprs = pull_var_clause((struct Node *) non_group_cols,
-									  PVC_INCLUDE_AGGREGATES | PVC_RECURSE_WINDOWFUNCS |
-										  PVC_INCLUDE_PLACEHOLDERS);
+	//non_group_exprs = pull_var_clause((struct Node *) non_group_cols,
+	//								  PVC_INCLUDE_AGGREGATES | PVC_RECURSE_WINDOWFUNCS |
+	//									  PVC_INCLUDE_PLACEHOLDERS);
 
-	add_new_columns_to_pathtarget(partial_target, non_group_exprs);
+	//add_new_columns_to_pathtarget(partial_target, non_group_exprs);
 
 	/*
 	 * Adjust Aggrefs to put them in partial mode.  At this point all Aggrefs
 	 * are at the top level of the target list, so we can just scan the list
 	 * rather than recursing through the expression trees.
 	 */
-	foreach (lc, partial_target->exprs)
-	{
-		struct Aggref *aggref = (struct Aggref *) lfirst(lc);
+	//foreach (lc, partial_target->exprs)
+	//{
+	//	struct Aggref *aggref = (struct Aggref *) lfirst(lc);
 
-		if (IsA(aggref, Aggref))
-		{
-			struct Aggref *newaggref;
+	//	if (IsA(aggref, Aggref))
+	//	{
+	//		struct Aggref *newaggref;
 
-			/*
-			 * We shouldn't need to copy the substructure of the Aggref node,
-			 * but flat-copy the node itself to avoid damaging other trees.
-			 */
-			newaggref = makeNode(Aggref);
-			memcpy(newaggref, aggref, sizeof(struct Aggref));
+	//		/*
+	//		 * We shouldn't need to copy the substructure of the Aggref node,
+	//		 * but flat-copy the node itself to avoid damaging other trees.
+	//		 */
+	//		newaggref = makeNode(Aggref);
+	//		memcpy(newaggref, aggref, sizeof(struct Aggref));
 
-			/* For now, assume serialization is required */
-			mark_partial_aggref(newaggref, AGGSPLIT_INITIAL_SERIAL);
+	//		/* For now, assume serialization is required */
+	//		mark_partial_aggref(newaggref, AGGSPLIT_INITIAL_SERIAL);
 
-			lfirst(lc) = newaggref;
-		}
-	}
+	//		lfirst(lc) = newaggref;
+	//	}
+	//}
 
 	/* clean up cruft */
 	list_free(non_group_exprs);
 	list_free(non_group_cols);
 
 	/* XXX this causes some redundant cost calculation ... */
-	return set_pathtarget_cost_width(root, partial_target);
+	//return set_pathtarget_cost_width(root, partial_target);
 }
 
-#if PG96
+//#if PG96
 /* copied verbatim from selfuncs.c */
 bool
 ts_get_variable_range(PlannerInfo *root, VariableStatData *vardata, Oid sortop, Datum *min,
@@ -291,7 +292,8 @@ ts_get_variable_range(PlannerInfo *root, VariableStatData *vardata, Oid sortop, 
 	uintptr_t tmax = 0;
 	char have_data = false;
 	short typLen;
-	char typByVal;
+	//char typByVal;
+	bool typByVal;
 	unsigned int opfuncoid;
 	uintptr_t *values;
 	int nvalues;
@@ -304,10 +306,10 @@ ts_get_variable_range(PlannerInfo *root, VariableStatData *vardata, Oid sortop, 
 	 * have unpleasant effects on planning speed.  Need more investigation
 	 * before enabling this.
 	 */
-#ifdef NOT_USED
-	if (get_actual_variable_range(root, vardata, sortop, min, max))
-		return true;
-#endif
+//#ifdef NOT_USED
+//	if (get_actual_variable_range(root, vardata, sortop, min, max))
+//		return true;
+//#endif
 
 	if (!HeapTupleIsValid(vardata->statsTuple))
 	{
@@ -315,21 +317,21 @@ ts_get_variable_range(PlannerInfo *root, VariableStatData *vardata, Oid sortop, 
 		return false;
 	}
 
-#if (PG_VERSION_NUM >= 90603) /* statistic_proc_security_check was added in                        \
-							   * 9.6.3 */
-
-	/*
-	 * If we can't apply the sortop to the stats data, just fail.  In
-	 * principle, if there's a histogram and no MCVs, we could return the
-	 * histogram endpoints without ever applying the sortop ... but it's
-	 * probably not worth trying, because whatever the caller wants to do with
-	 * the endpoints would likely fail the security check too.
-	 */
-	if (!statistic_proc_security_check(vardata, (opfuncoid = get_opcode(sortop))))
-		return false;
-#else
+//#if (PG_VERSION_NUM >= 90603) /* statistic_proc_security_check was added in                        \
+//							   * 9.6.3 */
+//
+//	/*
+//	 * If we can't apply the sortop to the stats data, just fail.  In
+//	 * principle, if there's a histogram and no MCVs, we could return the
+//	 * histogram endpoints without ever applying the sortop ... but it's
+//	 * probably not worth trying, because whatever the caller wants to do with
+//	 * the endpoints would likely fail the security check too.
+//	 */
+//	if (!statistic_proc_security_check(vardata, (opfuncoid = get_opcode(sortop))))
+//		return false;
+//#else
 	opfuncoid = get_opcode(sortop);
-#endif
+//#endif
 
 	get_typlenbyval(vardata->atttype, &typLen, &typByVal);
 
@@ -427,129 +429,129 @@ ts_get_variable_range(PlannerInfo *root, VariableStatData *vardata, Oid sortop, 
 	*max = tmax;
 	return have_data;
 }
-#else
-/* copied verbatim from selfuncs.c */
-bool
-ts_get_variable_range(PlannerInfo *root, VariableStatData *vardata, Oid sortop, Datum *min,
-					  Datum *max)
-{
-	Datum tmin = 0;
-	Datum tmax = 0;
-	bool have_data = false;
-	int16 typLen;
-	bool typByVal;
-	Oid opfuncoid;
-	AttStatsSlot sslot;
-	int i;
-
-	/*
-	 * XXX It's very tempting to try to use the actual column min and max, if
-	 * we can get them relatively-cheaply with an index probe.  However, since
-	 * this function is called many times during join planning, that could
-	 * have unpleasant effects on planning speed.  Need more investigation
-	 * before enabling this.
-	 */
-#ifdef NOT_USED
-	if (get_actual_variable_range(root, vardata, sortop, min, max))
-		return true;
-#endif
-
-	if (!HeapTupleIsValid(vardata->statsTuple))
-	{
-		/* no stats available, so default result */
-		return false;
-	}
-
-	/*
-	 * If we can't apply the sortop to the stats data, just fail.  In
-	 * principle, if there's a histogram and no MCVs, we could return the
-	 * histogram endpoints without ever applying the sortop ... but it's
-	 * probably not worth trying, because whatever the caller wants to do with
-	 * the endpoints would likely fail the security check too.
-	 */
-	if (!statistic_proc_security_check(vardata, (opfuncoid = get_opcode(sortop))))
-		return false;
-
-	get_typlenbyval(vardata->atttype, &typLen, &typByVal);
-
-	/*
-	 * If there is a histogram, grab the first and last values.
-	 *
-	 * If there is a histogram that is sorted with some other operator than
-	 * the one we want, fail --- this suggests that there is data we can't
-	 * use.
-	 */
-	if (get_attstatsslot(&sslot,
-						 vardata->statsTuple,
-						 STATISTIC_KIND_HISTOGRAM,
-						 sortop,
-						 ATTSTATSSLOT_VALUES))
-	{
-		if (sslot.nvalues > 0)
-		{
-			tmin = datumCopy(sslot.values[0], typByVal, typLen);
-			tmax = datumCopy(sslot.values[sslot.nvalues - 1], typByVal, typLen);
-			have_data = true;
-		}
-		free_attstatsslot(&sslot);
-	}
-	else if (get_attstatsslot(&sslot, vardata->statsTuple, STATISTIC_KIND_HISTOGRAM, InvalidOid, 0))
-	{
-		free_attstatsslot(&sslot);
-		return false;
-	}
-
-	/*
-	 * If we have most-common-values info, look for extreme MCVs.  This is
-	 * needed even if we also have a histogram, since the histogram excludes
-	 * the MCVs.  However, usually the MCVs will not be the extreme values, so
-	 * avoid unnecessary data copying.
-	 */
-	if (get_attstatsslot(&sslot,
-						 vardata->statsTuple,
-						 STATISTIC_KIND_MCV,
-						 InvalidOid,
-						 ATTSTATSSLOT_VALUES))
-	{
-		bool tmin_is_mcv = false;
-		bool tmax_is_mcv = false;
-		FmgrInfo opproc;
-
-		fmgr_info(opfuncoid, &opproc);
-
-		for (i = 0; i < sslot.nvalues; i++)
-		{
-			if (!have_data)
-			{
-				tmin = tmax = sslot.values[i];
-				tmin_is_mcv = tmax_is_mcv = have_data = true;
-				continue;
-			}
-			if (DatumGetBool(
-					FunctionCall2Coll(&opproc, DEFAULT_COLLATION_OID, sslot.values[i], tmin)))
-			{
-				tmin = sslot.values[i];
-				tmin_is_mcv = true;
-			}
-			if (DatumGetBool(
-					FunctionCall2Coll(&opproc, DEFAULT_COLLATION_OID, tmax, sslot.values[i])))
-			{
-				tmax = sslot.values[i];
-				tmax_is_mcv = true;
-			}
-		}
-		if (tmin_is_mcv)
-			tmin = datumCopy(tmin, typByVal, typLen);
-		if (tmax_is_mcv)
-			tmax = datumCopy(tmax, typByVal, typLen);
-		free_attstatsslot(&sslot);
-	}
-
-	*min = tmin;
-	*max = tmax;
-	return have_data;
-}
-#endif
+//#else
+///* copied verbatim from selfuncs.c */
+//bool
+//ts_get_variable_range(PlannerInfo *root, VariableStatData *vardata, Oid sortop, Datum *min,
+//					  Datum *max)
+//{
+//	Datum tmin = 0;
+//	Datum tmax = 0;
+//	bool have_data = false;
+//	int16 typLen;
+//	bool typByVal;
+//	Oid opfuncoid;
+//	AttStatsSlot sslot;
+//	int i;
+//
+//	/*
+//	 * XXX It's very tempting to try to use the actual column min and max, if
+//	 * we can get them relatively-cheaply with an index probe.  However, since
+//	 * this function is called many times during join planning, that could
+//	 * have unpleasant effects on planning speed.  Need more investigation
+//	 * before enabling this.
+//	 */
+//#ifdef NOT_USED
+//	if (get_actual_variable_range(root, vardata, sortop, min, max))
+//		return true;
+//#endif
+//
+//	if (!HeapTupleIsValid(vardata->statsTuple))
+//	{
+//		/* no stats available, so default result */
+//		return false;
+//	}
+//
+//	/*
+//	 * If we can't apply the sortop to the stats data, just fail.  In
+//	 * principle, if there's a histogram and no MCVs, we could return the
+//	 * histogram endpoints without ever applying the sortop ... but it's
+//	 * probably not worth trying, because whatever the caller wants to do with
+//	 * the endpoints would likely fail the security check too.
+//	 */
+//	if (!statistic_proc_security_check(vardata, (opfuncoid = get_opcode(sortop))))
+//		return false;
+//
+//	get_typlenbyval(vardata->atttype, &typLen, &typByVal);
+//
+//	/*
+//	 * If there is a histogram, grab the first and last values.
+//	 *
+//	 * If there is a histogram that is sorted with some other operator than
+//	 * the one we want, fail --- this suggests that there is data we can't
+//	 * use.
+//	 */
+//	if (get_attstatsslot(&sslot,
+//						 vardata->statsTuple,
+//						 STATISTIC_KIND_HISTOGRAM,
+//						 sortop,
+//						 ATTSTATSSLOT_VALUES))
+//	{
+//		if (sslot.nvalues > 0)
+//		{
+//			tmin = datumCopy(sslot.values[0], typByVal, typLen);
+//			tmax = datumCopy(sslot.values[sslot.nvalues - 1], typByVal, typLen);
+//			have_data = true;
+//		}
+//		free_attstatsslot(&sslot);
+//	}
+//	else if (get_attstatsslot(&sslot, vardata->statsTuple, STATISTIC_KIND_HISTOGRAM, InvalidOid, 0))
+//	{
+//		free_attstatsslot(&sslot);
+//		return false;
+//	}
+//
+//	/*
+//	 * If we have most-common-values info, look for extreme MCVs.  This is
+//	 * needed even if we also have a histogram, since the histogram excludes
+//	 * the MCVs.  However, usually the MCVs will not be the extreme values, so
+//	 * avoid unnecessary data copying.
+//	 */
+//	if (get_attstatsslot(&sslot,
+//						 vardata->statsTuple,
+//						 STATISTIC_KIND_MCV,
+//						 InvalidOid,
+//						 ATTSTATSSLOT_VALUES))
+//	{
+//		bool tmin_is_mcv = false;
+//		bool tmax_is_mcv = false;
+//		FmgrInfo opproc;
+//
+//		fmgr_info(opfuncoid, &opproc);
+//
+//		for (i = 0; i < sslot.nvalues; i++)
+//		{
+//			if (!have_data)
+//			{
+//				tmin = tmax = sslot.values[i];
+//				tmin_is_mcv = tmax_is_mcv = have_data = true;
+//				continue;
+//			}
+//			if (DatumGetBool(
+//					FunctionCall2Coll(&opproc, DEFAULT_COLLATION_OID, sslot.values[i], tmin)))
+//			{
+//				tmin = sslot.values[i];
+//				tmin_is_mcv = true;
+//			}
+//			if (DatumGetBool(
+//					FunctionCall2Coll(&opproc, DEFAULT_COLLATION_OID, tmax, sslot.values[i])))
+//			{
+//				tmax = sslot.values[i];
+//				tmax_is_mcv = true;
+//			}
+//		}
+//		if (tmin_is_mcv)
+//			tmin = datumCopy(tmin, typByVal, typLen);
+//		if (tmax_is_mcv)
+//			tmax = datumCopy(tmax, typByVal, typLen);
+//		free_attstatsslot(&sslot);
+//	}
+//
+//	*min = tmin;
+//	*max = tmax;
+//	return have_data;
+//}
+//#endif
 
 /*
  * find_ec_member_for_tle
@@ -651,22 +653,22 @@ ts_make_pathkey_from_sortinfo(PlannerInfo *root, Expr *expr, Relids nullable_rel
 		elog(ERROR, "could not find opfamilies for equality operator %u", equality_op);
 
 	/* Now find or (optionally) create a matching EquivalenceClass */
-	eclass = get_eclass_for_sort_expr(root,
-									  expr,
-									  nullable_relids,
-									  opfamilies,
-									  opcintype,
-									  collation,
-									  sortref,
-									  rel,
-									  create_it);
+	//eclass = get_eclass_for_sort_expr(root,
+	//								  expr,
+	//								  nullable_relids,
+	//								  opfamilies,
+	//								  opcintype,
+	//								  collation,
+	//								  sortref,
+	//								  rel,
+	//								  create_it);
 
 	/* Fail if no EC and !create_it */
-	if (!eclass)
-		return NULL;
+	//if (!eclass)
+	//	return NULL;
 
-	/* And finally we can find or create a PathKey node */
-	return make_canonical_pathkey(root, eclass, opfamily, strategy, nulls_first);
+	///* And finally we can find or create a PathKey node */
+	//return make_canonical_pathkey(root, eclass, opfamily, strategy, nulls_first);
 }
 
 /*
@@ -944,15 +946,15 @@ ts_prepare_sort_from_pathkeys(Plan *lefttree, List *pathkeys, Relids relids,
 					continue;
 
 				sortexpr = em->em_expr;
-				exprvars = pull_var_clause((Node *) sortexpr,
-										   PVC_INCLUDE_AGGREGATES | PVC_INCLUDE_WINDOWFUNCS |
-											   PVC_INCLUDE_PLACEHOLDERS);
-				foreach (k, exprvars)
-				{
-					if (!tlist_member_ignore_relabel(lfirst(k), tlist))
-						break;
-				}
-				list_free(exprvars);
+				//exprvars = pull_var_clause((Node *) sortexpr,
+				//						   PVC_INCLUDE_AGGREGATES | PVC_INCLUDE_WINDOWFUNCS |
+				//							   PVC_INCLUDE_PLACEHOLDERS);
+				//foreach (k, exprvars)
+				//{
+				//	if (!tlist_member_ignore_relabel(lfirst(k), tlist))
+				//		break;
+				//}
+				//list_free(exprvars);
 				if (!k)
 				{
 					pk_datatype = em->em_datatype;
@@ -1011,31 +1013,31 @@ List *
 ts_build_path_tlist(PlannerInfo *root, Path *path)
 {
 	List *tlist = NIL;
-	Index *sortgrouprefs = path->pathtarget->sortgrouprefs;
+	//Index *sortgrouprefs = path->pathtarget->sortgrouprefs;
 	int resno = 1;
 	ListCell *v;
 
-	foreach (v, path->pathtarget->exprs)
-	{
-		Node *node = (Node *) lfirst(v);
-		TargetEntry *tle;
+	//foreach (v, path->pathtarget->exprs)
+	//{
+	//	Node *node = (Node *) lfirst(v);
+	//	TargetEntry *tle;
 
-		/*
-		 * If it's a parameterized path, there might be lateral references in
-		 * the tlist, which need to be replaced with Params.  There's no need
-		 * to remake the TargetEntry nodes, so apply this to each list item
-		 * separately.
-		 */
-		if (path->param_info)
-			node = replace_nestloop_params(root, node);
+	//	/*
+	//	 * If it's a parameterized path, there might be lateral references in
+	//	 * the tlist, which need to be replaced with Params.  There's no need
+	//	 * to remake the TargetEntry nodes, so apply this to each list item
+	//	 * separately.
+	//	 */
+	//	if (path->param_info)
+	//		node = replace_nestloop_params(root, node);
 
-		tle = makeTargetEntry((Expr *) node, resno, NULL, false);
-		if (sortgrouprefs)
-			tle->ressortgroupref = sortgrouprefs[resno - 1];
+	//	tle = makeTargetEntry((Expr *) node, resno, NULL, false);
+	//	//if (sortgrouprefs)
+	//	//	tle->ressortgroupref = sortgrouprefs[resno - 1];
 
-		tlist = lappend(tlist, tle);
-		resno++;
-	}
+	//	tlist = lappend(tlist, tle);
+	//	resno++;
+	//}
 	return tlist;
 }
 
