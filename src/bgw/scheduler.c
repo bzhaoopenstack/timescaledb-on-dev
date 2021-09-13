@@ -13,14 +13,15 @@
 #include <postgres.h>
 
 #include <miscadmin.h>
-#include <postmaster/bgworker.h>
+//#include <postmaster/bgworker.h>
 #include <storage/ipc.h>
 #include <storage/latch.h>
-#include <storage/lwlock.h>
+//#include <storage/lwlock.h>
+#include <storage/lock/lwlock.h>
 #include <storage/proc.h>
 #include <storage/shmem.h>
 #include <utils/inval.h>
-#include <utils/jsonb.h>
+//#include <utils/jsonb.h>
 #include <utils/timestamp.h>
 #include <utils/snapmgr.h>
 #include <utils/memutils.h>
@@ -28,6 +29,8 @@
 #include <pgstat.h>
 #include <tcop/tcopprot.h>
 #include <nodes/pg_list.h>
+
+#include <knl/knl_session.h>
 
 #include "extension.h"
 #include "guc.h"
@@ -96,7 +99,7 @@ typedef struct ScheduledBgwJob
 	TimestampTz next_start;
 	TimestampTz timeout_at;
 	JobState state;
-	BackgroundWorkerHandle *handle;
+	//BackgroundWorkerHandle *handle;
 
 	bool reserved_worker;
 
@@ -111,46 +114,46 @@ static void on_failure_to_start_job(ScheduledBgwJob *sjob);
 
 static volatile sig_atomic_t got_SIGHUP = false;
 
-BackgroundWorkerHandle *
-ts_bgw_start_worker(const char *function, const char *name, const char *extra)
-{
-	BackgroundWorker worker = {
-		.bgw_flags = BGWORKER_SHMEM_ACCESS | BGWORKER_BACKEND_DATABASE_CONNECTION,
-		.bgw_start_time = BgWorkerStart_RecoveryFinished,
-		.bgw_restart_time = BGW_NEVER_RESTART,
-		.bgw_notify_pid = MyProcPid,
-		.bgw_main_arg = ObjectIdGetDatum(MyDatabaseId),
-	};
-	BackgroundWorkerHandle *handle = NULL;
+//BackgroundWorkerHandle *
+//ts_bgw_start_worker(const char *function, const char *name, const char *extra)
+//{
+//	BackgroundWorker worker = {
+//		.bgw_flags = BGWORKER_SHMEM_ACCESS | BGWORKER_BACKEND_DATABASE_CONNECTION,
+//		.bgw_start_time = BgWorkerStart_RecoveryFinished,
+//		.bgw_restart_time = BGW_NEVER_RESTART,
+//		.bgw_notify_pid = MyProcPid,
+//		.bgw_main_arg = ObjectIdGetDatum(MyDatabaseId),
+//	};
+//	BackgroundWorkerHandle *handle = NULL;
+//
+//	StrNCpy(worker.bgw_name, name, BGW_MAXLEN);
+//	StrNCpy(worker.bgw_library_name, ts_extension_get_so_name(), BGW_MAXLEN);
+//	StrNCpy(worker.bgw_function_name, function, BGW_MAXLEN);
+//
+//	Assert(strlen(extra) < BGW_EXTRALEN);
+//	StrNCpy(worker.bgw_extra, extra, BGW_EXTRALEN);
+//
+//	/* handle needs to be allocated in long-lived memory context */
+//	MemoryContextSwitchTo(scheduler_mctx);
+//	if (!RegisterDynamicBackgroundWorker(&worker, &handle))
+//		handle = NULL;
+//	MemoryContextSwitchTo(scratch_mctx);
+//
+//	return handle;
+//}
 
-	StrNCpy(worker.bgw_name, name, BGW_MAXLEN);
-	StrNCpy(worker.bgw_library_name, ts_extension_get_so_name(), BGW_MAXLEN);
-	StrNCpy(worker.bgw_function_name, function, BGW_MAXLEN);
-
-	Assert(strlen(extra) < BGW_EXTRALEN);
-	StrNCpy(worker.bgw_extra, extra, BGW_EXTRALEN);
-
-	/* handle needs to be allocated in long-lived memory context */
-	MemoryContextSwitchTo(scheduler_mctx);
-	if (!RegisterDynamicBackgroundWorker(&worker, &handle))
-		handle = NULL;
-	MemoryContextSwitchTo(scratch_mctx);
-
-	return handle;
-}
-
-#if USE_ASSERT_CHECKING
-static void
-assert_that_worker_has_stopped(ScheduledBgwJob *sjob)
-{
-	pid_t pid;
-	BgwHandleStatus status;
-
-	Assert(sjob->reserved_worker);
-	status = GetBackgroundWorkerPid(sjob->handle, &pid);
-	Assert(BGWH_STOPPED == status);
-}
-#endif
+//#if USE_ASSERT_CHECKING
+//static void
+//assert_that_worker_has_stopped(ScheduledBgwJob *sjob)
+//{
+//	pid_t pid;
+//	//BgwHandleStatus status;
+//
+//	//Assert(sjob->reserved_worker);
+//	//status = GetBackgroundWorkerPid(sjob->handle, &pid);
+//	//Assert(BGWH_STOPPED == status);
+//}
+//#endif
 
 static void
 mark_job_as_started(ScheduledBgwJob *sjob)
@@ -175,15 +178,15 @@ worker_state_cleanup(ScheduledBgwJob *sjob)
 	 * This function needs to be safe wrt failures occurring at any point in
 	 * the job starting process.
 	 */
-	if (sjob->handle != NULL)
-	{
-#if USE_ASSERT_CHECKING
-		/* Sanity check: worker has stopped (if it was started) */
-		assert_that_worker_has_stopped(sjob);
-#endif
-		pfree(sjob->handle);
-		sjob->handle = NULL;
-	}
+//	if (sjob->handle != NULL)
+//	{
+//#if USE_ASSERT_CHECKING
+//		/* Sanity check: worker has stopped (if it was started) */
+//		assert_that_worker_has_stopped(sjob);
+//#endif
+//		pfree(sjob->handle);
+//		sjob->handle = NULL;
+//	}
 
 	/*
 	 * first cleanup reserved workers before accessing db. Want to minimize
@@ -250,7 +253,7 @@ scheduled_bgw_job_transition_state_to(ScheduledBgwJob *sjob, JobState new_state)
 	{
 		case JOB_STATE_DISABLED:
 			Assert(prev_state == JOB_STATE_STARTED || prev_state == JOB_STATE_TERMINATING);
-			sjob->handle = NULL;
+			//sjob->handle = NULL;
 			break;
 		case JOB_STATE_SCHEDULED:
 			/* prev_state can be any value, including itself */
@@ -264,7 +267,7 @@ scheduled_bgw_job_transition_state_to(ScheduledBgwJob *sjob, JobState new_state)
 			break;
 		case JOB_STATE_STARTED:
 			Assert(prev_state == JOB_STATE_SCHEDULED);
-			Assert(sjob->handle == NULL);
+			//Assert(sjob->handle == NULL);
 			Assert(!sjob->reserved_worker);
 
 			StartTransactionCommand();
@@ -314,23 +317,23 @@ scheduled_bgw_job_transition_state_to(ScheduledBgwJob *sjob, JobState new_state)
 				 sjob->job.fd.id,
 				 NameStr(sjob->job.fd.application_name));
 
-			sjob->handle = ts_bgw_job_start(&sjob->job, owner_uid);
-			if (sjob->handle == NULL)
-			{
-				elog(WARNING,
-					 "failed to launch job %d \"%s\": failed to start a background worker",
-					 sjob->job.fd.id,
-					 NameStr(sjob->job.fd.application_name));
-				on_failure_to_start_job(sjob);
-				return;
-			}
+			//sjob->handle = ts_bgw_job_start(&sjob->job, owner_uid);
+			//if (sjob->handle == NULL)
+			//{
+			//	elog(WARNING,
+			//		 "failed to launch job %d \"%s\": failed to start a background worker",
+			//		 sjob->job.fd.id,
+			//		 NameStr(sjob->job.fd.application_name));
+			//	on_failure_to_start_job(sjob);
+			//	return;
+			//}
 			Assert(sjob->reserved_worker);
 			break;
 		case JOB_STATE_TERMINATING:
 			Assert(prev_state == JOB_STATE_STARTED);
-			Assert(sjob->handle != NULL);
+			//Assert(sjob->handle != NULL);
 			Assert(sjob->reserved_worker);
-			TerminateBackgroundWorker(sjob->handle);
+			//TerminateBackgroundWorker(sjob->handle);
 			break;
 	}
 	sjob->state = new_state;
@@ -379,52 +382,52 @@ bgw_scheduler_on_postmaster_death(void)
  * txn before we kick off the actual job. Thus this function cannot be run
  * from within a transaction.
  */
-static void
-scheduled_ts_bgw_job_start(ScheduledBgwJob *sjob,
-						   register_background_worker_callback_type bgw_register)
-{
-	pid_t pid;
-	BgwHandleStatus status;
-
-	scheduled_bgw_job_transition_state_to(sjob, JOB_STATE_STARTED);
-
-	if (sjob->state != JOB_STATE_STARTED)
-		return;
-
-	Assert(sjob->handle != NULL);
-	if (bgw_register != NULL)
-		bgw_register(sjob->handle);
-
-	status = WaitForBackgroundWorkerStartup(sjob->handle, &pid);
-	switch (status)
-	{
-		case BGWH_POSTMASTER_DIED:
-			bgw_scheduler_on_postmaster_death();
-			break;
-		case BGWH_STARTED:
-			/* all good */
-			break;
-		case BGWH_STOPPED:
-			StartTransactionCommand();
-			scheduled_bgw_job_transition_state_to(sjob, JOB_STATE_SCHEDULED);
-			CommitTransactionCommand();
-			MemoryContextSwitchTo(scratch_mctx);
-			break;
-		case BGWH_NOT_YET_STARTED:
-			/* should not be possible */
-			elog(ERROR, "unexpected bgworker state %d", status);
-			break;
-	}
-}
+//static void
+//scheduled_ts_bgw_job_start(ScheduledBgwJob *sjob,
+//						   register_background_worker_callback_type bgw_register)
+//{
+//	pid_t pid;
+//	BgwHandleStatus status;
+//
+//	scheduled_bgw_job_transition_state_to(sjob, JOB_STATE_STARTED);
+//
+//	if (sjob->state != JOB_STATE_STARTED)
+//		return;
+//
+//	Assert(sjob->handle != NULL);
+//	if (bgw_register != NULL)
+//		bgw_register(sjob->handle);
+//
+//	status = WaitForBackgroundWorkerStartup(sjob->handle, &pid);
+//	switch (status)
+//	{
+//		case BGWH_POSTMASTER_DIED:
+//			bgw_scheduler_on_postmaster_death();
+//			break;
+//		case BGWH_STARTED:
+//			/* all good */
+//			break;
+//		case BGWH_STOPPED:
+//			StartTransactionCommand();
+//			scheduled_bgw_job_transition_state_to(sjob, JOB_STATE_SCHEDULED);
+//			CommitTransactionCommand();
+//			MemoryContextSwitchTo(scratch_mctx);
+//			break;
+//		case BGWH_NOT_YET_STARTED:
+//			/* should not be possible */
+//			elog(ERROR, "unexpected bgworker state %d", status);
+//			break;
+//	}
+//}
 
 static void
 terminate_and_cleanup_job(ScheduledBgwJob *sjob)
 {
-	if (sjob->handle != NULL)
-	{
-		TerminateBackgroundWorker(sjob->handle);
-		WaitForBackgroundWorkerShutdown(sjob->handle);
-	}
+	//if (sjob->handle != NULL)
+	//{
+	//	TerminateBackgroundWorker(sjob->handle);
+	//	WaitForBackgroundWorkerShutdown(sjob->handle);
+	//}
 	sjob->may_need_mark_end = false;
 	worker_state_cleanup(sjob);
 }
@@ -546,23 +549,23 @@ cmp_next_start(const void *left, const void *right)
 	return 0;
 }
 
-static void
-start_scheduled_jobs(register_background_worker_callback_type bgw_register)
-{
-	ListCell *lc;
-	Assert(CurrentMemoryContext == scratch_mctx);
-	/* Order jobs by increasing next_start */
-	List *ordered_scheduled_jobs = list_qsort(scheduled_jobs, cmp_next_start);
-
-	foreach (lc, ordered_scheduled_jobs)
-	{
-		ScheduledBgwJob *sjob = lfirst(lc);
-
-		if (sjob->state == JOB_STATE_SCHEDULED &&
-			sjob->next_start <= ts_timer_get_current_timestamp())
-			scheduled_ts_bgw_job_start(sjob, bgw_register);
-	}
-}
+//static void
+//start_scheduled_jobs(register_background_worker_callback_type bgw_register)
+//{
+//	ListCell *lc;
+//	Assert(CurrentMemoryContext == scratch_mctx);
+//	/* Order jobs by increasing next_start */
+//	List *ordered_scheduled_jobs = list_qsort(scheduled_jobs, cmp_next_start);
+//
+//	foreach (lc, ordered_scheduled_jobs)
+//	{
+//		ScheduledBgwJob *sjob = lfirst(lc);
+//
+//		if (sjob->state == JOB_STATE_SCHEDULED &&
+//			sjob->next_start <= ts_timer_get_current_timestamp())
+//			scheduled_ts_bgw_job_start(sjob, bgw_register);
+//	}
+//}
 
 /* Returns the earliest time the scheduler should start a job that is waiting to be started */
 static TimestampTz
@@ -626,8 +629,8 @@ terminate_all_jobs_and_release_workers()
 		 * sjobs, because this callback might have interrupted a state
 		 * transition.
 		 */
-		if (sjob->handle != NULL)
-			TerminateBackgroundWorker(sjob->handle);
+		//if (sjob->handle != NULL)
+		//	TerminateBackgroundWorker(sjob->handle);
 
 		if (sjob->reserved_worker)
 		{
@@ -646,8 +649,8 @@ wait_for_all_jobs_to_shutdown()
 	{
 		ScheduledBgwJob *sjob = lfirst(lc);
 
-		if (sjob->state == JOB_STATE_STARTED || sjob->state == JOB_STATE_TERMINATING)
-			WaitForBackgroundWorkerShutdown(sjob->handle);
+		//if (sjob->state == JOB_STATE_STARTED || sjob->state == JOB_STATE_TERMINATING)
+		//	WaitForBackgroundWorkerShutdown(sjob->handle);
 	}
 }
 
@@ -658,7 +661,7 @@ check_for_stopped_and_timed_out_jobs()
 
 	foreach (lc, scheduled_jobs)
 	{
-		BgwHandleStatus status;
+		//BgwHandleStatus status;
 		pid_t pid;
 		ScheduledBgwJob *sjob = lfirst(lc);
 		TimestampTz now = ts_timer_get_current_timestamp();
@@ -666,35 +669,35 @@ check_for_stopped_and_timed_out_jobs()
 		if (sjob->state != JOB_STATE_STARTED && sjob->state != JOB_STATE_TERMINATING)
 			continue;
 
-		status = GetBackgroundWorkerPid(sjob->handle, &pid);
+		//status = GetBackgroundWorkerPid(sjob->handle, &pid);
 
-		switch (status)
-		{
-			case BGWH_POSTMASTER_DIED:
-				bgw_scheduler_on_postmaster_death();
-				break;
-			case BGWH_NOT_YET_STARTED:
-				elog(ERROR, "unexpected bgworker state %d", status);
-				break;
-			case BGWH_STARTED:
-				/* still running */
-				if (sjob->state == JOB_STATE_STARTED && now >= sjob->timeout_at)
-				{
-					elog(WARNING,
-						 "terminating background worker \"%s\" due to timeout",
-						 NameStr(sjob->job.fd.application_name));
-					scheduled_bgw_job_transition_state_to(sjob, JOB_STATE_TERMINATING);
-					Assert(sjob->state != JOB_STATE_STARTED);
-				}
-				break;
-			case BGWH_STOPPED:
-				StartTransactionCommand();
-				scheduled_bgw_job_transition_state_to(sjob, JOB_STATE_SCHEDULED);
-				CommitTransactionCommand();
-				MemoryContextSwitchTo(scratch_mctx);
-				Assert(sjob->state != JOB_STATE_STARTED);
-				break;
-		}
+		//switch (status)
+		//{
+		//	case BGWH_POSTMASTER_DIED:
+		//		bgw_scheduler_on_postmaster_death();
+		//		break;
+		//	case BGWH_NOT_YET_STARTED:
+		//		elog(ERROR, "unexpected bgworker state %d", status);
+		//		break;
+		//	case BGWH_STARTED:
+		//		/* still running */
+		//		if (sjob->state == JOB_STATE_STARTED && now >= sjob->timeout_at)
+		//		{
+		//			elog(WARNING,
+		//				 "terminating background worker \"%s\" due to timeout",
+		//				 NameStr(sjob->job.fd.application_name));
+		//			scheduled_bgw_job_transition_state_to(sjob, JOB_STATE_TERMINATING);
+		//			Assert(sjob->state != JOB_STATE_STARTED);
+		//		}
+		//		break;
+		//	case BGWH_STOPPED:
+		//		StartTransactionCommand();
+		//		scheduled_bgw_job_transition_state_to(sjob, JOB_STATE_SCHEDULED);
+		//		CommitTransactionCommand();
+		//		MemoryContextSwitchTo(scratch_mctx);
+		//		Assert(sjob->state != JOB_STATE_STARTED);
+		//		break;
+		//}
 	}
 }
 
@@ -714,83 +717,83 @@ check_for_stopped_and_timed_out_jobs()
  * wrapped in Start/CommitTransactionCommit will not happen in scratch_mctx
  * but will get freed on CommitTransactionCommand.
  */
-void
-ts_bgw_scheduler_process(int32 run_for_interval_ms,
-						 register_background_worker_callback_type bgw_register)
-{
-	TimestampTz start = ts_timer_get_current_timestamp();
-	TimestampTz quit_time = DT_NOEND;
-
-	/* txn to read the list of jobs from the DB */
-	StartTransactionCommand();
-	scheduled_jobs = ts_update_scheduled_jobs_list(scheduled_jobs, scheduler_mctx);
-	CommitTransactionCommand();
-	MemoryContextSwitchTo(scratch_mctx);
-
-	jobs_list_needs_update = false;
-
-	if (run_for_interval_ms > 0)
-		quit_time = TimestampTzPlusMilliseconds(start, run_for_interval_ms);
-
-	ereport(DEBUG1, (errmsg("database scheduler starting for database %d", MyDatabaseId)));
-
-	/*
-	 * on SIGTERM the process will usually die from the CHECK_FOR_INTERRUPTS
-	 * in the die() called from the sigterm handler. Child reaping is then
-	 * handled in the before_shmem_exit,
-	 * bgw_scheduler_before_shmem_exit_callback.
-	 */
-	while (quit_time > ts_timer_get_current_timestamp() && !ProcDiePending && !ts_shutdown_bgw)
-	{
-		MemoryContextSwitchTo(scratch_mctx);
-		TimestampTz next_wakeup = quit_time;
-
-		/* start jobs, and then check when to next wake up */
-		start_scheduled_jobs(bgw_register);
-		next_wakeup = least_timestamp(next_wakeup, earliest_wakeup_to_start_next_job());
-		next_wakeup = least_timestamp(next_wakeup, earliest_job_timeout());
-
-		ts_timer_wait(next_wakeup);
-
-		CHECK_FOR_INTERRUPTS();
-
-		if (got_SIGHUP)
-		{
-			got_SIGHUP = false;
-			ProcessConfigFile(PGC_SIGHUP);
-		}
-
-		/*
-		 * Process any cache invalidation message that indicates we need to
-		 * update the jobs list
-		 */
-		AcceptInvalidationMessages();
-
-		if (jobs_list_needs_update)
-		{
-			StartTransactionCommand();
-			Assert(CurrentMemoryContext == CurTransactionContext);
-			scheduled_jobs = ts_update_scheduled_jobs_list(scheduled_jobs, scheduler_mctx);
-			CommitTransactionCommand();
-			MemoryContextSwitchTo(scratch_mctx);
-			jobs_list_needs_update = false;
-		}
-
-		check_for_stopped_and_timed_out_jobs();
-
-		MemoryContextReset(scratch_mctx);
-	}
-
-#ifdef TS_DEBUG
-	if (ts_shutdown_bgw)
-		elog(WARNING, "bgw scheduler stopped due to shutdown_bgw guc");
-#endif
-
-	CHECK_FOR_INTERRUPTS();
-
-	wait_for_all_jobs_to_shutdown();
-	check_for_stopped_and_timed_out_jobs();
-}
+//void
+//ts_bgw_scheduler_process(int32 run_for_interval_ms,
+//						 register_background_worker_callback_type bgw_register)
+//{
+//	TimestampTz start = ts_timer_get_current_timestamp();
+//	TimestampTz quit_time = DT_NOEND;
+//
+//	/* txn to read the list of jobs from the DB */
+//	StartTransactionCommand();
+//	scheduled_jobs = ts_update_scheduled_jobs_list(scheduled_jobs, scheduler_mctx);
+//	CommitTransactionCommand();
+//	MemoryContextSwitchTo(scratch_mctx);
+//
+//	jobs_list_needs_update = false;
+//
+//	if (run_for_interval_ms > 0)
+//		quit_time = TimestampTzPlusMilliseconds(start, run_for_interval_ms);
+//
+//	ereport(DEBUG1, (errmsg("database scheduler starting for database %d", u_sess->proc_cxt.MyDatabaseId)));
+//
+//	/*
+//	 * on SIGTERM the process will usually die from the CHECK_FOR_INTERRUPTS
+//	 * in the die() called from the sigterm handler. Child reaping is then
+//	 * handled in the before_shmem_exit,
+//	 * bgw_scheduler_before_shmem_exit_callback.
+//	 */
+//	while (quit_time > ts_timer_get_current_timestamp() && !ProcDiePending && !ts_shutdown_bgw)
+//	{
+//		MemoryContextSwitchTo(scratch_mctx);
+//		TimestampTz next_wakeup = quit_time;
+//
+//		/* start jobs, and then check when to next wake up */
+//		start_scheduled_jobs(bgw_register);
+//		next_wakeup = least_timestamp(next_wakeup, earliest_wakeup_to_start_next_job());
+//		next_wakeup = least_timestamp(next_wakeup, earliest_job_timeout());
+//
+//		ts_timer_wait(next_wakeup);
+//
+//		CHECK_FOR_INTERRUPTS();
+//
+//		if (got_SIGHUP)
+//		{
+//			got_SIGHUP = false;
+//			ProcessConfigFile(PGC_SIGHUP);
+//		}
+//
+//		/*
+//		 * Process any cache invalidation message that indicates we need to
+//		 * update the jobs list
+//		 */
+//		AcceptInvalidationMessages();
+//
+//		if (jobs_list_needs_update)
+//		{
+//			StartTransactionCommand();
+//			Assert(CurrentMemoryContext == CurTransactionContext);
+//			scheduled_jobs = ts_update_scheduled_jobs_list(scheduled_jobs, scheduler_mctx);
+//			CommitTransactionCommand();
+//			MemoryContextSwitchTo(scratch_mctx);
+//			jobs_list_needs_update = false;
+//		}
+//
+//		check_for_stopped_and_timed_out_jobs();
+//
+//		MemoryContextReset(scratch_mctx);
+//	}
+//
+//#ifdef TS_DEBUG
+//	if (ts_shutdown_bgw)
+//		elog(WARNING, "bgw scheduler stopped due to shutdown_bgw guc");
+//#endif
+//
+//	CHECK_FOR_INTERRUPTS();
+//
+//	wait_for_all_jobs_to_shutdown();
+//	check_for_stopped_and_timed_out_jobs();
+//}
 
 static void
 bgw_scheduler_before_shmem_exit_callback(int code, Datum arg)
@@ -834,7 +837,7 @@ static void handle_sighup(SIGNAL_ARGS)
 	int save_errno = errno;
 
 	got_SIGHUP = true;
-	SetLatch(MyLatch);
+	//SetLatch(MyLatch);
 
 	errno = save_errno;
 }
@@ -851,8 +854,8 @@ ts_bgw_scheduler_register_signal_handlers(void)
 	 * do not use the default `bgworker_die` sigterm handler because it does
 	 * not respect critical sections
 	 */
-	pqsignal(SIGTERM, handle_sigterm);
-	pqsignal(SIGHUP, handle_sighup);
+	//pqsignal(SIGTERM, handle_sigterm);
+	//pqsignal(SIGHUP, handle_sighup);
 
 	/* Some SIGHUPS may already have been dropped, so we must load the file here */
 	got_SIGHUP = false;
@@ -862,10 +865,10 @@ ts_bgw_scheduler_register_signal_handlers(void)
 Datum
 ts_bgw_scheduler_main(PG_FUNCTION_ARGS)
 {
-	BackgroundWorkerBlockSignals();
+	//BackgroundWorkerBlockSignals();
 	/* Setup any signal handlers here */
 	ts_bgw_scheduler_register_signal_handlers();
-	BackgroundWorkerUnblockSignals();
+	//BackgroundWorkerUnblockSignals();
 
 	ts_bgw_scheduler_setup_callbacks();
 
@@ -873,7 +876,7 @@ ts_bgw_scheduler_main(PG_FUNCTION_ARGS)
 
 	ts_bgw_scheduler_setup_mctx();
 
-	ts_bgw_scheduler_process(-1, NULL);
+	//ts_bgw_scheduler_process(-1, NULL);
 
 	Assert(scheduled_jobs == NIL);
 	MemoryContextSwitchTo(TopMemoryContext);

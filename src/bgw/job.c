@@ -8,18 +8,22 @@
 #include <pgstat.h>
 #include <access/xact.h>
 #include <catalog/pg_authid.h>
-#include <postmaster/bgworker.h>
+//#include <postmaster/bgworker.h>
 #include <storage/ipc.h>
 #include <tcop/tcopprot.h>
 #include <utils/builtins.h>
 #include <utils/memutils.h>
 #include <utils/syscache.h>
 #include <utils/timestamp.h>
-#include <storage/lock.h>
+//#include <storage/lock.h>
+#include <storage/lock/lock.h>
 #include <storage/proc.h>
 #include <storage/procarray.h>
 #include <storage/sinvaladt.h>
 #include <utils/elog.h>
+
+#include <knl/knl_session.h>
+#include <utils/acl.h>
 
 #include "job.h"
 #include "scanner.h"
@@ -40,7 +44,7 @@
 
 #define TELEMETRY_INITIAL_NUM_RUNS 12
 
-#if PG12_LT
+//#if PG12_LT
 static VirtualTransactionId *
 GetLockConflictsCompat(const LOCKTAG *locktag, LOCKMODE lockmode, int *countp)
 {
@@ -54,10 +58,10 @@ GetLockConflictsCompat(const LOCKTAG *locktag, LOCKMODE lockmode, int *countp)
 	}
 	return ids;
 }
-#else
-#define GetLockConflictsCompat(locktag, lockmode, countp)                                          \
-	GetLockConflicts(locktag, lockmode, countp)
-#endif
+//#else
+//#define GetLockConflictsCompat(locktag, lockmode, countp)                                          \
+//	GetLockConflicts(locktag, lockmode, countp)
+//#endif
 
 static const char *job_type_names[_MAX_JOB_TYPE] = {
 	[JOB_TYPE_VERSION_CHECK] = "telemetry_and_version_check_if_enabled",
@@ -127,27 +131,27 @@ ts_bgw_job_owner(BgwJob *job)
 			break;
 	}
 	elog(ERROR, "unknown job type \"%s\" in finding owner", NameStr(job->fd.job_type));
-	pg_unreachable();
+	//pg_unreachable();
 }
 
-BackgroundWorkerHandle *
-ts_bgw_job_start(BgwJob *job, Oid user_uid)
-{
-	int32 job_id = Int32GetDatum(job->fd.id);
-	StringInfo si = makeStringInfo();
-	BackgroundWorkerHandle *bgw_handle;
-
-	/* Changing this requires changes to ts_bgw_job_entrypoint */
-	appendStringInfo(si, "%u %d", user_uid, job_id);
-
-	bgw_handle = ts_bgw_start_worker(job_entrypoint_function_name,
-									 NameStr(job->fd.application_name),
-									 si->data);
-
-	pfree(si->data);
-	pfree(si);
-	return bgw_handle;
-}
+//BackgroundWorkerHandle *
+//ts_bgw_job_start(BgwJob *job, Oid user_uid)
+//{
+//	int32 job_id = Int32GetDatum(job->fd.id);
+//	StringInfo si = makeStringInfo();
+//	BackgroundWorkerHandle *bgw_handle;
+//
+//	/* Changing this requires changes to ts_bgw_job_entrypoint */
+//	appendStringInfo(si, "%u %d", user_uid, job_id);
+//
+//	bgw_handle = ts_bgw_start_worker(job_entrypoint_function_name,
+//									 NameStr(job->fd.application_name),
+//									 si->data);
+//
+//	pfree(si->data);
+//	pfree(si);
+//	return bgw_handle;
+//}
 
 static JobType
 get_job_type_from_name(Name job_type_name)
@@ -205,12 +209,14 @@ ts_bgw_job_get_all(size_t alloc_size, MemoryContext mctx)
 	};
 	ScannerCtx scanctx = {
 		.table = catalog_get_table_id(catalog, BGW_JOB),
-		.index = InvalidOid,
-		.data = &list_data,
-		.tuple_found = bgw_job_accum_tuple_found,
+		.nkeys = NULL,
 		.lockmode = AccessShareLock,
 		.scandirection = ForwardScanDirection,
 		.result_mctx = mctx,
+		.scankey = NULL,
+		.tuple_found = bgw_job_accum_tuple_found,
+		.data = &list_data,
+		.index = InvalidOid,
 	};
 
 	ts_scanner_scan(&scanctx);
@@ -249,7 +255,7 @@ static bool
 lock_job(int32 job_id, LOCKMODE mode, JobLockLifetime lock_type, LOCKTAG *tag, bool block)
 {
 	/* Use a special pseudo-random field 4 value to avoid conflicting with user-advisory-locks */
-	TS_SET_LOCKTAG_ADVISORY(*tag, MyDatabaseId, job_id, 0);
+	TS_SET_LOCKTAG_ADVISORY(*tag, u_sess->proc_cxt.MyDatabaseId, job_id, 0);
 
 	return LockAcquire(tag, mode, lock_type == SESSION_LOCK, !block) != LOCKACQUIRE_NOT_AVAIL;
 }
@@ -352,11 +358,8 @@ get_job_lock_for_delete(int32 job_id)
 
 	/* Try getting an exclusive lock on the tuple in a non-blocking manner. Note this is the
 	 * equivalent of a row-based FOR UPDATE lock */
-	got_lock = lock_job(job_id,
-						AccessExclusiveLock,
-						/* session_lock */ false,
-						&tag,
-						/* block */ false);
+	//got_lock = lock_job(job_id, AccessExclusiveLock, false, &tag, false);
+	got_lock = lock_job(job_id, AccessExclusiveLock, NULL, &tag, false);
 	if (!got_lock)
 	{
 		/* If I couldn't get a lock, try killing the background worker that's running the job.
@@ -367,22 +370,19 @@ get_job_lock_for_delete(int32 job_id)
 		if (VirtualTransactionIdIsValid(*vxid))
 		{
 			proc = BackendIdGetProc(vxid->backendId);
-			if (proc != NULL && proc->isBackgroundWorker)
-			{
-				elog(NOTICE,
-					 "cancelling the background worker for job %d (pid %d)",
-					 job_id,
-					 proc->pid);
-				DirectFunctionCall1(pg_cancel_backend, Int32GetDatum(proc->pid));
-			}
+			//if (proc != NULL && proc->isBackgroundWorker)
+			//{
+			//	elog(NOTICE,
+			//		 "cancelling the background worker for job %d (pid %d)",
+			//		 job_id,
+			//		 proc->pid);
+			//	DirectFunctionCall1(pg_cancel_backend, Int32GetDatum(proc->pid));
+			//}
 		}
 
 		/* We have to grab this lock before proceeding so grab it in a blocking manner now */
-		got_lock = lock_job(job_id,
-							AccessExclusiveLock,
-							/* session lock */ false,
-							&tag,
-							/* block */ true);
+		//got_lock = lock_job(job_id, AccessExclusiveLock, false,	&tag, true);
+		got_lock = lock_job(job_id, AccessExclusiveLock, NULL, &tag, true);
 	}
 	Assert(got_lock);
 }
@@ -422,15 +422,15 @@ bgw_job_delete_scan(ScanKeyData *scankey, int32 job_id)
 
 	scanctx = (ScannerCtx){
 		.table = catalog_get_table_id(catalog, BGW_JOB),
-		.index = catalog_get_index(catalog, BGW_JOB, BGW_JOB_PKEY_IDX),
 		.nkeys = 1,
-		.scankey = scankey,
-		.data = NULL,
-		.limit = 1,
-		.tuple_found = bgw_job_tuple_delete,
 		.lockmode = RowExclusiveLock,
 		.scandirection = ForwardScanDirection,
 		.result_mctx = CurrentMemoryContext,
+		.scankey = scankey,
+		.tuple_found = bgw_job_tuple_delete,
+		.data = NULL,
+		.index = catalog_get_index(catalog, BGW_JOB, BGW_JOB_PKEY_IDX),
+		.limit = 1,
 	};
 
 	return ts_scanner_scan(&scanctx);
@@ -504,20 +504,20 @@ ts_bgw_job_execute(BgwJob *job)
 			 * hour. After that initial period, we default to the
 			 * schedule_interval listed in the job table.
 			 */
-			Interval *one_hour = DatumGetIntervalP(DirectFunctionCall7(make_interval,
-																	   Int32GetDatum(0),
-																	   Int32GetDatum(0),
-																	   Int32GetDatum(0),
-																	   Int32GetDatum(0),
-																	   Int32GetDatum(1),
-																	   Int32GetDatum(0),
-																	   Float8GetDatum(0)));
+			//Interval *one_hour = DatumGetIntervalP(DirectFunctionCall7(make_interval,
+			//														   Int32GetDatum(0),
+			//														   Int32GetDatum(0),
+			//														   Int32GetDatum(0),
+			//														   Int32GetDatum(0),
+			//														   Int32GetDatum(1),
+			//														   Int32GetDatum(0),
+			//														   Float8GetDatum(0)));
 
-			next_start_set = ts_bgw_job_run_and_set_next_start(job,
-															   ts_telemetry_main_wrapper,
-															   TELEMETRY_INITIAL_NUM_RUNS,
-															   one_hour);
-			pfree(one_hour);
+			//next_start_set = ts_bgw_job_run_and_set_next_start(job,
+			//												   ts_telemetry_main_wrapper,
+			//												   TELEMETRY_INITIAL_NUM_RUNS,
+			//												   one_hour);
+			//pfree(one_hour);
 			return next_start_set;
 		}
 		case JOB_TYPE_REORDER:
@@ -566,10 +566,10 @@ static void handle_sigterm(SIGNAL_ARGS)
 	 * do not use a level >= ERROR because we don't want to exit here but
 	 * rather only during CHECK_FOR_INTERRUPTS
 	 */
-	ereport(LOG,
-			(errcode(ERRCODE_ADMIN_SHUTDOWN),
-			 errmsg("terminating TimescaleDB background job \"%s\" due to administrator command",
-					MyBgworkerEntry->bgw_name)));
+	//ereport(LOG,
+	//		(errcode(ERRCODE_ADMIN_SHUTDOWN),
+	//		 errmsg("terminating TimescaleDB background job \"%s\" due to administrator command",
+	//				MyBgworkerEntry->bgw_name)));
 	die(postgres_signal_arg);
 }
 
@@ -592,29 +592,29 @@ zero_guc(const char *guc_name)
 extern Datum
 ts_bgw_job_entrypoint(PG_FUNCTION_ARGS)
 {
-	Oid db_oid = DatumGetObjectId(MyBgworkerEntry->bgw_main_arg);
+	//Oid db_oid = DatumGetObjectId(MyBgworkerEntry->bgw_main_arg);
 	Oid user_uid;
 	int32 job_id;
 	BgwJob *job;
 	JobResult res = JOB_FAILURE;
 	bool got_lock;
 
-	if (sscanf(MyBgworkerEntry->bgw_extra, "%u %d", &user_uid, &job_id) != 2)
-		elog(ERROR, "job entrypoint got invalid bgw_extra");
+	//if (sscanf(MyBgworkerEntry->bgw_extra, "%u %d", &user_uid, &job_id) != 2)
+	//	elog(ERROR, "job entrypoint got invalid bgw_extra");
 
-	BackgroundWorkerBlockSignals();
+	//BackgroundWorkerBlockSignals();
 	/* Setup any signal handlers here */
 
 	/*
 	 * do not use the default `bgworker_die` sigterm handler because it does
 	 * not respect critical sections
 	 */
-	pqsignal(SIGTERM, handle_sigterm);
-	BackgroundWorkerUnblockSignals();
+	//pqsignal(SIGTERM, handle_sigterm);
+	//BackgroundWorkerUnblockSignals();
 
 	elog(DEBUG1, "started background job %d", job_id);
 
-	BackgroundWorkerInitializeConnectionByOidCompat(db_oid, user_uid);
+	//BackgroundWorkerInitializeConnectionByOidCompat(db_oid, user_uid);
 
 	ts_license_enable_module_loading();
 
@@ -641,14 +641,16 @@ ts_bgw_job_entrypoint(PG_FUNCTION_ARGS)
 		 * background workers, so disable parallel execution by default
 		 */
 		zero_guc("max_parallel_workers_per_gather");
-#if !PG96
-		zero_guc("max_parallel_workers");
-#endif
-#if PG11_GE
-		zero_guc("max_parallel_maintenance_workers");
-#endif
+//#if !PG96
+//		zero_guc("max_parallel_workers");
+//#endif
+//#if PG11_GE
+//		zero_guc("max_parallel_maintenance_workers");
+//#endif
 
-		res = ts_bgw_job_execute(job);
+		bool rres;
+		//res = ts_bgw_job_execute(job);
+		rres = ts_bgw_job_execute(job);
 		/* The job is responsible for committing or aborting it's own txns */
 		if (IsTransactionState())
 			elog(ERROR,
@@ -845,23 +847,23 @@ static bool
 bgw_job_update_scan(ScanKeyData *scankey, void *data)
 {
 	Catalog *catalog = ts_catalog_get();
-	ScanTupLock scantuplock = {
-		.waitpolicy = LockWaitBlock,
-		.lockmode = LockTupleExclusive,
-	};
-	ScannerCtx scanctx = { .table = catalog_get_table_id(catalog, BGW_JOB),
-						   .index = catalog_get_index(catalog, BGW_JOB, BGW_JOB_PKEY_IDX),
-						   .nkeys = 1,
-						   .scankey = scankey,
-						   .data = data,
-						   .limit = 1,
-						   .tuple_found = bgw_job_tuple_update_by_id,
-						   .lockmode = RowExclusiveLock,
-						   .scandirection = ForwardScanDirection,
-						   .result_mctx = CurrentMemoryContext,
-						   .tuplock = &scantuplock };
+	//ScanTupLock scantuplock = {
+	//	.waitpolicy = LockWaitBlock,
+	//	.lockmode = LockTupleExclusive,
+	//};
+	//ScannerCtx scanctx = { .table = catalog_get_table_id(catalog, BGW_JOB),
+	//					   .index = catalog_get_index(catalog, BGW_JOB, BGW_JOB_PKEY_IDX),
+	//					   .nkeys = 1,
+	//					   .scankey = scankey,
+	//					   .data = data,
+	//					   .limit = 1,
+	//					   .tuple_found = bgw_job_tuple_update_by_id,
+	//					   .lockmode = RowExclusiveLock,
+	//					   .scandirection = ForwardScanDirection,
+	//					   .result_mctx = CurrentMemoryContext,
+	//					   .tuplock = &scantuplock };
 
-	return ts_scanner_scan(&scanctx);
+	//return ts_scanner_scan(&scanctx);
 }
 
 /* Overwrite job with specified job_id with the given fields */

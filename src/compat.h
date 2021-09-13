@@ -97,19 +97,19 @@
  * PG11 introduced flags to BackgroundWorker connection functions. PG96 & 10
  * interface kept for backwards compatibility.
  */
-#if PG11_LT
-#define BackgroundWorkerInitializeConnectionByOidCompat(dboid, useroid)                            \
-	BackgroundWorkerInitializeConnectionByOid(dboid, useroid)
-#define BackgroundWorkerInitializeConnectionCompat(dbname, username)                               \
-	BackgroundWorkerInitializeConnection(dbname, username)
-#else
-#define BGWORKER_NO_FLAGS 0
-
-#define BackgroundWorkerInitializeConnectionByOidCompat(dboid, useroid)                            \
-	BackgroundWorkerInitializeConnectionByOid(dboid, useroid, BGWORKER_NO_FLAGS)
-#define BackgroundWorkerInitializeConnectionCompat(dbname, username)                               \
-	BackgroundWorkerInitializeConnection(dbname, username, BGWORKER_NO_FLAGS)
-#endif
+//#if PG11_LT
+//#define BackgroundWorkerInitializeConnectionByOidCompat(dboid, useroid)                            \
+//	BackgroundWorkerInitializeConnectionByOid(dboid, useroid)
+//#define BackgroundWorkerInitializeConnectionCompat(dbname, username)                               \
+//	BackgroundWorkerInitializeConnection(dbname, username)
+//#else
+//#define BGWORKER_NO_FLAGS 0
+//
+//#define BackgroundWorkerInitializeConnectionByOidCompat(dboid, useroid)                            \
+//	BackgroundWorkerInitializeConnectionByOid(dboid, useroid, BGWORKER_NO_FLAGS)
+//#define BackgroundWorkerInitializeConnectionCompat(dbname, username)                               \
+//	BackgroundWorkerInitializeConnection(dbname, username, BGWORKER_NO_FLAGS)
+//#endif
 
 /* CatalogTuple functions not implemented until pg10 */
 //#if PG96
@@ -777,15 +777,15 @@ get_attname_compat(Oid relid, AttrNumber attnum, bool missing_ok)
 #endif
 
 /* WaitLatch */
-#if PG96
+//#if PG96
 #define WaitLatchCompat(latch, wakeEvents, timeout) WaitLatch(latch, wakeEvents, timeout)
 
 extern int oid_cmp(const void *p1, const void *p2);
 
-#else
-#define WaitLatchCompat(latch, wakeEvents, timeout)                                                \
-	WaitLatch(latch, wakeEvents, timeout, PG_WAIT_EXTENSION)
-#endif
+//#else
+//#define WaitLatchCompat(latch, wakeEvents, timeout)                                                \
+//	WaitLatch(latch, wakeEvents, timeout, PG_WAIT_EXTENSION)
+//#endif
 
 /* create_merge_append_path */
 #if PG96

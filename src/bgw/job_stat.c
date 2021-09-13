@@ -15,9 +15,9 @@
 #include "timer.h"
 #include "utils.h"
 
-#if !PG96
-#include <utils/fmgrprotos.h>
-#endif
+//#if !PG96
+//#include <utils/fmgrprotos.h>
+//#endif
 #define MAX_INTERVALS_BACKOFF 5
 #define MAX_FAILURES_MULTIPLIER 20
 #define MIN_WAIT_AFTER_CRASH_MS (5 * 60 * 1000)
@@ -49,14 +49,18 @@ bgw_job_stat_scan_one(int indexid, ScanKeyData scankey[], int nkeys, tuple_found
 	Catalog *catalog = ts_catalog_get();
 	ScannerCtx scanctx = {
 		.table = catalog_get_table_id(catalog, BGW_JOB_STAT),
-		.index = catalog_get_index(catalog, BGW_JOB_STAT, indexid),
 		.nkeys = nkeys,
-		.scankey = scankey,
-		.tuple_found = tuple_found,
-		.filter = tuple_filter,
-		.data = data,
 		.lockmode = lockmode,
 		.scandirection = ForwardScanDirection,
+		.result_mctx = NULL,
+		.scankey = scankey,
+		.tuple_found = tuple_found,
+		.data = data,
+		.index = catalog_get_index(catalog, BGW_JOB_STAT, indexid),
+		.limit = NULL,
+		.norderbys = NULL,
+		.want_itup = NULL,
+		.filter = tuple_filter,
 	};
 
 	return ts_scanner_scan_one(&scanctx, false, "bgw job stat");
@@ -164,10 +168,10 @@ calculate_next_start_on_success(TimestampTz finish_time, BgwJob *job)
 {
 	TimestampTz ts;
 	TimestampTz last_finish = finish_time;
-	if (!IS_VALID_TIMESTAMP(finish_time))
-	{
-		last_finish = ts_timer_get_current_timestamp();
-	}
+	//if (!IS_VALID_TIMESTAMP(finish_time))
+	//{
+	//	last_finish = ts_timer_get_current_timestamp();
+	//}
 	ts = DatumGetTimestampTz(DirectFunctionCall2(timestamptz_pl_interval,
 												 TimestampTzGetDatum(last_finish),
 												 IntervalPGetDatum(&job->fd.schedule_interval)));
@@ -204,11 +208,11 @@ calculate_next_start_on_failure(TimestampTz finish_time, int consecutive_failure
 	float8 multiplier = (consecutive_failures > MAX_FAILURES_MULTIPLIER ? MAX_FAILURES_MULTIPLIER :
 																		  consecutive_failures);
 	MemoryContext oldctx;
-	if (!IS_VALID_TIMESTAMP(finish_time))
-	{
-		elog(LOG, "calculate_next_start_on_failure, got bad finish_time");
-		last_finish = ts_timer_get_current_timestamp();
-	}
+	//if (!IS_VALID_TIMESTAMP(finish_time))
+	//{
+	//	elog(LOG, "calculate_next_start_on_failure, got bad finish_time");
+	//	last_finish = ts_timer_get_current_timestamp();
+	//}
 	oldctx = CurrentMemoryContext;
 	BeginInternalSubTransaction("next start on failure");
 	PG_TRY();
@@ -425,8 +429,8 @@ void
 ts_bgw_job_stat_mark_end(BgwJob *job, JobResult result)
 {
 	JobResultCtx res = {
-		.job = job,
 		.result = result,
+		.job = job,
 	};
 
 	if (!bgw_job_stat_scan_job_id(job->fd.id,

@@ -5,13 +5,14 @@
  */
 #include <postgres.h>
 #include <miscadmin.h>
-#include <postmaster/bgworker.h>
+//#include <postmaster/bgworker.h>
 #include <storage/ipc.h>
 #include <storage/latch.h>
-#include <storage/lwlock.h>
+//#include <storage/lwlock.h>
+#include <storage/lock/lwlock.h>
 #include <storage/proc.h>
 #include <storage/shmem.h>
-#include <utils/jsonb.h>
+//#include <utils/jsonb.h>
 #include <utils/timestamp.h>
 #include <utils/snapmgr.h>
 #include <utils/memutils.h>
@@ -76,10 +77,10 @@ wait_using_wait_latch(TimestampTz until)
 	if ((int64) timeout > (int64) INT_MAX)
 		timeout = INT_MAX;
 
-	wl_rc = WaitLatchCompat(MyLatch, WL_LATCH_SET | WL_TIMEOUT | WL_POSTMASTER_DEATH, timeout);
-	ResetLatch(MyLatch);
-	if (wl_rc & WL_POSTMASTER_DEATH)
-		on_postmaster_death();
+	//wl_rc = WaitLatchCompat(MyLatch, WL_LATCH_SET | WL_TIMEOUT | WL_POSTMASTER_DEATH, timeout);
+	//ResetLatch(MyLatch);
+	//if (wl_rc & WL_POSTMASTER_DEATH)
+	//	on_postmaster_death();
 
 	return true;
 }
