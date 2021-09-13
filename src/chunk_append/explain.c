@@ -13,7 +13,8 @@
 #include <parser/parsetree.h>
 #include <utils/builtins.h>
 #include <utils/lsyscache.h>
-#include <utils/ruleutils.h>
+//#include <utils/ruleutils.h>
+#include <utils/builtins.h>
 #include <utils/typcache.h>
 
 #include "chunk_append/exec.h"
@@ -31,33 +32,33 @@ static void show_sortorder_options(StringInfo buf, Node *sortexpr, Oid sortOpera
  * this callback, but the callback allows the display of additional,
  * private state.
  */
-void
-ts_chunk_append_explain(CustomScanState *node, List *ancestors, ExplainState *es)
-{
-	ChunkAppendState *state = (ChunkAppendState *) node;
-
-	if (state->sort_options != NIL)
-		show_sort_group_keys(state, ancestors, es);
-
-	if (es->verbose || es->format != EXPLAIN_FORMAT_TEXT)
-		ExplainPropertyBool("Startup Exclusion", state->startup_exclusion, es);
-
-	if (es->verbose || es->format != EXPLAIN_FORMAT_TEXT)
-		ExplainPropertyBool("Runtime Exclusion", state->runtime_exclusion, es);
-
-	if (state->startup_exclusion)
-		ExplainPropertyIntegerCompat("Chunks excluded during startup",
-									 NULL,
-									 list_length(state->initial_subplans) -
-										 list_length(node->custom_ps),
-									 es);
-
-	if (state->runtime_exclusion && state->runtime_number_loops > 0)
-	{
-		int avg_excluded = state->runtime_number_exclusions / state->runtime_number_loops;
-		ExplainPropertyIntegerCompat("Chunks excluded during runtime", NULL, avg_excluded, es);
-	}
-}
+//void
+//ts_chunk_append_explain(CustomScanState *node, List *ancestors, ExplainState *es)
+//{
+//	ChunkAppendState *state = (ChunkAppendState *) node;
+//
+//	if (state->sort_options != NIL)
+//		show_sort_group_keys(state, ancestors, es);
+//
+//	if (es->verbose || es->format != EXPLAIN_FORMAT_TEXT)
+//		ExplainPropertyBool("Startup Exclusion", state->startup_exclusion, es);
+//
+//	if (es->verbose || es->format != EXPLAIN_FORMAT_TEXT)
+//		ExplainPropertyBool("Runtime Exclusion", state->runtime_exclusion, es);
+//
+//	if (state->startup_exclusion)
+//		ExplainPropertyIntegerCompat("Chunks excluded during startup",
+//									 NULL,
+//									 list_length(state->initial_subplans) -
+//										 list_length(node->custom_ps),
+//									 es);
+//
+//	if (state->runtime_exclusion && state->runtime_number_loops > 0)
+//	{
+//		int avg_excluded = state->runtime_number_exclusions / state->runtime_number_loops;
+//		ExplainPropertyIntegerCompat("Chunks excluded during runtime", NULL, avg_excluded, es);
+//	}
+//}
 
 /*
  * adjusted from postgresql explain.c
@@ -67,7 +68,7 @@ ts_chunk_append_explain(CustomScanState *node, List *ancestors, ExplainState *es
 static void
 show_sort_group_keys(ChunkAppendState *state, List *ancestors, ExplainState *es)
 {
-	Plan *plan = state->csstate.ss.ps.plan;
+	//Plan *plan = state->csstate.ss.ps.plan;
 	List *context;
 	List *result = NIL;
 	StringInfoData sortkeybuf;
@@ -85,30 +86,30 @@ show_sort_group_keys(ChunkAppendState *state, List *ancestors, ExplainState *es)
 	initStringInfo(&sortkeybuf);
 
 	/* Set up deparsing context */
-	context = set_deparse_context_planstate(es->deparse_cxt, (Node *) state, ancestors);
+	//context = set_deparse_context_planstate(es->deparse_cxt, (Node *) state, ancestors);
 	useprefix = (list_length(es->rtable) > 1 || es->verbose);
 
 	for (keyno = 0; keyno < nkeys; keyno++)
 	{
 		/* find key expression in tlist */
 		AttrNumber keyresno = list_nth_oid(sort_indexes, keyno);
-		TargetEntry *target =
-			get_tle_by_resno(castNode(CustomScan, plan)->custom_scan_tlist, keyresno);
-		char *exprstr;
+		//TargetEntry *target =
+		//	get_tle_by_resno(castNode(CustomScan, plan)->custom_scan_tlist, keyresno);
+		//char *exprstr;
 
-		if (!target)
-			elog(ERROR, "no tlist entry for key %d", keyresno);
-		/* Deparse the expression, showing any top-level cast */
-		exprstr = deparse_expression((Node *) target->expr, context, useprefix, true);
+		//if (!target)
+		//	elog(ERROR, "no tlist entry for key %d", keyresno);
+		///* Deparse the expression, showing any top-level cast */
+		//exprstr = deparse_expression((Node *) target->expr, context, useprefix, true);
 		resetStringInfo(&sortkeybuf);
-		appendStringInfoString(&sortkeybuf, exprstr);
+		//appendStringInfoString(&sortkeybuf, exprstr);
 		/* Append sort order information, if relevant */
-		if (sort_ops != NIL)
-			show_sortorder_options(&sortkeybuf,
-								   (Node *) target->expr,
-								   list_nth_oid(sort_ops, keyno),
-								   list_nth_oid(sort_collations, keyno),
-								   list_nth_oid(sort_nulls, keyno));
+		//if (sort_ops != NIL)
+		//	show_sortorder_options(&sortkeybuf,
+		//						   (Node *) target->expr,
+		//						   list_nth_oid(sort_ops, keyno),
+		//						   list_nth_oid(sort_collations, keyno),
+		//						   list_nth_oid(sort_nulls, keyno));
 		/* Emit one property-list item per sort key */
 		result = lappend(result, pstrdup(sortkeybuf.data));
 	}

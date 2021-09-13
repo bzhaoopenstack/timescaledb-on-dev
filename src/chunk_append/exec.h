@@ -8,7 +8,7 @@
 
 #include <postgres.h>
 #include <nodes/bitmapset.h>
-#include <nodes/extensible.h>
+//#include <nodes/extensible.h>
 
 typedef struct ParallelChunkAppendState
 {
@@ -18,7 +18,7 @@ typedef struct ParallelChunkAppendState
 
 typedef struct ChunkAppendState
 {
-	CustomScanState csstate;
+	//CustomScanState csstate;
 	PlanState **subplanstates;
 
 	MemoryContext exclusion_ctx;
@@ -60,11 +60,11 @@ typedef struct ChunkAppendState
 	int runtime_number_exclusions;
 
 	LWLock *lock;
-	ParallelContext *pcxt;
+	//ParallelContext *pcxt;
 	ParallelChunkAppendState *pstate;
 	void (*choose_next_subplan)(struct ChunkAppendState *);
 } ChunkAppendState;
 
-extern Node *ts_chunk_append_state_create(CustomScan *cscan);
+//extern Node *ts_chunk_append_state_create(CustomScan *cscan);
 
 #endif /* TIMESCALEDB_CHUNK_APPEND_EXEC_H */

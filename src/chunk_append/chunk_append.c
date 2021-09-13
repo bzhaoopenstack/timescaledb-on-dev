@@ -12,12 +12,12 @@
 #include <utils/typcache.h>
 
 #include "compat.h"
-#if PG12_LT
+//#if PG12_LT
 #include <optimizer/clauses.h>
 #include <optimizer/var.h>
-#else
-#include <optimizer/optimizer.h>
-#endif
+//#else
+//#include <optimizer/optimizer.h>
+//#endif
 
 #include "chunk_append/chunk_append.h"
 #include "chunk_append/planner.h"
@@ -29,10 +29,10 @@ static bool contain_param_exec_walker(Node *node, void *context);
 static Var *find_equality_join_var(Var *sort_var, Index ht_relid, Oid eq_opr,
 								   List *join_conditions);
 
-static CustomPathMethods chunk_append_path_methods = {
-	.CustomName = "ChunkAppend",
-	.PlanCustomPath = ts_chunk_append_plan_create,
-};
+//static CustomPathMethods chunk_append_path_methods = {
+//	.CustomName = "ChunkAppend",
+//	.PlanCustomPath = ts_chunk_append_plan_create,
+//};
 
 static bool
 has_joins(FromExpr *jointree)
@@ -50,16 +50,16 @@ ts_chunk_append_path_create(PlannerInfo *root, RelOptInfo *rel, Hypertable *ht, 
 	Cost total_cost = 0.0;
 	List *children = NIL;
 
-	path = (ChunkAppendPath *) newNode(sizeof(ChunkAppendPath), T_CustomPath);
+	//path = (ChunkAppendPath *) newNode(sizeof(ChunkAppendPath), T_CustomPath);
 
-	path->cpath.path.pathtype = T_CustomScan;
-	path->cpath.path.parent = rel;
-	path->cpath.path.pathtarget = rel->reltarget;
-	path->cpath.path.param_info = subpath->param_info;
+	//path->cpath.path.pathtype = T_CustomScan;
+	//path->cpath.path.parent = rel;
+	//path->cpath.path.pathtarget = rel->reltarget;
+	//path->cpath.path.param_info = subpath->param_info;
 
-	path->cpath.path.parallel_aware = ts_guc_enable_parallel_chunk_append ? parallel_aware : false;
-	path->cpath.path.parallel_safe = subpath->parallel_safe;
-	path->cpath.path.parallel_workers = subpath->parallel_workers;
+	//path->cpath.path.parallel_aware = ts_guc_enable_parallel_chunk_append ? parallel_aware : false;
+	//path->cpath.path.parallel_safe = subpath->parallel_safe;
+	//path->cpath.path.parallel_workers = subpath->parallel_workers;
 
 	/*
 	 * Set flags. We can set CUSTOMPATH_SUPPORT_BACKWARD_SCAN and
@@ -69,8 +69,8 @@ ts_chunk_append_path_create(PlannerInfo *root, RelOptInfo *rel, Hypertable *ht, 
 	 * scanning nodes will scan backward if necessary, so once tuples get to
 	 * this node they will be in a given order already.
 	 */
-	path->cpath.flags = 0;
-	path->cpath.methods = &chunk_append_path_methods;
+	//path->cpath.flags = 0;
+	//path->cpath.methods = &chunk_append_path_methods;
 
 	/*
 	 * Figure out whether there's a hard limit on the number of rows that
@@ -81,11 +81,11 @@ ts_chunk_append_path_create(PlannerInfo *root, RelOptInfo *rel, Hypertable *ht, 
 	if (root->parse->groupClause || root->parse->groupingSets || root->parse->distinctClause ||
 		root->parse->hasAggs || root->parse->hasWindowFuncs || root->hasHavingQual ||
 		has_joins(root->parse->jointree) || root->limit_tuples > PG_INT32_MAX ||
-#if PG96
+//#if PG96
 		expression_returns_set((Node *) root->parse->targetList)
-#else
-		root->parse->hasTargetSRFs
-#endif
+//#else
+//		root->parse->hasTargetSRFs
+//#endif
 	)
 		path->limit_tuples = -1;
 	else
@@ -109,22 +109,22 @@ ts_chunk_append_path_create(PlannerInfo *root, RelOptInfo *rel, Hypertable *ht, 
 			 * check the param references a partitioning column of the hypertable
 			 * otherwise we skip runtime exclusion
 			 */
-			foreach (lc_var, pull_var_clause((Node *) rinfo->clause, 0))
-			{
-				Var *var = lfirst(lc_var);
-				/*
-				 * varattno 0 is whole row and varattno less than zero are
-				 * system columns so we skip those even though
-				 * ts_is_partitioning_column would return the correct
-				 * answer for those as well
-				 */
-				if (var->varno == rel->relid && var->varattno > 0 &&
-					ts_is_partitioning_column(ht, var->varattno))
-				{
-					path->runtime_exclusion = true;
-					break;
-				}
-			}
+			//foreach (lc_var, pull_var_clause((Node *) rinfo->clause, 0))
+			//{
+			//	Var *var = lfirst(lc_var);
+			//	/*
+			//	 * varattno 0 is whole row and varattno less than zero are
+			//	 * system columns so we skip those even though
+			//	 * ts_is_partitioning_column would return the correct
+			//	 * answer for those as well
+			//	 */
+			//	if (var->varno == rel->relid && var->varattno > 0 &&
+			//		ts_is_partitioning_column(ht, var->varattno))
+			//	{
+			//		path->runtime_exclusion = true;
+			//		break;
+			//	}
+			//}
 		}
 	}
 
@@ -137,10 +137,10 @@ ts_chunk_append_path_create(PlannerInfo *root, RelOptInfo *rel, Hypertable *ht, 
 		{
 			AppendPath *append = castNode(AppendPath, subpath);
 
-#if PG11_GE
-			if (append->path.parallel_aware && append->first_partial_path > 0)
-				path->first_partial_path = append->first_partial_path;
-#endif
+//#if PG11_GE
+//			if (append->path.parallel_aware && append->first_partial_path > 0)
+//				path->first_partial_path = append->first_partial_path;
+//#endif
 			children = append->subpaths;
 			break;
 		}
@@ -157,130 +157,130 @@ ts_chunk_append_path_create(PlannerInfo *root, RelOptInfo *rel, Hypertable *ht, 
 			path->pushdown_limit = true;
 
 			children = castNode(MergeAppendPath, subpath)->subpaths;
-			path->cpath.path.pathkeys = subpath->pathkeys;
+			//path->cpath.path.pathkeys = subpath->pathkeys;
 			break;
 		default:
 			elog(ERROR, "invalid child of chunk append: %u", nodeTag(subpath));
 			break;
 	}
 
-	if (!ordered || ht->space->num_dimensions == 1)
-		path->cpath.custom_paths = children;
-	else
-	{
-		/*
-		 * For space partitioning we need to change the shape of the plan
-		 * into a MergeAppend for each time slice with all space partitions below
-		 * The final plan for space partitioning will look like this:
-		 *
-		 * Custom Scan (ChunkAppend)
-		 *   Hypertable: space
-		 *   ->  Merge Append
-		 *         Sort Key: _hyper_9_56_chunk."time"
-		 *         ->  Index Scan
-		 *         ->  Index Scan
-		 *         ->  Index Scan
-		 *   ->  Merge Append
-		 *         Sort Key: _hyper_9_55_chunk."time"
-		 *         ->  Index Scan
-		 *         ->  Index Scan
-		 *         ->  Index Scan
-		 *
-		 * We do not check sort order at this stage but injecting of Sort
-		 * nodes happens when the plan is created instead.
-		 */
-		ListCell *flat = list_head(children);
-		List *nested_children = NIL;
-		bool has_scan_childs = false;
+//	if (!ordered || ht->space->num_dimensions == 1)
+//		path->cpath.custom_paths = children;
+//	else
+//	{
+//		/*
+//		 * For space partitioning we need to change the shape of the plan
+//		 * into a MergeAppend for each time slice with all space partitions below
+//		 * The final plan for space partitioning will look like this:
+//		 *
+//		 * Custom Scan (ChunkAppend)
+//		 *   Hypertable: space
+//		 *   ->  Merge Append
+//		 *         Sort Key: _hyper_9_56_chunk."time"
+//		 *         ->  Index Scan
+//		 *         ->  Index Scan
+//		 *         ->  Index Scan
+//		 *   ->  Merge Append
+//		 *         Sort Key: _hyper_9_55_chunk."time"
+//		 *         ->  Index Scan
+//		 *         ->  Index Scan
+//		 *         ->  Index Scan
+//		 *
+//		 * We do not check sort order at this stage but injecting of Sort
+//		 * nodes happens when the plan is created instead.
+//		 */
+//		ListCell *flat = list_head(children);
+//		List *nested_children = NIL;
+//		bool has_scan_childs = false;
+//
+//		foreach (lc, nested_oids)
+//		{
+//			ListCell *lc_oid;
+//			List *current_oids = lfirst(lc);
+//			List *merge_childs = NIL;
+//			MergeAppendPath *append;
+//
+//			if (flat == NULL)
+//				break;
+//
+//			foreach (lc_oid, current_oids)
+//			{
+//				/* postgres may have pruned away some children already */
+//				Path *child = (Path *) lfirst(flat);
+//				Oid parent_relid = child->parent->relid;
+//				bool is_not_pruned =
+//					lfirst_oid(lc_oid) == root->simple_rte_array[parent_relid]->relid;
+////#if PG12_LT
+//				Assert(is_not_pruned);
+////#endif
+//				if (is_not_pruned)
+//				{
+//					merge_childs = lappend(merge_childs, child);
+//					flat = lnext(flat);
+//					if (flat == NULL)
+//						break;
+//				}
+//			}
+//
+//			if (list_length(merge_childs) > 1)
+//			{
+//				append = create_merge_append_path_compat(root,
+//														 rel,
+//														 merge_childs,
+//														 path->cpath.path.pathkeys,
+//														 PATH_REQ_OUTER(subpath));
+//				nested_children = lappend(nested_children, append);
+//			}
+//			else if (list_length(merge_childs) == 1)
+//			{
+//				has_scan_childs = true;
+//				nested_children = lappend(nested_children, linitial(merge_childs));
+//			}
+////#if PG12_LT
+//			Assert(list_length(merge_childs) > 0);
+////#endif
+//		}
+//
+//		Assert(flat == NULL);
+//
+//		/*
+//		 * if we do not have scans as direct childs of this
+//		 * node we disable startup and runtime exclusion
+//		 * in this node
+//		 */
+//		if (!has_scan_childs)
+//		{
+//			path->startup_exclusion = false;
+//			path->runtime_exclusion = false;
+//		}
+//
+//		path->cpath.custom_paths = nested_children;
+//	}
 
-		foreach (lc, nested_oids)
-		{
-			ListCell *lc_oid;
-			List *current_oids = lfirst(lc);
-			List *merge_childs = NIL;
-			MergeAppendPath *append;
-
-			if (flat == NULL)
-				break;
-
-			foreach (lc_oid, current_oids)
-			{
-				/* postgres may have pruned away some children already */
-				Path *child = (Path *) lfirst(flat);
-				Oid parent_relid = child->parent->relid;
-				bool is_not_pruned =
-					lfirst_oid(lc_oid) == root->simple_rte_array[parent_relid]->relid;
-#if PG12_LT
-				Assert(is_not_pruned);
-#endif
-				if (is_not_pruned)
-				{
-					merge_childs = lappend(merge_childs, child);
-					flat = lnext(flat);
-					if (flat == NULL)
-						break;
-				}
-			}
-
-			if (list_length(merge_childs) > 1)
-			{
-				append = create_merge_append_path_compat(root,
-														 rel,
-														 merge_childs,
-														 path->cpath.path.pathkeys,
-														 PATH_REQ_OUTER(subpath));
-				nested_children = lappend(nested_children, append);
-			}
-			else if (list_length(merge_childs) == 1)
-			{
-				has_scan_childs = true;
-				nested_children = lappend(nested_children, linitial(merge_childs));
-			}
-#if PG12_LT
-			Assert(list_length(merge_childs) > 0);
-#endif
-		}
-
-		Assert(flat == NULL);
-
-		/*
-		 * if we do not have scans as direct childs of this
-		 * node we disable startup and runtime exclusion
-		 * in this node
-		 */
-		if (!has_scan_childs)
-		{
-			path->startup_exclusion = false;
-			path->runtime_exclusion = false;
-		}
-
-		path->cpath.custom_paths = nested_children;
-	}
-
-	foreach (lc, path->cpath.custom_paths)
-	{
-		Path *child = lfirst(lc);
-
-		/*
-		 * If there is a LIMIT clause we only include as many chunks as
-		 * planner thinks are needed to satisfy LIMIT clause.
-		 * We do this to prevent planner choosing parallel plan which might
-		 * otherwise look preferable cost wise.
-		 */
-		if (!path->pushdown_limit || path->limit_tuples == -1 || rows < path->limit_tuples)
-		{
-			total_cost += child->total_cost;
-			rows += child->rows;
-		}
-	}
-
-	path->cpath.path.rows = rows;
-	path->cpath.path.total_cost = total_cost;
-
-	if (path->cpath.custom_paths != NIL)
-		path->cpath.path.startup_cost = ((Path *) linitial(path->cpath.custom_paths))->startup_cost;
-
-	return &path->cpath.path;
+//	foreach (lc, path->cpath.custom_paths)
+//	{
+//		Path *child = lfirst(lc);
+//
+//		/*
+//		 * If there is a LIMIT clause we only include as many chunks as
+//		 * planner thinks are needed to satisfy LIMIT clause.
+//		 * We do this to prevent planner choosing parallel plan which might
+//		 * otherwise look preferable cost wise.
+//		 */
+//		if (!path->pushdown_limit || path->limit_tuples == -1 || rows < path->limit_tuples)
+//		{
+//			total_cost += child->total_cost;
+//			rows += child->rows;
+//		}
+//	}
+//
+//	path->cpath.path.rows = rows;
+//	path->cpath.path.total_cost = total_cost;
+//
+//	if (path->cpath.custom_paths != NIL)
+//		path->cpath.path.startup_cost = ((Path *) linitial(path->cpath.custom_paths))->startup_cost;
+//
+//	return &path->cpath.path;
 }
 
 /*

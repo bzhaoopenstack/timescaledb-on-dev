@@ -83,12 +83,12 @@
  * will only be activated in versions >=11 when we implement partition-wise
  * joins.
  */
-#if PG11_LT
+//#if PG11_LT
 #define adjust_appendrel_attrs_compat adjust_appendrel_attrs
-#else
-#define adjust_appendrel_attrs_compat(root, node, appinfo)                                         \
-	adjust_appendrel_attrs(root, node, 1, &appinfo)
-#endif
+//#else
+//#define adjust_appendrel_attrs_compat(root, node, appinfo)                                         \
+//	adjust_appendrel_attrs(root, node, 1, &appinfo)
+//#endif
 
 /*
  * BackgroundWorkerInitializeConnection

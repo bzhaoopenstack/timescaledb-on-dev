@@ -23,12 +23,12 @@
 #include <math.h>
 
 #include "compat.h"
-#if PG12_LT
+//#if PG12_LT
 #include <optimizer/clauses.h>
 #include <optimizer/predtest.h>
-#else
-#include <optimizer/optimizer.h>
-#endif
+//#else
+//#include <optimizer/optimizer.h>
+//#endif
 
 #include "chunk_append/exec.h"
 #include "chunk_append/chunk_append.h"
@@ -39,32 +39,32 @@
 #define INVALID_SUBPLAN_INDEX -1
 #define NO_MATCHING_SUBPLANS -2
 
-static TupleTableSlot *chunk_append_exec(CustomScanState *node);
-static void chunk_append_begin(CustomScanState *node, EState *estate, int eflags);
-static void chunk_append_end(CustomScanState *node);
-static void chunk_append_rescan(CustomScanState *node);
-static Size chunk_append_estimate_dsm(CustomScanState *node, ParallelContext *pcxt);
-static void chunk_append_initialize_dsm(CustomScanState *node, ParallelContext *pcxt,
-										void *coordinate);
-#if !PG96
-static void chunk_append_reinitialize_dsm(CustomScanState *node, ParallelContext *pcxt,
-										  void *coordinate);
-#endif
-static void chunk_append_initialize_worker(CustomScanState *node, shm_toc *toc, void *coordinate);
+//static TupleTableSlot *chunk_append_exec(CustomScanState *node);
+//static void chunk_append_begin(CustomScanState *node, EState *estate, int eflags);
+//static void chunk_append_end(CustomScanState *node);
+//static void chunk_append_rescan(CustomScanState *node);
+//static Size chunk_append_estimate_dsm(CustomScanState *node, ParallelContext *pcxt);
+//static void chunk_append_initialize_dsm(CustomScanState *node, ParallelContext *pcxt,
+//										void *coordinate);
+//#if !PG96
+//static void chunk_append_reinitialize_dsm(CustomScanState *node, ParallelContext *pcxt,
+//										  void *coordinate);
+//#endif
+//static void chunk_append_initialize_worker(CustomScanState *node, shm_toc *toc, void *coordinate);
 
-static CustomExecMethods chunk_append_state_methods = {
-	.BeginCustomScan = chunk_append_begin,
-	.ExecCustomScan = chunk_append_exec,
-	.EndCustomScan = chunk_append_end,
-	.ReScanCustomScan = chunk_append_rescan,
-	.ExplainCustomScan = ts_chunk_append_explain,
-	.EstimateDSMCustomScan = chunk_append_estimate_dsm,
-	.InitializeDSMCustomScan = chunk_append_initialize_dsm,
-#if !PG96
-	.ReInitializeDSMCustomScan = chunk_append_reinitialize_dsm,
-#endif
-	.InitializeWorkerCustomScan = chunk_append_initialize_worker,
-};
+//static CustomExecMethods chunk_append_state_methods = {
+//	.BeginCustomScan = chunk_append_begin,
+//	.ExecCustomScan = chunk_append_exec,
+//	.EndCustomScan = chunk_append_end,
+//	.ReScanCustomScan = chunk_append_rescan,
+//	.ExplainCustomScan = ts_chunk_append_explain,
+//	.EstimateDSMCustomScan = chunk_append_estimate_dsm,
+//	.InitializeDSMCustomScan = chunk_append_initialize_dsm,
+////#if !PG96
+////	.ReInitializeDSMCustomScan = chunk_append_reinitialize_dsm,
+////#endif
+//	.InitializeWorkerCustomScan = chunk_append_initialize_worker,
+//};
 
 static void choose_next_subplan_non_parallel(ChunkAppendState *state);
 static void choose_next_subplan_for_worker(ChunkAppendState *state);
@@ -78,38 +78,38 @@ static List *constify_restrictinfo_params(PlannerInfo *root, EState *state, List
 static void initialize_constraints(ChunkAppendState *state, List *initial_rt_indexes);
 static LWLock *chunk_append_get_lock_pointer(void);
 
-Node *
-ts_chunk_append_state_create(CustomScan *cscan)
-{
-	ChunkAppendState *state;
-	List *settings = linitial(cscan->custom_private);
-
-	state = (ChunkAppendState *) newNode(sizeof(ChunkAppendState), T_CustomScanState);
-
-	state->csstate.methods = &chunk_append_state_methods;
-
-	state->initial_subplans = cscan->custom_plans;
-	state->initial_ri_clauses = lsecond(cscan->custom_private);
-	state->sort_options = lfourth(cscan->custom_private);
-
-	state->startup_exclusion = (bool) linitial_int(settings);
-	state->runtime_exclusion = (bool) lsecond_int(settings);
-	state->limit = lthird_int(settings);
-	state->first_partial_plan = lfourth_int(settings);
-
-	state->filtered_subplans = state->initial_subplans;
-	state->filtered_ri_clauses = state->initial_ri_clauses;
-	state->filtered_first_partial_plan = state->first_partial_plan;
-
-	state->current = INVALID_SUBPLAN_INDEX;
-	state->choose_next_subplan = choose_next_subplan_non_parallel;
-
-	state->exclusion_ctx = AllocSetContextCreate(CurrentMemoryContext,
-												 "ChunkApppend exclusion",
-												 ALLOCSET_DEFAULT_SIZES);
-
-	return (Node *) state;
-}
+//Node *
+//ts_chunk_append_state_create(CustomScan *cscan)
+//{
+//	ChunkAppendState *state;
+//	List *settings = linitial(cscan->custom_private);
+//
+//	state = (ChunkAppendState *) newNode(sizeof(ChunkAppendState), T_CustomScanState);
+//
+//	state->csstate.methods = &chunk_append_state_methods;
+//
+//	state->initial_subplans = cscan->custom_plans;
+//	state->initial_ri_clauses = lsecond(cscan->custom_private);
+//	state->sort_options = lfourth(cscan->custom_private);
+//
+//	state->startup_exclusion = (bool) linitial_int(settings);
+//	state->runtime_exclusion = (bool) lsecond_int(settings);
+//	state->limit = lthird_int(settings);
+//	state->first_partial_plan = lfourth_int(settings);
+//
+//	state->filtered_subplans = state->initial_subplans;
+//	state->filtered_ri_clauses = state->initial_ri_clauses;
+//	state->filtered_first_partial_plan = state->first_partial_plan;
+//
+//	state->current = INVALID_SUBPLAN_INDEX;
+//	state->choose_next_subplan = choose_next_subplan_non_parallel;
+//
+//	state->exclusion_ctx = AllocSetContextCreate(CurrentMemoryContext,
+//												 "ChunkApppend exclusion",
+//												 ALLOCSET_DEFAULT_SIZES);
+//
+//	return (Node *) state;
+//}
 
 static void
 do_startup_exclusion(ChunkAppendState *state)
@@ -126,12 +126,16 @@ do_startup_exclusion(ChunkAppendState *state)
 	/*
 	 * create skeleton plannerinfo for estimate_expression_value
 	 */
-	PlannerGlobal glob = {
-		.boundParams = NULL,
-	};
-	PlannerInfo root = {
-		.glob = &glob,
-	};
+	//PlannerGlobal glob = {
+	//	.boundParams = NULL,
+	//};
+	PlannerGlobal glob;
+	glob.boundParams = NULL;
+	//PlannerInfo root = {
+	//	.glob = &glob,
+	//};
+	PlannerInfo root;
+	root.glob = &glob;
 
 	/*
 	 * clauses and constraints should always have the same length as initial_subplans
@@ -207,80 +211,80 @@ do_startup_exclusion(ChunkAppendState *state)
  * Standard fields have been initialized by ExecInitCustomScan,
  * but any private fields should be initialized here.
  */
-static void
-chunk_append_begin(CustomScanState *node, EState *estate, int eflags)
-{
-	CustomScan *cscan = castNode(CustomScan, node->ss.ps.plan);
-	ChunkAppendState *state = (ChunkAppendState *) node;
-	ListCell *lc;
-	int i;
-
-#if PG12_GE
-	/* CustomScan hard-codes the scan and result tuple slot to a fixed
-	 * TTSOpsVirtual ops (meaning it expects the slot ops of the child tuple to
-	 * also have this type). Oddly, when reading slots from subscan nodes
-	 * (children), there is no knowing what tuple slot ops the child slot will
-	 * have (e.g., for ChunkAppend it is common that the child is a
-	 * seqscan/indexscan that produces a TTSOpsBufferHeapTuple
-	 * slot). Unfortunately, any mismatch between slot types when projecting is
-	 * asserted by PostgreSQL. To avoid this issue, we mark the scanops as
-	 * non-fixed and reinitialize the projection state with this new setting.
-	 *
-	 * Alternatively, we could copy the child tuple into the scan slot to get
-	 * the expected ops before projection, but this would require materializing
-	 * and copying the tuple unnecessarily.
-	 */
-	node->ss.ps.scanopsfixed = false;
-
-	/* Since we sometimes return the scan slot directly from the subnode, the
-	 * result slot is not fixed either. */
-	node->ss.ps.resultopsfixed = false;
-	ExecAssignScanProjectionInfoWithVarno(&node->ss, INDEX_VAR);
-#endif
-
-	initialize_constraints(state, lthird(cscan->custom_private));
-
-	if (state->startup_exclusion)
-		do_startup_exclusion(state);
-
-	state->num_subplans = list_length(state->filtered_subplans);
-
-	if (state->num_subplans == 0)
-	{
-		state->current = NO_MATCHING_SUBPLANS;
-		return;
-	}
-
-	state->subplanstates = palloc0(state->num_subplans * sizeof(PlanState *));
-
-	i = 0;
-	foreach (lc, state->filtered_subplans)
-	{
-		/*
-		 * we use an array for the states but put it in custom_ps as well
-		 * so explain and planstate_tree_walker can find it
-		 */
-		state->subplanstates[i] = ExecInitNode(lfirst(lc), estate, eflags);
-		node->custom_ps = lappend(node->custom_ps, state->subplanstates[i]);
-
-		/*
-		 * pass down limit to child nodes
-		 */
-		if (state->limit)
-			ExecSetTupleBound(state->limit, state->subplanstates[i]);
-
-		i++;
-	}
-
-	if (state->runtime_exclusion)
-	{
-		state->params = state->subplanstates[0]->plan->allParam;
-		/*
-		 * make sure all params are initialized for runtime exclusion
-		 */
-		node->ss.ps.chgParam = bms_copy(state->subplanstates[0]->plan->allParam);
-	}
-}
+//static void
+//chunk_append_begin(CustomScanState *node, EState *estate, int eflags)
+//{
+//	CustomScan *cscan = castNode(CustomScan, node->ss.ps.plan);
+//	ChunkAppendState *state = (ChunkAppendState *) node;
+//	ListCell *lc;
+//	int i;
+//
+////#if PG12_GE
+////	/* CustomScan hard-codes the scan and result tuple slot to a fixed
+////	 * TTSOpsVirtual ops (meaning it expects the slot ops of the child tuple to
+////	 * also have this type). Oddly, when reading slots from subscan nodes
+////	 * (children), there is no knowing what tuple slot ops the child slot will
+////	 * have (e.g., for ChunkAppend it is common that the child is a
+////	 * seqscan/indexscan that produces a TTSOpsBufferHeapTuple
+////	 * slot). Unfortunately, any mismatch between slot types when projecting is
+////	 * asserted by PostgreSQL. To avoid this issue, we mark the scanops as
+////	 * non-fixed and reinitialize the projection state with this new setting.
+////	 *
+////	 * Alternatively, we could copy the child tuple into the scan slot to get
+////	 * the expected ops before projection, but this would require materializing
+////	 * and copying the tuple unnecessarily.
+////	 */
+////	node->ss.ps.scanopsfixed = false;
+////
+////	/* Since we sometimes return the scan slot directly from the subnode, the
+////	 * result slot is not fixed either. */
+////	node->ss.ps.resultopsfixed = false;
+////	ExecAssignScanProjectionInfoWithVarno(&node->ss, INDEX_VAR);
+////#endif
+//
+//	initialize_constraints(state, lthird(cscan->custom_private));
+//
+//	if (state->startup_exclusion)
+//		do_startup_exclusion(state);
+//
+//	state->num_subplans = list_length(state->filtered_subplans);
+//
+//	if (state->num_subplans == 0)
+//	{
+//		state->current = NO_MATCHING_SUBPLANS;
+//		return;
+//	}
+//
+//	state->subplanstates = palloc0(state->num_subplans * sizeof(PlanState *));
+//
+//	i = 0;
+//	foreach (lc, state->filtered_subplans)
+//	{
+//		/*
+//		 * we use an array for the states but put it in custom_ps as well
+//		 * so explain and planstate_tree_walker can find it
+//		 */
+//		state->subplanstates[i] = ExecInitNode(lfirst(lc), estate, eflags);
+//		node->custom_ps = lappend(node->custom_ps, state->subplanstates[i]);
+//
+//		/*
+//		 * pass down limit to child nodes
+//		 */
+//		if (state->limit)
+//			ExecSetTupleBound(state->limit, state->subplanstates[i]);
+//
+//		i++;
+//	}
+//
+//	if (state->runtime_exclusion)
+//	{
+//		state->params = state->subplanstates[0]->plan->allParam;
+//		/*
+//		 * make sure all params are initialized for runtime exclusion
+//		 */
+//		node->ss.ps.chgParam = bms_copy(state->subplanstates[0]->plan->allParam);
+//	}
+//}
 
 /*
  * build bitmap of valid subplans for runtime exclusion
@@ -291,12 +295,16 @@ initialize_runtime_exclusion(ChunkAppendState *state)
 	ListCell *lc_clauses, *lc_constraints;
 	int i = 0;
 
-	PlannerGlobal glob = {
-		.boundParams = NULL,
-	};
-	PlannerInfo root = {
-		.glob = &glob,
-	};
+	//PlannerGlobal glob = {
+	//	.boundParams = NULL,
+	//};
+	//PlannerInfo root = {
+	//	.glob = &glob,
+	//};
+	PlannerGlobal glob;
+	glob.boundParams = NULL;
+	PlannerInfo root;
+	root.glob = &glob;
 
 	Assert(state->num_subplans == list_length(state->filtered_ri_clauses));
 
@@ -362,80 +370,80 @@ initialize_runtime_exclusion(ChunkAppendState *state)
  * tuple in the current scan direction, and then return the tuple slot.
  * If not, NULL or an empty slot should be returned.
  */
-static TupleTableSlot *
-chunk_append_exec(CustomScanState *node)
-{
-	ChunkAppendState *state = (ChunkAppendState *) node;
-	ExprContext *econtext = node->ss.ps.ps_ExprContext;
-	ProjectionInfo *projinfo = node->ss.ps.ps_ProjInfo;
-	TupleTableSlot *subslot;
-#if PG96
-	TupleTableSlot *resultslot;
-	ExprDoneCond isdone;
-#endif
-
-	if (state->current == INVALID_SUBPLAN_INDEX)
-		state->choose_next_subplan(state);
-
-#if PG96
-	if (node->ss.ps.ps_TupFromTlist)
-	{
-		resultslot = ExecProject(projinfo, &isdone);
-
-		if (isdone == ExprMultipleResult)
-			return resultslot;
-
-		node->ss.ps.ps_TupFromTlist = false;
-	}
-#endif
-
-	while (true)
-	{
-		PlanState *subnode;
-
-		CHECK_FOR_INTERRUPTS();
-
-		if (state->current == NO_MATCHING_SUBPLANS)
-			return ExecClearTuple(node->ss.ps.ps_ResultTupleSlot);
-
-		Assert(state->current >= 0 && state->current < state->num_subplans);
-		subnode = state->subplanstates[state->current];
-
-		/*
-		 * get a tuple from the subplan
-		 */
-		subslot = ExecProcNode(subnode);
-
-		if (!TupIsNull(subslot))
-		{
-			/*
-			 * If the subplan gave us something check if we need
-			 * to do projection otherwise return as is.
-			 */
-			if (projinfo == NULL)
-				return subslot;
-
-			ResetExprContext(econtext);
-			econtext->ecxt_scantuple = subslot;
-
-#if PG96
-			resultslot = ExecProject(projinfo, &isdone);
-
-			if (isdone != ExprEndResult)
-			{
-				node->ss.ps.ps_TupFromTlist = (isdone == ExprMultipleResult);
-				return resultslot;
-			}
-#else
-			return ExecProject(projinfo);
-#endif
-		}
-
-		state->choose_next_subplan(state);
-
-		/* loop back and try to get a tuple from the new subplan */
-	}
-}
+//static TupleTableSlot *
+//chunk_append_exec(CustomScanState *node)
+//{
+//	ChunkAppendState *state = (ChunkAppendState *) node;
+//	ExprContext *econtext = node->ss.ps.ps_ExprContext;
+//	ProjectionInfo *projinfo = node->ss.ps.ps_ProjInfo;
+//	TupleTableSlot *subslot;
+////#if PG96
+//	TupleTableSlot *resultslot;
+//	ExprDoneCond isdone;
+////#endif
+//
+//	if (state->current == INVALID_SUBPLAN_INDEX)
+//		state->choose_next_subplan(state);
+//
+////#if PG96
+//	if (node->ss.ps.ps_TupFromTlist)
+//	{
+//		resultslot = ExecProject(projinfo, &isdone);
+//
+//		if (isdone == ExprMultipleResult)
+//			return resultslot;
+//
+//		node->ss.ps.ps_TupFromTlist = false;
+//	}
+////#endif
+//
+//	while (true)
+//	{
+//		PlanState *subnode;
+//
+//		CHECK_FOR_INTERRUPTS();
+//
+//		if (state->current == NO_MATCHING_SUBPLANS)
+//			return ExecClearTuple(node->ss.ps.ps_ResultTupleSlot);
+//
+//		Assert(state->current >= 0 && state->current < state->num_subplans);
+//		subnode = state->subplanstates[state->current];
+//
+//		/*
+//		 * get a tuple from the subplan
+//		 */
+//		subslot = ExecProcNode(subnode);
+//
+//		if (!TupIsNull(subslot))
+//		{
+//			/*
+//			 * If the subplan gave us something check if we need
+//			 * to do projection otherwise return as is.
+//			 */
+//			if (projinfo == NULL)
+//				return subslot;
+//
+//			ResetExprContext(econtext);
+//			econtext->ecxt_scantuple = subslot;
+//
+////#if PG96
+//			resultslot = ExecProject(projinfo, &isdone);
+//
+//			if (isdone != ExprEndResult)
+//			{
+//				node->ss.ps.ps_TupFromTlist = (isdone == ExprMultipleResult);
+//				return resultslot;
+//			}
+////#else
+////			return ExecProject(projinfo);
+////#endif
+//		}
+//
+//		state->choose_next_subplan(state);
+//
+//		/* loop back and try to get a tuple from the new subplan */
+//	}
+//}
 
 static int
 get_next_subplan(ChunkAppendState *state, int last_plan)
@@ -557,46 +565,46 @@ choose_next_subplan_for_worker(ChunkAppendState *state)
  * This method is required, but it does not need to do anything if there
  * is no associated data or it will be cleaned up automatically.
  */
-static void
-chunk_append_end(CustomScanState *node)
-{
-	ChunkAppendState *state = (ChunkAppendState *) node;
-	int i;
-
-	for (i = 0; i < state->num_subplans; i++)
-	{
-		ExecEndNode(state->subplanstates[i]);
-	}
-}
+//static void
+//chunk_append_end(CustomScanState *node)
+//{
+//	ChunkAppendState *state = (ChunkAppendState *) node;
+//	int i;
+//
+//	for (i = 0; i < state->num_subplans; i++)
+//	{
+//		ExecEndNode(state->subplanstates[i]);
+//	}
+//}
 
 /*
  * Rewind the current scan to the beginning and prepare to rescan the relation.
  */
-static void
-chunk_append_rescan(CustomScanState *node)
-{
-	ChunkAppendState *state = (ChunkAppendState *) node;
-	int i;
-
-	for (i = 0; i < state->num_subplans; i++)
-	{
-		if (node->ss.ps.chgParam != NULL)
-			UpdateChangedParamSet(state->subplanstates[i], node->ss.ps.chgParam);
-
-		ExecReScan(state->subplanstates[i]);
-	}
-	state->current = INVALID_SUBPLAN_INDEX;
-
-	/*
-	 * detect changed params and reset runtime exclusion state
-	 */
-	if (state->runtime_exclusion && bms_overlap(node->ss.ps.chgParam, state->params))
-	{
-		bms_free(state->valid_subplans);
-		state->valid_subplans = NULL;
-		state->runtime_initialized = false;
-	}
-}
+//static void
+//chunk_append_rescan(CustomScanState *node)
+//{
+//	ChunkAppendState *state = (ChunkAppendState *) node;
+//	int i;
+//
+//	for (i = 0; i < state->num_subplans; i++)
+//	{
+//		if (node->ss.ps.chgParam != NULL)
+//			UpdateChangedParamSet(state->subplanstates[i], node->ss.ps.chgParam);
+//
+//		ExecReScan(state->subplanstates[i]);
+//	}
+//	state->current = INVALID_SUBPLAN_INDEX;
+//
+//	/*
+//	 * detect changed params and reset runtime exclusion state
+//	 */
+//	if (state->runtime_exclusion && bms_overlap(node->ss.ps.chgParam, state->params))
+//	{
+//		bms_free(state->valid_subplans);
+//		state->valid_subplans = NULL;
+//		state->runtime_initialized = false;
+//	}
+//}
 
 /*
  * Estimate the amount of dynamic shared memory that will be required
@@ -606,13 +614,13 @@ chunk_append_rescan(CustomScanState *node)
  * This callback is optional, and need only be supplied if this
  * custom scan provider supports parallel execution.
  */
-static Size
-chunk_append_estimate_dsm(CustomScanState *node, ParallelContext *pcxt)
-{
-	ChunkAppendState *state = (ChunkAppendState *) node;
-	return add_size(offsetof(ParallelChunkAppendState, finished),
-					sizeof(bool) * state->num_subplans);
-}
+//static Size
+//chunk_append_estimate_dsm(CustomScanState *node, ParallelContext *pcxt)
+//{
+//	ChunkAppendState *state = (ChunkAppendState *) node;
+//	return add_size(offsetof(ParallelChunkAppendState, finished),
+//					sizeof(bool) * state->num_subplans);
+//}
 
 /*
  * Initialize the dynamic shared memory that will be required for
@@ -622,27 +630,27 @@ chunk_append_estimate_dsm(CustomScanState *node, ParallelContext *pcxt)
  * This callback is optional, and need only be supplied if this custom scan
  * provider supports parallel execution.
  */
-static void
-chunk_append_initialize_dsm(CustomScanState *node, ParallelContext *pcxt, void *coordinate)
-{
-	ChunkAppendState *state = (ChunkAppendState *) node;
-	ParallelChunkAppendState *pstate = (ParallelChunkAppendState *) coordinate;
-
-	memset(pstate, 0, node->pscan_len);
-
-	state->lock = chunk_append_get_lock_pointer();
-	pstate->next_plan = INVALID_SUBPLAN_INDEX;
-
-	/*
-	 * Leader should use the same subplan selection as normal worker threads. If the user wishes to
-	 * disallow running plans on the leader they should do so via the parallel_leader_participation
-	 * GUC.
-	 */
-	state->choose_next_subplan = choose_next_subplan_for_worker;
-	state->current = INVALID_SUBPLAN_INDEX;
-	state->pcxt = pcxt;
-	state->pstate = pstate;
-}
+//static void
+//chunk_append_initialize_dsm(CustomScanState *node, ParallelContext *pcxt, void *coordinate)
+//{
+//	ChunkAppendState *state = (ChunkAppendState *) node;
+//	ParallelChunkAppendState *pstate = (ParallelChunkAppendState *) coordinate;
+//
+//	memset(pstate, 0, node->pscan_len);
+//
+//	state->lock = chunk_append_get_lock_pointer();
+//	pstate->next_plan = INVALID_SUBPLAN_INDEX;
+//
+//	/*
+//	 * Leader should use the same subplan selection as normal worker threads. If the user wishes to
+//	 * disallow running plans on the leader they should do so via the parallel_leader_participation
+//	 * GUC.
+//	 */
+//	state->choose_next_subplan = choose_next_subplan_for_worker;
+//	state->current = INVALID_SUBPLAN_INDEX;
+//	state->pcxt = pcxt;
+//	state->pstate = pstate;
+//}
 
 /*
  * Re-initialize the dynamic shared memory required for parallel operation
@@ -654,17 +662,17 @@ chunk_append_initialize_dsm(CustomScanState *node, ParallelContext *pcxt, void *
  * Currently, this callback will be called before ReScanCustomScan,
  * but it's best not to rely on that ordering.
  */
-#if !PG96
-static void
-chunk_append_reinitialize_dsm(CustomScanState *node, ParallelContext *pcxt, void *coordinate)
-{
-	ChunkAppendState *state = (ChunkAppendState *) node;
-	ParallelChunkAppendState *pstate = (ParallelChunkAppendState *) coordinate;
-
-	pstate->next_plan = INVALID_SUBPLAN_INDEX;
-	memset(pstate->finished, 0, sizeof(bool) * state->num_subplans);
-}
-#endif
+//#if !PG96
+//static void
+//chunk_append_reinitialize_dsm(CustomScanState *node, ParallelContext *pcxt, void *coordinate)
+//{
+//	ChunkAppendState *state = (ChunkAppendState *) node;
+//	ParallelChunkAppendState *pstate = (ParallelChunkAppendState *) coordinate;
+//
+//	pstate->next_plan = INVALID_SUBPLAN_INDEX;
+//	memset(pstate->finished, 0, sizeof(bool) * state->num_subplans);
+//}
+//#endif
 
 /*
  * Initialize a parallel worker's local state based on the shared state
@@ -673,17 +681,17 @@ chunk_append_reinitialize_dsm(CustomScanState *node, ParallelContext *pcxt, void
  * This callback is optional, and need only be supplied if this custom scan
  * provider supports parallel execution.
  */
-static void
-chunk_append_initialize_worker(CustomScanState *node, shm_toc *toc, void *coordinate)
-{
-	ChunkAppendState *state = (ChunkAppendState *) node;
-	ParallelChunkAppendState *pstate = (ParallelChunkAppendState *) coordinate;
-
-	state->lock = chunk_append_get_lock_pointer();
-	state->choose_next_subplan = choose_next_subplan_for_worker;
-	state->current = INVALID_SUBPLAN_INDEX;
-	state->pstate = pstate;
-}
+//static void
+//chunk_append_initialize_worker(CustomScanState *node, shm_toc *toc, void *coordinate)
+//{
+//	ChunkAppendState *state = (ChunkAppendState *) node;
+//	ParallelChunkAppendState *pstate = (ParallelChunkAppendState *) coordinate;
+//
+//	state->lock = chunk_append_get_lock_pointer();
+//	state->choose_next_subplan = choose_next_subplan_for_worker;
+//	state->current = INVALID_SUBPLAN_INDEX;
+//	state->pstate = pstate;
+//}
 
 /*
  * get a pointer to the LWLock used for coordinating
@@ -830,13 +838,14 @@ ca_get_relation_constraints(Oid relationObjectId, Index varno, bool include_notn
 			 */
 			cexpr = eval_const_expressions(NULL, cexpr);
 
-#if (PG96 && PG_VERSION_NUM < 90609) || (PG10 && PG_VERSION_NUM < 100004)
-			cexpr = (Node *) canonicalize_qual((Expr *) cexpr);
-#elif PG96 || PG10
-			cexpr = (Node *) canonicalize_qual_ext((Expr *) cexpr, true);
-#else
-			cexpr = (Node *) canonicalize_qual((Expr *) cexpr, true);
-#endif
+//#if (PG96 && PG_VERSION_NUM < 90609) || (PG10 && PG_VERSION_NUM < 100004)
+			//cexpr = (Node *) canonicalize_qual((Expr *) cexpr);
+			cexpr = (Node *) canonicalize_qual((Expr *) cexpr, false);
+//#elif PG96 || PG10
+//			cexpr = (Node *) canonicalize_qual_ext((Expr *) cexpr, true);
+//#else
+//			cexpr = (Node *) canonicalize_qual((Expr *) cexpr, true);
+//#endif
 
 			/* Fix Vars to have the desired varno */
 			if (varno != 1)
@@ -872,7 +881,7 @@ ca_get_relation_constraints(Oid relationObjectId, Index varno, bool include_notn
 					 * NULL test in such a case, just IS DISTINCT FROM NULL.
 					 */
 					ntest->argisrow = false;
-					ntest->location = -1;
+					//ntest->location = -1;
 					result = lappend(result, ntest);
 				}
 			}
@@ -925,11 +934,12 @@ can_exclude_chunk(List *constraints, List *baserestrictinfo)
 	 * We need strong refutation because we have to prove that the constraints
 	 * would yield false, not just NULL.
 	 */
-#if PG96
-	if (predicate_refuted_by(constraints, baserestrictinfo))
-#else
+//#if PG96
+	//if (predicate_refuted_by(constraints, baserestrictinfo))
 	if (predicate_refuted_by(constraints, baserestrictinfo, false))
-#endif
+//#else
+//	if (predicate_refuted_by(constraints, baserestrictinfo, false))
+//#endif
 		return true;
 
 	return false;
@@ -944,7 +954,7 @@ initialize_constraints(ChunkAppendState *state, List *initial_rt_indexes)
 {
 	ListCell *lc_clauses, *lc_plan, *lc_relid;
 	List *constraints = NIL;
-	EState *estate = state->csstate.ss.ps.state;
+	//EState *estate = state->csstate.ss.ps.state;
 
 	if (initial_rt_indexes == NIL)
 		return;
@@ -966,8 +976,8 @@ initialize_constraints(ChunkAppendState *state, List *initial_rt_indexes)
 		if (scan != NULL && scan->scanrelid > 0)
 		{
 			Index rt_index = scan->scanrelid;
-			RangeTblEntry *rte = rt_fetch(rt_index, estate->es_range_table);
-			relation_constraints = ca_get_relation_constraints(rte->relid, rt_index, true);
+			//RangeTblEntry *rte = rt_fetch(rt_index, estate->es_range_table);
+			//relation_constraints = ca_get_relation_constraints(rte->relid, rt_index, true);
 
 			/*
 			 * Adjust the RangeTableEntry indexes in the restrictinfo
