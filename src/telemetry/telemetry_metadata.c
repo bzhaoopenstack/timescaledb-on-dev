@@ -22,42 +22,42 @@
 /*
  * add all entries from _timescaledb_catalog.metadata
  */
-void
-ts_telemetry_metadata_add_values(JsonbParseState *state)
-{
-	Datum key, value;
-	bool key_isnull, value_isnull, include_entry;
-	ScanIterator iterator =
-		ts_scan_iterator_create(METADATA, AccessShareLock, CurrentMemoryContext);
-	iterator.ctx.index = catalog_get_index(ts_catalog_get(), METADATA, METADATA_PKEY_IDX);
-
-	ts_scanner_foreach(&iterator)
-	{
-		TupleInfo *ti = iterator.tinfo;
-
-		key = heap_getattr(ti->tuple, Anum_metadata_key, ti->desc, &key_isnull);
-		include_entry =
-			!key_isnull &&
-			DatumGetBool(
-				heap_getattr(ti->tuple, Anum_metadata_include_in_telemetry, ti->desc, &key_isnull));
-
-		if (include_entry)
-		{
-			Name key_name = DatumGetName(key);
-
-			/* skip keys included as toplevel items */
-			if (namestrcmp(key_name, METADATA_UUID_KEY_NAME) != 0 &&
-				namestrcmp(key_name, METADATA_EXPORTED_UUID_KEY_NAME) != 0 &&
-				namestrcmp(key_name, METADATA_TIMESTAMP_KEY_NAME) != 0)
-			{
-				value = heap_getattr(ti->tuple, Anum_metadata_value, ti->desc, &value_isnull);
-
-				if (!value_isnull)
-					ts_jsonb_add_str(state, DatumGetCString(key), TextDatumGetCString(value));
-			}
-		}
-	}
-}
+//void
+//ts_telemetry_metadata_add_values(JsonbParseState *state)
+//{
+//	Datum key, value;
+//	bool key_isnull, value_isnull, include_entry;
+//	ScanIterator iterator =
+//		ts_scan_iterator_create(METADATA, AccessShareLock, CurrentMemoryContext);
+//	iterator.ctx.index = catalog_get_index(ts_catalog_get(), METADATA, METADATA_PKEY_IDX);
+//
+//	ts_scanner_foreach(&iterator)
+//	{
+//		TupleInfo *ti = iterator.tinfo;
+//
+//		key = heap_getattr(ti->tuple, Anum_metadata_key, ti->desc, &key_isnull);
+//		include_entry =
+//			!key_isnull &&
+//			DatumGetBool(
+//				heap_getattr(ti->tuple, Anum_metadata_include_in_telemetry, ti->desc, &key_isnull));
+//
+//		if (include_entry)
+//		{
+//			Name key_name = DatumGetName(key);
+//
+//			/* skip keys included as toplevel items */
+//			if (namestrcmp(key_name, METADATA_UUID_KEY_NAME) != 0 &&
+//				namestrcmp(key_name, METADATA_EXPORTED_UUID_KEY_NAME) != 0 &&
+//				namestrcmp(key_name, METADATA_TIMESTAMP_KEY_NAME) != 0)
+//			{
+//				value = heap_getattr(ti->tuple, Anum_metadata_value, ti->desc, &value_isnull);
+//
+//				if (!value_isnull)
+//					ts_jsonb_add_str(state, DatumGetCString(key), TextDatumGetCString(value));
+//			}
+//		}
+//	}
+//}
 
 static Datum
 get_uuid_by_key(const char *key)

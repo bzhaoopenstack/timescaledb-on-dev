@@ -14,7 +14,7 @@
 #include <access/genam.h>
 #include <access/heapam.h>
 #include <access/htup.h>
-#include <access/htup_details.h>
+//#include <access/htup_details.h>
 #include <catalog/indexing.h>
 #include <catalog/pg_constraint.h>
 #include <utils/fmgroids.h>
@@ -45,10 +45,10 @@ ts_relation_get_fk_list(Relation relation)
 		ForeignKeyCacheInfoCompat *info;
 		if (constraint->contype != CONSTRAINT_FOREIGN)
 			continue;
-		info = (ForeignKeyCacheInfoCompat *) newNode(sizeof(ForeignKeyCacheInfoCompat),
-													 T_ForeignKeyCacheInfoCompat);
-		info->conoid = HeapTupleGetOid(htup);
-		result = lappend(result, info);
+		//info = (ForeignKeyCacheInfoCompat *) newNode(sizeof(ForeignKeyCacheInfoCompat),
+		//											 T_ForeignKeyCacheInfoCompat);
+		//info->conoid = HeapTupleGetOid(htup);
+		//result = lappend(result, info);
 	}
 	systable_endscan(conscan);
 	heap_close(conrel, AccessShareLock);

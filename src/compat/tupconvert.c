@@ -35,7 +35,7 @@ ts_execute_attr_map_slot(AttrNumber *attrmap, TupleTableSlot *in_slot, TupleTabl
 	outnatts = out_slot->tts_tupleDescriptor->natts;
 
 	/* Extract all the values of the in slot. */
-	slot_getallattrs(in_slot);
+	//slot_getallattrs(in_slot);
 
 	/* Before doing the mapping, clear any old contents from the out slot */
 	ExecClearTuple(out_slot);

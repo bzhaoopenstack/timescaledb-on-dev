@@ -20,11 +20,11 @@
 static void
 set_error(int err)
 {
-#ifdef WIN32
-	WSASetLastError(err);
-#else
+//#ifdef WIN32
+//	WSASetLastError(err);
+//#else
 	errno = err;
-#endif
+//#endif
 }
 
 static int
@@ -41,9 +41,9 @@ get_error(void)
  * sets `strerror` to `pg_strerror`. Instead, we handle the missing case for
  * pre-PG12 on Windows by setting `strerror` to the windows version of the
  * function and use `strerror` below. */
-#if PG12_LT && defined(WIN32)
-#define strerror(ERRNO) pgwin32_socket_strerror((ERRNO))
-#endif
+//#if PG12_LT && defined(WIN32)
+//#define strerror(ERRNO) pgwin32_socket_strerror((ERRNO))
+//#endif
 
 /*  Create socket and connect */
 int
@@ -51,6 +51,7 @@ ts_plain_connect(Connection *conn, const char *host, const char *servname, int p
 {
 	char strport[6];
 	struct addrinfo *ainfo, hints = {
+		.ai_flags = NULL,
 		.ai_family = AF_UNSPEC,
 		.ai_socktype = SOCK_STREAM,
 	};
@@ -261,6 +262,7 @@ static ConnOps plain_ops = {
 	.close = ts_plain_close,
 	.write = plain_write,
 	.read = plain_read,
+	.set_timeout = NULL,
 	.errmsg = ts_plain_errmsg,
 };
 

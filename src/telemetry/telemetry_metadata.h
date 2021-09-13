@@ -7,9 +7,9 @@
 #define TIMESCALEDB_TELEMETRY_TELEMETRY_METADATA_H
 
 #include <postgres.h>
-#include <utils/jsonb.h>
+//#include <utils/jsonb.h>
 
-extern void ts_telemetry_metadata_add_values(JsonbParseState *state);
+//extern void ts_telemetry_metadata_add_values(JsonbParseState *state);
 extern Datum ts_telemetry_metadata_get_uuid(void);
 extern Datum ts_telemetry_metadata_get_exported_uuid(void);
 extern Datum ts_telemetry_metadata_get_install_timestamp(void);

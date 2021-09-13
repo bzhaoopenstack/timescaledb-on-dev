@@ -29,9 +29,9 @@ ts_uuid_create(void)
 	unsigned char *gen_uuid = palloc0(UUID_LEN);
 	bool rand_success = false;
 
-#if !PG96
-	rand_success = pg_backend_random((char *) gen_uuid, UUID_LEN);
-#endif
+//#if !PG96
+//	rand_success = pg_backend_random((char *) gen_uuid, UUID_LEN);
+//#endif
 
 	/*
 	 * If pg_backend_random() cannot find sources of randomness, then we use

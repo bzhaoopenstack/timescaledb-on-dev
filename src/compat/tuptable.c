@@ -11,7 +11,8 @@
  * directory for a copy of the PostgreSQL License.
  */
 #include <postgres.h>
-#include <access/htup_details.h>
+//#include <access/htup_details.h>
+#include <access/htup.h>
 
 #include "tuptable.h"
 
