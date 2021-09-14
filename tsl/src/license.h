@@ -9,7 +9,7 @@
 #include <postgres.h>
 #include <c.h>
 #include <export.h>
-#include <utils/jsonb.h>
+//#include <utils/jsonb.h>
 #include <utils/timestamp.h>
 
 typedef struct LicenseInfo LicenseInfo;

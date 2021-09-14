@@ -14,8 +14,8 @@
 #include <utils/builtins.h>
 #include <utils/elog.h>
 #include <utils/json.h>
-#include <utils/jsonb.h>
-#include <utils/jsonapi.h>
+//#include <utils/jsonb.h>
+//#include <utils/jsonapi.h>
 #include <utils/memutils.h>
 #include <utils/datetime.h>
 
@@ -44,26 +44,27 @@ typedef struct LicenseInfo
 
 static bool license_deserialize_enterprise(char *license, LicenseInfo *license_out);
 static bool license_info_init_from_base64(char *license_key, LicenseInfo *out);
-static void license_info_init_from_jsonb(Jsonb *json_license, LicenseInfo *out);
+//static void license_info_init_from_jsonb(Jsonb *json_license, LicenseInfo *out);
 static bool validate_license_info(const LicenseInfo *license);
 
 static LicenseInfo current_license = {
 	.id = { 0 },
 	.kind = { 0 },
+	.start_time = NULL,
 	.end_time = DT_NOBEGIN,
 	.enterprise_features_enabled = false,
 };
 
 static const LicenseInfo no_license = {
-	.id = "",
-	.kind = { "" },
+	.id = { NULL },
+	.kind = { NULL },
 	.start_time = DT_NOBEGIN,
 	.end_time = DT_NOBEGIN,
 	.enterprise_features_enabled = false,
 };
 
-static const LicenseInfo community_license = { .id = "",
-											   .kind = { "" },
+static const LicenseInfo community_license = { .id = { NULL },
+											   .kind = { NULL },
 											   .start_time = DT_NOBEGIN,
 											   .end_time = DT_NOEND,
 											   .enterprise_features_enabled = false };
@@ -146,15 +147,15 @@ license_deserialize_enterprise(char *license_key, LicenseInfo *license_out)
 			 * when this is called during initialization, it will not happen
 			 * automatically
 			 */
-			deserialize_ctx = AllocSetContextCreate(CurrentMemoryContext,
-													"license deserialize",
-													ALLOCSET_SMALL_SIZES);
-			old_ctx = MemoryContextSwitchTo(deserialize_ctx);
+			//deserialize_ctx = AllocSetContextCreate(CurrentMemoryContext,
+			//										"license deserialize",
+			//										ALLOCSET_SMALL_SIZES);
+			//old_ctx = MemoryContextSwitchTo(deserialize_ctx);
 			if (license_info_init_from_base64(license_key + 2, &license_temp))
 				license_info = &license_temp;
 
 			MemoryContextSwitchTo(old_ctx);
-			MemoryContextDelete(deserialize_ctx);
+			//MemoryContextDelete(deserialize_ctx);
 
 			break;
 		default:
@@ -199,9 +200,10 @@ license_info_init_from_base64(char *license_key, LicenseInfo *out)
 
 	PG_TRY();
 	{
-		Datum json_key = DirectFunctionCall1(jsonb_in, CStringGetDatum(expanded));
+		//Datum json_key = DirectFunctionCall1(jsonb_in, CStringGetDatum(expanded));
 
-		license_info_init_from_jsonb((Jsonb *) DatumGetPointer(json_key), out);
+		//license_info_init_from_jsonb((Jsonb *) DatumGetPointer(json_key), out);
+		bool t;
 	}
 	PG_CATCH();
 	{
@@ -243,59 +245,59 @@ base64_decode(char *license_key)
 #define END_TIME_FIELD "end_time"
 #define FIELD_NOT_FOUND_ERRSTRING "invalid license key for TimescaleDB, could not find field \"%s\""
 
-static char *json_get_id(Jsonb *license);
-static char *json_get_kind(Jsonb *license);
-static TimestampTz json_get_start_time(Jsonb *license);
-static TimestampTz json_get_end_time(Jsonb *license);
-static void
-license_info_init_from_jsonb(Jsonb *json_license, LicenseInfo *out)
-{
-	char *id_str = json_get_id(json_license);
+//static char *json_get_id(Jsonb *license);
+//static char *json_get_kind(Jsonb *license);
+//static TimestampTz json_get_start_time(Jsonb *license);
+//static TimestampTz json_get_end_time(Jsonb *license);
+//static void
+//license_info_init_from_jsonb(Jsonb *json_license, LicenseInfo *out)
+//{
+//	char *id_str = json_get_id(json_license);
+//
+//	if (id_str == NULL)
+//		elog(ERROR, "missing id in license key");
+//	StrNCpy(out->id, id_str, sizeof(out->id));
+//	StrNCpy(out->kind, json_get_kind(json_license), sizeof(out->kind));
+//	out->start_time = json_get_start_time(json_license);
+//	out->end_time = json_get_end_time(json_license);
+//	out->enterprise_features_enabled = true;
+//}
 
-	if (id_str == NULL)
-		elog(ERROR, "missing id in license key");
-	StrNCpy(out->id, id_str, sizeof(out->id));
-	StrNCpy(out->kind, json_get_kind(json_license), sizeof(out->kind));
-	out->start_time = json_get_start_time(json_license);
-	out->end_time = json_get_end_time(json_license);
-	out->enterprise_features_enabled = true;
-}
+//static char *
+//json_get_id(Jsonb *license)
+//{
+//	return ts_jsonb_get_str_field(license, cstring_to_text(ID_FIELD));
+//}
 
-static char *
-json_get_id(Jsonb *license)
-{
-	return ts_jsonb_get_str_field(license, cstring_to_text(ID_FIELD));
-}
+//static char *
+//json_get_kind(Jsonb *license)
+//{
+//	return ts_jsonb_get_str_field(license, cstring_to_text(KIND_FIELD));
+//}
 
-static char *
-json_get_kind(Jsonb *license)
-{
-	return ts_jsonb_get_str_field(license, cstring_to_text(KIND_FIELD));
-}
+//static TimestampTz
+//json_get_start_time(Jsonb *license)
+//{
+//	bool found = false;
+//	TimestampTz start_time =
+//		ts_jsonb_get_time_field(license, cstring_to_text(START_TIME_FIELD), &found);
+//
+//	if (!found)
+//		elog(ERRCODE_FEATURE_NOT_SUPPORTED, FIELD_NOT_FOUND_ERRSTRING, START_TIME_FIELD);
+//	return start_time;
+//}
 
-static TimestampTz
-json_get_start_time(Jsonb *license)
-{
-	bool found = false;
-	TimestampTz start_time =
-		ts_jsonb_get_time_field(license, cstring_to_text(START_TIME_FIELD), &found);
-
-	if (!found)
-		elog(ERRCODE_FEATURE_NOT_SUPPORTED, FIELD_NOT_FOUND_ERRSTRING, START_TIME_FIELD);
-	return start_time;
-}
-
-static TimestampTz
-json_get_end_time(Jsonb *license)
-{
-	bool found = false;
-	TimestampTz end_time =
-		ts_jsonb_get_time_field(license, cstring_to_text(END_TIME_FIELD), &found);
-
-	if (!found)
-		elog(ERRCODE_FEATURE_NOT_SUPPORTED, FIELD_NOT_FOUND_ERRSTRING, END_TIME_FIELD);
-	return end_time;
-}
+//static TimestampTz
+//json_get_end_time(Jsonb *license)
+//{
+//	bool found = false;
+//	TimestampTz end_time =
+//		ts_jsonb_get_time_field(license, cstring_to_text(END_TIME_FIELD), &found);
+//
+//	if (!found)
+//		elog(ERRCODE_FEATURE_NOT_SUPPORTED, FIELD_NOT_FOUND_ERRSTRING, END_TIME_FIELD);
+//	return end_time;
+//}
 
 /*****************************************************************************
  *****************************************************************************
@@ -429,6 +431,7 @@ license_print_expiration_warning_if_needed(void)
 	else
 	{
 		Interval week = {
+			.time = NULL,
 			.day = 7,
 		};
 		TimestampTz warn_after =

@@ -14,7 +14,7 @@
 /* see postgres commit ab5e9caa4a3ec4765348a0482e88edcf3f6aab4a */
 
 #include <postgres.h>
-#include <access/amapi.h>
+//#include <access/amapi.h>
 #include <access/multixact.h>
 #include <access/relscan.h>
 #include <access/rewriteheap.h>
@@ -37,7 +37,8 @@
 #include <miscadmin.h>
 #include <nodes/pg_list.h>
 #include <optimizer/planner.h>
-#include <storage/bufmgr.h>
+//#include <storage/bufmgr.h>
+#include <storage/buf/bufmgr.h>
 #include <storage/lmgr.h>
 #include <storage/predicate.h>
 #include <storage/smgr.h>
@@ -53,10 +54,12 @@
 #include <utils/syscache.h>
 #include <utils/tuplesort.h>
 
+#include <knl/knl_session.h>
+
 #include "compat.h"
-#if PG12_LT
-#include <utils/tqual.h>
-#endif
+//#if PG12_LT
+//#include <utils/tqual.h>
+//#endif
 
 #include "chunk.h"
 #include "chunk_index.h"
@@ -233,11 +236,11 @@ reorder_chunk(Oid chunk_id, Oid index_id, bool verbose, Oid wait_id, Oid destina
 
 		ts_cache_release(hcache);
 		aclcheck_error(ACLCHECK_NOT_OWNER,
-#if PG11_LT
+//#if PG11_LT
 					   ACL_KIND_CLASS,
-#else
-					   OBJECT_TABLE,
-#endif
+//#else
+//					   OBJECT_TABLE,
+//#endif
 					   get_rel_name(main_table_relid));
 	}
 
@@ -257,7 +260,7 @@ reorder_chunk(Oid chunk_id, Oid index_id, bool verbose, Oid wait_id, Oid destina
 							get_rel_name(chunk_id))));
 	}
 
-	if (OidIsValid(destination_tablespace) && destination_tablespace != MyDatabaseTableSpace)
+	if (OidIsValid(destination_tablespace) && destination_tablespace != u_sess->proc_cxt.MyDatabaseTableSpace)
 	{
 		AclResult aclresult;
 
@@ -270,7 +273,7 @@ reorder_chunk(Oid chunk_id, Oid index_id, bool verbose, Oid wait_id, Oid destina
 		;
 	}
 
-	if (OidIsValid(index_tablespace) && index_tablespace != MyDatabaseTableSpace)
+	if (OidIsValid(index_tablespace) && index_tablespace != u_sess->proc_cxt.MyDatabaseTableSpace)
 	{
 		AclResult aclresult;
 
@@ -435,9 +438,9 @@ timescale_reorder_rel(Oid tableOid, Oid indexOid, bool verbose, Oid wait_id,
 	 * We always mark indexes as clustered when we intercept a cluster
 	 * command, if it's not marked as such here, something has gone wrong
 	 */
-	if (!indexForm->indisclustered)
-		ereport(ERROR,
-				(errcode(ERRCODE_ASSERT_FAILURE), errmsg("invalid index heap during reorder")));
+	//if (!indexForm->indisclustered)
+	//	ereport(ERROR,
+	//			(errcode(ERRCODE_ASSERT_FAILURE), errmsg("invalid index heap during reorder")));
 	ReleaseSysCache(tuple);
 
 	/*
@@ -484,7 +487,8 @@ timescale_rebuild_relation(Relation OldHeap, Oid indexOid, bool verbose, Oid wai
 	MultiXactId cutoffMulti;
 
 	/* Mark the correct index as clustered */
-	mark_index_clustered(OldHeap, indexOid, true);
+	//mark_index_clustered(OldHeap, indexOid, true);
+	mark_index_clustered(OldHeap, indexOid);
 
 	/* Remember info about rel before closing OldHeap */
 	relpersistence = OldHeap->rd_rel->relpersistence;
@@ -493,7 +497,8 @@ timescale_rebuild_relation(Relation OldHeap, Oid indexOid, bool verbose, Oid wai
 	table_close(OldHeap, NoLock);
 
 	/* Create the transient table that will receive the re-ordered data */
-	OIDNewHeap = make_new_heap(tableOid, tableSpace, relpersistence, ExclusiveLock);
+	//OIDNewHeap = make_new_heap(tableOid, tableSpace, relpersistence, ExclusiveLock);
+	OIDNewHeap = make_new_heap(tableOid, tableSpace, ExclusiveLock);
 
 	/* Copy the heap data into the new table in the desired order */
 	copy_heap_data(OIDNewHeap,
@@ -652,16 +657,17 @@ copy_heap_data(Oid OIDNewHeap, Oid OIDOldHeap, Oid OIDOldIndex, bool verbose,
 	 * Since we're going to rewrite the whole table anyway, there's no reason
 	 * not to be aggressive about this.
 	 */
-	vacuum_set_xid_limits(OldHeap,
-						  0,
-						  0,
-						  0,
-						  0,
-						  &OldestXmin,
-						  &FreezeXid,
-						  NULL,
-						  &MultiXactCutoff,
-						  NULL);
+	//vacuum_set_xid_limits(OldHeap,
+	//					  0,
+	//					  0,
+	//					  0,
+	//					  0,
+	//					  &OldestXmin,
+	//					  &FreezeXid,
+	//					  NULL,
+	//					  &MultiXactCutoff,
+	//					  NULL);
+	vacuum_set_xid_limits(OldHeap, -1, -1, &OldestXmin, &FreezeXid, NULL);
 
 	/*
 	 * FreezeXid will become the table's new relfrozenxid, and that mustn't go
@@ -673,17 +679,17 @@ copy_heap_data(Oid OIDNewHeap, Oid OIDOldHeap, Oid OIDOldIndex, bool verbose,
 	/*
 	 * MultiXactCutoff, similarly, shouldn't go backwards either.
 	 */
-	if (MultiXactIdPrecedes(MultiXactCutoff, OldHeap->rd_rel->relminmxid))
-		MultiXactCutoff = OldHeap->rd_rel->relminmxid;
+	//if (MultiXactIdPrecedes(MultiXactCutoff, OldHeap->rd_rel->relminmxid))
+	//	MultiXactCutoff = OldHeap->rd_rel->relminmxid;
 
 	/* return selected values to caller */
 	*pFreezeXid = FreezeXid;
 	*pCutoffMulti = MultiXactCutoff;
 
-#if PG12_LT
-	/* Initialize the rewrite operation */
-	rwstate = begin_heap_rewrite(OldHeap, NewHeap, OldestXmin, FreezeXid, MultiXactCutoff, use_wal);
-#endif
+//#if PG12_LT
+//	/* Initialize the rewrite operation */
+//	rwstate = begin_heap_rewrite(OldHeap, NewHeap, OldestXmin, FreezeXid, MultiXactCutoff, use_wal);
+//#endif
 
 	/*
 	 * We know how to use a sort to duplicate the ordering of a btree index,
@@ -713,47 +719,47 @@ copy_heap_data(Oid OIDNewHeap, Oid OIDOldHeap, Oid OIDOldIndex, bool verbose,
 						get_namespace_name(RelationGetNamespace(OldHeap)),
 						RelationGetRelationName(OldHeap))));
 
-#if PG12_GE
-	table_relation_copy_for_cluster(OldHeap,
-									NewHeap,
-									OldIndex,
-									use_sort,
-									OldestXmin,
-									&FreezeXid,
-									&MultiXactCutoff,
-									&num_tuples,
-									&tups_vacuumed,
-									&tups_recently_dead);
-#else
+//#if PG12_GE
+//	table_relation_copy_for_cluster(OldHeap,
+//									NewHeap,
+//									OldIndex,
+//									use_sort,
+//									OldestXmin,
+//									&FreezeXid,
+//									&MultiXactCutoff,
+//									&num_tuples,
+//									&tups_vacuumed,
+//									&tups_recently_dead);
+//#else
 
 	/* Set up sorting if wanted */
-	if (use_sort)
-		tuplesort = tuplesort_begin_cluster(oldTupDesc,
-											OldIndex,
-											maintenance_work_mem,
-#if PG11_GE
-											NULL,
-#endif
-											false);
-	else
-		tuplesort = NULL;
+//	if (use_sort)
+//		tuplesort = tuplesort_begin_cluster(oldTupDesc,
+//											OldIndex,
+//											u_sess->attr.attr_memory.maintenance_work_mem,
+////#if PG11_GE
+////											NULL,
+////#endif
+//											false);
+//	else
+//		tuplesort = NULL;
 
 	/*
 	 * Prepare to scan the OldHeap.  To ensure we see recently-dead tuples
 	 * that still need to be copied, we scan with SnapshotAny and use
 	 * HeapTupleSatisfiesVacuum for the visibility test.
 	 */
-	if (OldIndex != NULL && !use_sort)
-	{
-		heapScan = NULL;
-		indexScan = index_beginscan(OldHeap, OldIndex, SnapshotAny, 0, 0);
-		index_rescan(indexScan, NULL, 0, NULL, 0);
-	}
-	else
-	{
-		heapScan = heap_beginscan(OldHeap, SnapshotAny, 0, (ScanKey) NULL);
-		indexScan = NULL;
-	}
+	//if (OldIndex != NULL && !use_sort)
+	//{
+	//	heapScan = NULL;
+	//	//indexScan = index_beginscan(OldHeap, OldIndex, SnapshotAny, 0, 0);
+	//	//index_rescan(indexScan, NULL, 0, NULL, 0);
+	//}
+	//else
+	//{
+	//	heapScan = heap_beginscan(OldHeap, SnapshotAny, 0, (ScanKey) NULL);
+	//	//indexScan = NULL;
+	//}
 
 	/*
 	 * Scan through the OldHeap, either in OldIndex order or sequentially;
@@ -769,28 +775,28 @@ copy_heap_data(Oid OIDNewHeap, Oid OIDOldHeap, Oid OIDOldIndex, bool verbose,
 
 		CHECK_FOR_INTERRUPTS();
 
-		if (indexScan != NULL)
-		{
-			Assert(heapScan == NULL);
-			tuple = index_getnext(indexScan, ForwardScanDirection);
-			if (tuple == NULL)
-				break;
+		//if (indexScan != NULL)
+		//{
+		//	Assert(heapScan == NULL);
+		//	tuple = index_getnext(indexScan, ForwardScanDirection);
+		//	if (tuple == NULL)
+		//		break;
 
-			/* Since we used no scan keys, should never need to recheck */
-			if (indexScan->xs_recheck)
-				elog(ERROR, "reorder does not support lossy index conditions");
+		//	/* Since we used no scan keys, should never need to recheck */
+		//	if (indexScan->xs_recheck)
+		//		elog(ERROR, "reorder does not support lossy index conditions");
 
-			buf = indexScan->xs_cbuf;
-		}
-		else
-		{
-			Assert(heapScan != NULL);
-			tuple = heap_getnext(heapScan, ForwardScanDirection);
-			if (tuple == NULL)
-				break;
+		//	buf = indexScan->xs_cbuf;
+		//}
+		//else
+		//{
+		//	Assert(heapScan != NULL);
+		//	tuple = heap_getnext(heapScan, ForwardScanDirection);
+		//	if (tuple == NULL)
+		//		break;
 
-			buf = heapScan->rs_cbuf;
-		}
+		//	buf = heapScan->rs_cbuf;
+		//}
 
 		LockBuffer(buf, BUFFER_LOCK_SHARE);
 
@@ -843,67 +849,67 @@ copy_heap_data(Oid OIDNewHeap, Oid OIDOldHeap, Oid OIDOldIndex, bool verbose,
 		{
 			tups_vacuumed += 1;
 			/* heap rewrite module still needs to see it... */
-			if (rewrite_heap_dead_tuple(rwstate, tuple))
-			{
-				/* A previous recently-dead tuple is now known dead */
-				tups_vacuumed += 1;
-				tups_recently_dead -= 1;
-			}
+			//if (rewrite_heap_dead_tuple(rwstate, tuple))
+			//{
+			//	/* A previous recently-dead tuple is now known dead */
+			//	tups_vacuumed += 1;
+			//	tups_recently_dead -= 1;
+			//}
 			continue;
 		}
 
 		num_tuples += 1;
-		if (tuplesort != NULL)
-			tuplesort_putheaptuple(tuplesort, tuple);
-		else
-			reform_and_rewrite_tuple(tuple, oldTupDesc, newTupDesc, values, isnull, rwstate);
+		//if (tuplesort != NULL)
+		//	tuplesort_putheaptuple(tuplesort, tuple);
+		//else
+		//	reform_and_rewrite_tuple(tuple, oldTupDesc, newTupDesc, values, isnull, rwstate);
 	}
 
-	if (indexScan != NULL)
-		index_endscan(indexScan);
-	if (heapScan != NULL)
-		heap_endscan(heapScan);
+	//if (indexScan != NULL)
+	//	index_endscan(indexScan);
+	//if (heapScan != NULL)
+	//	heap_endscan(heapScan);
 
 	/*
 	 * In scan-and-sort mode, complete the sort, then read out all live tuples
 	 * from the tuplestore and write them to the new relation.
 	 */
-	if (tuplesort != NULL)
-	{
-		tuplesort_performsort(tuplesort);
-
-		for (;;)
-		{
-			HeapTuple tuple;
-#if PG96
-			bool should_free = false;
-#endif
-
-			CHECK_FOR_INTERRUPTS();
-
-			tuple = tuplesort_getheaptuple(tuplesort,
-										   /* forward= */ true
-#if PG96
-										   ,
-										   &should_free
-#endif
-			);
-			if (tuple == NULL)
-				break;
-
-			reform_and_rewrite_tuple(tuple, oldTupDesc, newTupDesc, values, isnull, rwstate);
-#if PG96
-			if (should_free)
-				pfree(tuple);
-#endif
-		}
-
-		tuplesort_end(tuplesort);
-	}
+//	if (tuplesort != NULL)
+//	{
+//		tuplesort_performsort(tuplesort);
+//
+//		for (;;)
+//		{
+//			HeapTuple tuple;
+////#if PG96
+//			bool should_free = false;
+////#endif
+//
+//			CHECK_FOR_INTERRUPTS();
+//
+//			tuple = tuplesort_getheaptuple(tuplesort,
+//										   /* forward= */ true
+////#if PG96
+//										   ,
+//										   &should_free
+////#endif
+//			);
+//			if (tuple == NULL)
+//				break;
+//
+//			reform_and_rewrite_tuple(tuple, oldTupDesc, newTupDesc, values, isnull, rwstate);
+////#if PG96
+//			if (should_free)
+//				pfree(tuple);
+////#endif
+//		}
+//
+//		tuplesort_end(tuplesort);
+//	}
 
 	/* Write out any remaining tuples, and fsync if needed */
-	end_heap_rewrite(rwstate);
-#endif
+//	end_heap_rewrite(rwstate);
+//#endif
 	/* Reset rd_toastoid just to be tidy --- it shouldn't be looked at again */
 	NewHeap->rd_toastoid = InvalidOid;
 
@@ -1090,7 +1096,7 @@ finish_heap_swaps(Oid OIDOldHeap, Oid OIDNewHeap, List *old_index_oids, List *ne
 			char NewToastName[NAMEDATALEN];
 
 			/* Get the associated valid index to be renamed */
-			toastidx = toast_get_valid_index(newrel->rd_rel->reltoastrelid, AccessShareLock);
+			//toastidx = toast_get_valid_index(newrel->rd_rel->reltoastrelid, AccessShareLock);
 
 			/* rename the toast table ... */
 			snprintf(NewToastName, NAMEDATALEN, "pg_toast_%u", OIDOldHeap);
@@ -1099,20 +1105,20 @@ finish_heap_swaps(Oid OIDOldHeap, Oid OIDNewHeap, List *old_index_oids, List *ne
 			/* ... and its valid index too. */
 			snprintf(NewToastName, NAMEDATALEN, "pg_toast_%u_index", OIDOldHeap);
 
-			RenameRelationInternalCompat(toastidx, NewToastName, true, true);
+			//RenameRelationInternalCompat(toastidx, NewToastName, true, true);
 		}
 		table_close(newrel, NoLock);
 	}
-#if PG12_GE
-	/* it's not a catalog table, clear any missing attribute settings */
-	{
-		Relation newrel;
-
-		newrel = table_open(OIDOldHeap, NoLock);
-		RelationClearMissing(newrel);
-		table_close(newrel, NoLock);
-	}
-#endif
+//#if PG12_GE
+//	/* it's not a catalog table, clear any missing attribute settings */
+//	{
+//		Relation newrel;
+//
+//		newrel = table_open(OIDOldHeap, NoLock);
+//		RelationClearMissing(newrel);
+//		table_close(newrel, NoLock);
+//	}
+//#endif
 }
 
 /*
@@ -1194,7 +1200,7 @@ swap_relation_files(Oid r1, Oid r2, bool swap_toast_by_content, bool is_internal
 		Assert(TransactionIdIsNormal(frozenXid));
 		relform1->relfrozenxid = frozenXid;
 		Assert(MultiXactIdIsValid(cutoffMulti));
-		relform1->relminmxid = cutoffMulti;
+		//relform1->relminmxid = cutoffMulti;
 	}
 
 	/* swap size statistics too, since new rel has freshly-updated stats */
@@ -1219,7 +1225,7 @@ swap_relation_files(Oid r1, Oid r2, bool swap_toast_by_content, bool is_internal
 	/* Update the tuples in pg_class. */
 	{
 		CatalogIndexState indstate;
-#if PG96
+//#if PG96
 		simple_heap_update(relRelation, &reltup1->t_self, reltup1);
 		simple_heap_update(relRelation, &reltup2->t_self, reltup2);
 
@@ -1228,20 +1234,20 @@ swap_relation_files(Oid r1, Oid r2, bool swap_toast_by_content, bool is_internal
 		CatalogIndexInsert(indstate, reltup1);
 		CatalogIndexInsert(indstate, reltup2);
 		CatalogCloseIndexes(indstate);
-#else
-		indstate = CatalogOpenIndexes(relRelation);
-		CatalogTupleUpdateWithInfo(relRelation, &reltup1->t_self, reltup1, indstate);
-		CatalogTupleUpdateWithInfo(relRelation, &reltup2->t_self, reltup2, indstate);
-		CatalogCloseIndexes(indstate);
-#endif
+//#else
+//		indstate = CatalogOpenIndexes(relRelation);
+//		CatalogTupleUpdateWithInfo(relRelation, &reltup1->t_self, reltup1, indstate);
+//		CatalogTupleUpdateWithInfo(relRelation, &reltup2->t_self, reltup2, indstate);
+//		CatalogCloseIndexes(indstate);
+//#endif
 	}
 
 	/*
 	 * Post alter hook for modified relations. The change to r2 is always
 	 * internal, but r1 depends on the invocation context.
 	 */
-	InvokeObjectPostAlterHookArg(RelationRelationId, r1, 0, InvalidOid, is_internal);
-	InvokeObjectPostAlterHookArg(RelationRelationId, r2, 0, InvalidOid, true);
+	//InvokeObjectPostAlterHookArg(RelationRelationId, r1, 0, InvalidOid, is_internal);
+	//InvokeObjectPostAlterHookArg(RelationRelationId, r2, 0, InvalidOid, true);
 
 	/*
 	 * If we have toast tables associated with the relations being swapped,
@@ -1287,7 +1293,8 @@ swap_relation_files(Oid r1, Oid r2, bool swap_toast_by_content, bool is_internal
 			 * The original code disallowed this case for system catalogs. We
 			 * don't allow reordering system catalogs, but Assert anyway
 			 */
-			Assert(!IsSystemClass(r1, relform1));
+			//Assert(!IsSystemClass(r1, relform1));
+			Assert(!IsSystemClass(relform1));
 
 			/* Delete old dependencies */
 			if (relform1->reltoastrelid)
@@ -1338,15 +1345,15 @@ swap_relation_files(Oid r1, Oid r2, bool swap_toast_by_content, bool is_internal
 		Oid toastIndex1, toastIndex2;
 
 		/* Get valid index for each relation */
-		toastIndex1 = toast_get_valid_index(r1, AccessExclusiveLock);
-		toastIndex2 = toast_get_valid_index(r2, AccessExclusiveLock);
+		//toastIndex1 = toast_get_valid_index(r1, AccessExclusiveLock);
+		//toastIndex2 = toast_get_valid_index(r2, AccessExclusiveLock);
 
-		swap_relation_files(toastIndex1,
-							toastIndex2,
-							swap_toast_by_content,
-							is_internal,
-							InvalidTransactionId,
-							InvalidMultiXactId);
+		//swap_relation_files(toastIndex1,
+		//					toastIndex2,
+		//					swap_toast_by_content,
+		//					is_internal,
+		//					InvalidTransactionId,
+		//					InvalidMultiXactId);
 	}
 
 	/* Clean up. */
@@ -1375,7 +1382,7 @@ swap_relation_files(Oid r1, Oid r2, bool swap_toast_by_content, bool is_internal
 	RelationCloseSmgrByOid(r2);
 }
 
-#if PG12_LT
+//#if PG12_LT
 /*
  * Reconstruct and rewrite the given tuple
  *
@@ -1415,4 +1422,4 @@ reform_and_rewrite_tuple(HeapTuple tuple, TupleDesc oldTupDesc, TupleDesc newTup
 
 	heap_freetuple(copiedTuple);
 }
-#endif
+//#endif

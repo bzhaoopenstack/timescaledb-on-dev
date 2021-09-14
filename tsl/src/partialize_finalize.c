@@ -10,7 +10,8 @@
 #include <utils/syscache.h>
 #include <utils/datum.h>
 #include <utils/builtins.h>
-#include <access/htup_details.h>
+//#include <access/htup_details.h>
+#include <access/htup.h>
 #include <catalog/namespace.h>
 #include <catalog/pg_collation.h>
 #include <parser/parse_agg.h>
@@ -216,7 +217,8 @@ get_input_types(ArrayType *input_types, size_t *number_types)
 	*number_types = ARR_DIMS(input_types)[0];
 	type_oids = palloc0(sizeof(*type_oids) * (*number_types));
 
-	iter = array_create_iterator(input_types, 1, &meta);
+	//iter = array_create_iterator(input_types, 1, &meta);
+	iter = array_create_iterator(input_types, 1);
 
 	while (array_iterate(iter, &slice_datum, &slice_null))
 	{
@@ -299,8 +301,8 @@ fa_perquery_state_init(FunctionCallInfo fcinfo)
 	tstate = (FAPerQueryState *) MemoryContextAlloc(qcontext, sizeof(FAPerQueryState));
 
 	tstate->final_meta.finalfnoid = inner_agg_form->aggfinalfn;
-	tstate->combine_meta.combinefnoid = inner_agg_form->aggcombinefn;
-	tstate->combine_meta.deserialfnoid = inner_agg_form->aggdeserialfn;
+	//tstate->combine_meta.combinefnoid = inner_agg_form->aggcombinefn;
+	//tstate->combine_meta.deserialfnoid = inner_agg_form->aggdeserialfn;
 	tstate->combine_meta.transtype = inner_agg_form->aggtranstype;
 	ReleaseSysCache(inner_agg_tuple);
 
@@ -356,11 +358,11 @@ fa_perquery_state_init(FunctionCallInfo fcinfo)
 		int num_args = 1;
 		Oid *types = NULL;
 		size_t number_types = 0;
-		if (inner_agg_form->aggfinalextra)
-		{
-			types = get_input_types(input_types, &number_types);
-			num_args += number_types;
-		}
+		//if (inner_agg_form->aggfinalextra)
+		//{
+		//	types = get_input_types(input_types, &number_types);
+		//	num_args += number_types;
+		//}
 		if (num_args != get_func_nargs(tstate->final_meta.finalfnoid))
 			elog(ERROR, "invalid number of input types");
 
@@ -377,13 +379,13 @@ fa_perquery_state_init(FunctionCallInfo fcinfo)
 		{
 			Expr *expr;
 			int i;
-			build_aggregate_finalfn_expr(types,
-										 num_args,
-										 inner_agg_form->aggtranstype,
-										 types[number_types - 1],
-										 collation,
-										 tstate->final_meta.finalfnoid,
-										 &expr);
+			//build_aggregate_finalfn_expr(types,
+			//							 num_args,
+			//							 inner_agg_form->aggtranstype,
+			//							 types[number_types - 1],
+			//							 collation,
+			//							 tstate->final_meta.finalfnoid,
+			//							 &expr);
 			fmgr_info_set_expr((Node *) expr, &tstate->final_meta.finalfn);
 			for (i = 1; i < num_args; i++)
 				FC_SET_NULL(tstate->final_meta.finalfn_fcinfo, i);
