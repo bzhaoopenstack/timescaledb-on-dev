@@ -45,18 +45,18 @@ continuous_agg_job_get_default_schedule_interval(int32 raw_table_id, int64 bucke
 	dim = hyperspace_get_open_dimension(ht->space, 0);
 
 	partition_type = ts_dimension_get_partition_type(dim);
-	if (dim != NULL && IS_TIMESTAMP_TYPE(partition_type))
-	{
-		default_schedule_interval = DatumGetIntervalP(
-			DirectFunctionCall7(make_interval,
-								Int32GetDatum(0),
-								Int32GetDatum(0),
-								Int32GetDatum(0),
-								Int32GetDatum(0),
-								Int32GetDatum(0),
-								Int32GetDatum(0),
-								Float8GetDatum((bucket_width * 2) / USECS_PER_SEC)));
-	}
+	//if (dim != NULL && IS_TIMESTAMP_TYPE(partition_type))
+	//{
+	//	default_schedule_interval = DatumGetIntervalP(
+	//		DirectFunctionCall7(make_interval,
+	//							Int32GetDatum(0),
+	//							Int32GetDatum(0),
+	//							Int32GetDatum(0),
+	//							Int32GetDatum(0),
+	//							Int32GetDatum(0),
+	//							Int32GetDatum(0),
+	//							Float8GetDatum((bucket_width * 2) / USECS_PER_SEC)));
+	//}
 
 	return default_schedule_interval;
 }

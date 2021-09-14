@@ -602,13 +602,14 @@ hypertable_get_min_and_max_time_value(SchemaAndName hypertable, Name time_column
 						 quote_literal_cstr(search_start_str));
 	}
 
-	res = SPI_execute_with_args(command->data,
-								0 /*=nargs*/,
-								NULL,
-								NULL,
-								NULL /*=Nulls*/,
-								true /*=read_only*/,
-								0 /*count*/);
+	//res = SPI_execute_with_args(command->data,
+	//							0 /*=nargs*/,
+	//							NULL,
+	//							NULL,
+	//							NULL /*=Nulls*/,
+	//							true /*=read_only*/,
+	//							0 /*count*/);
+	res = SPI_execute_with_args(command->data, 0, NULL, NULL, NULL, true, 0, NULL);
 	if (res < 0)
 		elog(ERROR, "could not find the minimum/maximum time value for hypertable");
 
@@ -692,10 +693,10 @@ invalidation_threshold_htid_found(TupleInfo *tinfo, void *data)
 static void
 lock_invalidation_threshold_hypertable_row(int32 raw_hypertable_id)
 {
-	ScanTupLock scantuplock = {
-		.waitpolicy = LockWaitBlock,
-		.lockmode = LockTupleExclusive,
-	};
+	//ScanTupLock scantuplock = {
+	//	.waitpolicy = LockWaitBlock,
+	//	.lockmode = LockTupleExclusive,
+	//};
 	Catalog *catalog = ts_catalog_get();
 	ScanKeyData scankey[1];
 	int retcnt = 0;
@@ -708,19 +709,19 @@ lock_invalidation_threshold_hypertable_row(int32 raw_hypertable_id)
 				Int32GetDatum(raw_hypertable_id));
 
 	/* lock table in AccessShare mode and the row with AccessExclusive */
-	scanctx = (ScannerCtx){ .table = catalog_get_table_id(catalog,
-														  CONTINUOUS_AGGS_INVALIDATION_THRESHOLD),
-							.index = catalog_get_index(catalog,
-													   CONTINUOUS_AGGS_INVALIDATION_THRESHOLD,
-													   CONTINUOUS_AGGS_INVALIDATION_THRESHOLD_PKEY),
-							.nkeys = 1,
-							.scankey = scankey,
-							.limit = 1,
-							.tuple_found = invalidation_threshold_htid_found,
-							.lockmode = AccessShareLock,
-							.scandirection = ForwardScanDirection,
-							.result_mctx = CurrentMemoryContext,
-							.tuplock = &scantuplock };
+	//scanctx = (ScannerCtx){ .table = catalog_get_table_id(catalog,
+	//													  CONTINUOUS_AGGS_INVALIDATION_THRESHOLD),
+	//						.index = catalog_get_index(catalog,
+	//												   CONTINUOUS_AGGS_INVALIDATION_THRESHOLD,
+	//												   CONTINUOUS_AGGS_INVALIDATION_THRESHOLD_PKEY),
+	//						.nkeys = 1,
+	//						.scankey = scankey,
+	//						.limit = 1,
+	//						.tuple_found = invalidation_threshold_htid_found,
+	//						.lockmode = AccessShareLock,
+	//						.scandirection = ForwardScanDirection,
+	//						.result_mctx = CurrentMemoryContext,
+	//						.tuplock = &scantuplock };
 	retcnt = ts_scanner_scan(&scanctx);
 	if (retcnt > 1)
 	{
@@ -1084,10 +1085,7 @@ continuous_agg_execute_materialization(int64 bucket_width, int32 hypertable_id,
 		hyperspace_get_open_dimension(materialization_table->space, 0)->fd.column_name;
 
 	if (new_materialization_range.start > PG_INT64_MIN)
-		Assert(new_materialization_range.start ==
-			   ts_time_bucket_by_type(bucket_width,
-									  new_materialization_range.start,
-									  new_materialization_range.type));
+		Assert(new_materialization_range.start == ts_time_bucket_by_type(bucket_width, new_materialization_range.start, new_materialization_range.type));
 
 	/* Since we store the invalidation threshold as an exclusive range (we invalidate any rows <
 	 * invalidation_threshold) invalidations for rows containing INT64_MAX, the maximum values for
@@ -1096,14 +1094,9 @@ continuous_agg_execute_materialization(int64 bucket_width, int32 hypertable_id,
 	 * to be at most one time_bucket before INT64_MAX. Since we never materialize that last bucket,
 	 * it never needs to be invalidated, and the invalidations can't be lost. */
 	if (new_materialization_range.end < PG_INT64_MAX)
-		Assert(new_materialization_range.end ==
-			   ts_time_bucket_by_type(bucket_width,
-									  new_materialization_range.end,
-									  new_materialization_range.type));
-	else
-		new_materialization_range.end = ts_time_bucket_by_type(bucket_width,
-															   new_materialization_range.end,
-															   new_materialization_range.type);
+		Assert(new_materialization_range.end == ts_time_bucket_by_type(bucket_width, new_materialization_range.end, new_materialization_range.type));
+	//else
+	//	new_materialization_range.end = ts_time_bucket_by_type(bucket_width, new_materialization_range.end, new_materialization_range.type);
 
 	materialization_table_name.schema = &materialization_table->fd.schema_name;
 	materialization_table_name.name = &materialization_table->fd.table_name;
@@ -1519,13 +1512,15 @@ spi_delete_materializations(SchemaAndName materialization_table, Name time_colum
 					 quote_identifier(NameStr(*time_column_name)),
 					 quote_literal_cstr(invalidation_end));
 
-	res = SPI_execute_with_args(command->data,
-								0 /*=nargs*/,
-								NULL,
-								NULL,
-								NULL /*=Nulls*/,
-								false /*=read_only*/,
-								0 /*count*/);
+	//res = SPI_execute_with_args(command->data,
+	//							0 /*=nargs*/,
+	//							NULL,
+	//							NULL,
+	//							NULL /*=Nulls*/,
+	//							false /*=read_only*/,
+	//							0 /*count*/.
+	//							NULL);
+	res = SPI_execute_with_args(command->data, 0, NULL, NULL, NULL, false, 0, NULL);
 	if (res < 0)
 		elog(ERROR, "could not delete old values from materialization table");
 }
@@ -1558,14 +1553,15 @@ spi_insert_materializations(SchemaAndName partial_view, SchemaAndName materializ
 					 quote_identifier(NameStr(*time_column_name)),
 					 quote_literal_cstr(materialization_end));
 
-	res = SPI_execute_with_args(command->data,
-								0 /*=nargs*/,
-								NULL /*=argtypes*/,
-								NULL /*=Values*/,
-								NULL /*=Nulls*/,
-								false /*=read_only*/,
-								0 /*count*/
-	);
+	//res = SPI_execute_with_args(command->data,
+	//							0 /*=nargs*/,
+	//							NULL /*=argtypes*/,
+	//							NULL /*=Values*/,
+	//							NULL /*=Nulls*/,
+	//							false /*=read_only*/,
+	//							0 /*count*/,
+	//							NULL);
+	res = SPI_execute_with_args(command->data, 0, NULL, NULL, NULL, false, 0, NULL);
 	if (res < 0)
 		elog(ERROR, "could materialize values into the materialization table");
 }

@@ -47,18 +47,19 @@
 #include <rewrite/rewriteManip.h>
 #include <utils/builtins.h>
 #include <utils/catcache.h>
-#include <utils/int8.h>
-#include <utils/ruleutils.h>
+// confilct with OG point struct
+//#include <utils/int8.h>
+//#include <utils/ruleutils.h>
 #include <utils/syscache.h>
 #include <utils/typcache.h>
 
 #include "compat.h"
-#if PG12_LT
+//#if PG12_LT
 #include <optimizer/clauses.h>
 #include <optimizer/tlist.h>
-#else
-#include <optimizer/optimizer.h>
-#endif
+//#else
+//#include <optimizer/optimizer.h>
+//#endif
 
 #include "create.h"
 
@@ -365,13 +366,12 @@ cagg_add_trigger_hypertable(Oid relid, char *trigarg)
 
 	CreateTrigStmt stmt = {
 		.type = T_CreateTrigStmt,
-		.row = true,
-		.timing = TRIGGER_TYPE_AFTER,
 		.trigname = CAGGINVAL_TRIGGER_NAME,
 		.relation = makeRangeVar(schema, relname, -1),
-		.funcname =
-			list_make2(makeString(INTERNAL_SCHEMA_NAME), makeString(CAGG_INVALIDATION_TRIGGER)),
+		.funcname = list_make2(makeString(INTERNAL_SCHEMA_NAME), makeString(CAGG_INVALIDATION_TRIGGER)),
 		.args = list_make1(makeString(trigarg)),
+		.row = true,
+		.timing = TRIGGER_TYPE_AFTER,
 		.events = TRIGGER_TYPE_INSERT | TRIGGER_TYPE_UPDATE | TRIGGER_TYPE_DELETE,
 	};
 	if (check_trigger_exists_hypertable(relid, CAGGINVAL_TRIGGER_NAME))
@@ -397,13 +397,18 @@ mattablecolumninfo_add_mattable_index(MatTableColumnInfo *matcolinfo, Hypertable
 {
 	IndexStmt stmt = {
 		.type = T_IndexStmt,
-		.accessMethod = DEFAULT_INDEX_TYPE,
+		.schemaname = NULL,
 		.idxname = NULL,
 		.relation = makeRangeVar(NameStr(ht->fd.schema_name), NameStr(ht->fd.table_name), 0),
+		.accessMethod = DEFAULT_INDEX_TYPE,
 		.tableSpace = get_tablespace_name(get_rel_tablespace(ht->main_table_relid)),
 	};
 	IndexElem timeelem = { .type = T_IndexElem,
 						   .name = matcolinfo->matpartcolname,
+						   .expr = NULL,
+						   .indexcolname = NULL,
+						   .collation = NULL,
+						   .opclass = NULL,
 						   .ordering = SORTBY_DESC };
 	ListCell *le = NULL;
 	foreach (le, matcolinfo->mat_groupcolname_list)
@@ -414,13 +419,11 @@ mattablecolumninfo_add_mattable_index(MatTableColumnInfo *matcolinfo, Hypertable
 		char *grpcolname = (char *) lfirst(le);
 		IndexElem grpelem = { .type = T_IndexElem, .name = grpcolname };
 		stmt.indexParams = list_make2(&grpelem, &timeelem);
-		indxaddr = DefineIndexCompat(ht->main_table_relid,
-									 &stmt,
-									 InvalidOid,
-									 false,  /* is alter table */
-									 false,  /* check rights */
-									 false,  /* skip_build */
-									 false); /* quiet */
+		//indxaddr = DefineIndexCompat(ht->main_table_relid, &stmt, InvalidOid, false, false, false, false);
+//									 false,  /* is alter table */
+//									 false,  /* check rights */
+//									 false,  /* skip_build */
+//									 false); /* quiet */
 		indxtuple = SearchSysCache1(RELOID, ObjectIdGetDatum(indxaddr.objectId));
 
 		if (!HeapTupleIsValid(indxtuple))
@@ -481,7 +484,7 @@ mattablecolumninfo_create_materialization_table(MatTableColumnInfo *matcolinfo, 
 
 	/*  Create the materialization table.  */
 	SWITCH_TO_TS_USER(mat_rel->schemaname, uid, saved_uid, sec_ctx);
-	*mataddress = DefineRelationCompat(create, RELKIND_RELATION, owner, NULL, NULL);
+	//*mataddress = DefineRelationCompat(create, RELKIND_RELATION, owner, NULL, NULL);
 	CommandCounterIncrement();
 	mat_relid = mataddress->objectId;
 
@@ -489,7 +492,7 @@ mattablecolumninfo_create_materialization_table(MatTableColumnInfo *matcolinfo, 
 	toast_options =
 		transformRelOptions((Datum) 0, create->options, "toast", validnsps, true, false);
 	(void) heap_reloptions(RELKIND_TOASTVALUE, toast_options, true);
-	NewRelationCreateToastTable(mat_relid, toast_options);
+	//NewRelationCreateToastTable(mat_relid, toast_options);
 	RESTORE_USER(uid, saved_uid, sec_ctx);
 
 	/*convert the mat. table to a hypertable */
@@ -541,10 +544,9 @@ create_view_for_query(Query *selquery, RangeVar *viewrel)
 		TargetEntry *tle = (TargetEntry *) lfirst(lc);
 		if (!tle->resjunk)
 		{
-			ColumnDef *col = makeColumnDef(tle->resname,
-										   exprType((Node *) tle->expr),
-										   exprTypmod((Node *) tle->expr),
-										   exprCollation((Node *) tle->expr));
+			ColumnDef *col = makeColumnDef(tle->resname, exprType((Node *) tle->expr));
+//										   exprTypmod((Node *) tle->expr),
+//										   exprCollation((Node *) tle->expr));
 			selcollist = lappend(selcollist, col);
 		}
 	}
@@ -563,7 +565,7 @@ create_view_for_query(Query *selquery, RangeVar *viewrel)
 	/*  Create the view. viewname is in viewrel.
 	 */
 	SWITCH_TO_TS_USER(viewrel->schemaname, uid, saved_uid, sec_ctx);
-	address = DefineRelationCompat(create, RELKIND_VIEW, owner, NULL, NULL);
+	//address = DefineRelationCompat(create, RELKIND_VIEW, owner, NULL, NULL);
 	CommandCounterIncrement();
 	StoreViewQuery(address.objectId, selquery, false);
 	CommandCounterIncrement();
@@ -678,14 +680,14 @@ cagg_agg_validate(Node *node, void *context)
 		Aggref *agg = (Aggref *) node;
 		HeapTuple aggtuple;
 		Form_pg_aggregate aggform;
-		if (agg->aggorder || agg->aggdistinct || agg->aggfilter)
-		{
-			ereport(ERROR,
-					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-					 errmsg("aggregates with FILTER / DISTINCT / ORDER BY are not supported for "
-							"continuous "
-							"aggregate query")));
-		}
+		//if (agg->aggorder || agg->aggdistinct || agg->aggfilter)
+		//{
+		//	ereport(ERROR,
+		//			(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+		//			 errmsg("aggregates with FILTER / DISTINCT / ORDER BY are not supported for "
+		//					"continuous "
+		//					"aggregate query")));
+		//}
 		/* Fetch the pg_aggregate row */
 		aggtuple = SearchSysCache1(AGGFNOID, agg->aggfnoid);
 		if (!HeapTupleIsValid(aggtuple))
@@ -699,15 +701,15 @@ cagg_agg_validate(Node *node, void *context)
 					 errmsg("ordered set/hypothetical aggregates are not supported by "
 							"continuous aggregate query")));
 		}
-		if (aggform->aggcombinefn == InvalidOid ||
-			(aggform->aggtranstype == INTERNALOID && aggform->aggdeserialfn == InvalidOid))
-		{
-			ReleaseSysCache(aggtuple);
-			ereport(ERROR,
-					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-					 errmsg("aggregates which are not parallelizable are not supported by "
-							"continuous aggregate query")));
-		}
+		//if (aggform->aggcombinefn == InvalidOid ||
+		//	(aggform->aggtranstype == INTERNALOID && aggform->aggdeserialfn == InvalidOid))
+		//{
+		//	ReleaseSysCache(aggtuple);
+		//	ereport(ERROR,
+		//			(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+		//			 errmsg("aggregates which are not parallelizable are not supported by "
+		//					"continuous aggregate query")));
+		//}
 		ReleaseSysCache(aggtuple);
 
 		return false;
@@ -734,9 +736,9 @@ cagg_validate_query(Query *query)
 	if (query->hasWindowFuncs || query->hasSubLinks || query->hasDistinctOn ||
 		query->hasRecursive || query->hasModifyingCTE || query->hasForUpdate ||
 		query->hasRowSecurity
-#if !PG96
-		|| query->hasTargetSRFs
-#endif
+//#if !PG96
+//		|| query->hasTargetSRFs
+//#endif
 		|| query->cteList || query->groupingSets || query->distinctClause || query->setOperations ||
 		query->limitOffset || query->limitCount || query->sortClause)
 	{
@@ -873,15 +875,15 @@ get_input_types_array_datum(Aggref *original_aggregate)
 	MemoryContext builder_context =
 		AllocSetContextCreate(CurrentMemoryContext, "input types builder", ALLOCSET_DEFAULT_SIZES);
 	Oid name_array_type_oid = get_array_type(NAMEOID);
-	ArrayBuildStateArr *outer_builder =
-		initArrayResultArr(name_array_type_oid, NAMEOID, builder_context, false);
+	//ArrayBuildStateArr *outer_builder =
+	//	initArrayResultArr(name_array_type_oid, NAMEOID, builder_context, false);
 	Datum result;
 
 	foreach (lc, original_aggregate->args)
 	{
 		TargetEntry *te = lfirst(lc);
 		Oid type_oid = exprType((Node *) te->expr);
-		ArrayBuildState *schema_name_builder = initArrayResult(NAMEOID, builder_context, false);
+		//ArrayBuildState *schema_name_builder = initArrayResult(NAMEOID, builder_context, false);
 		HeapTuple tp;
 		Form_pg_type typtup;
 		char *schema_name;
@@ -895,7 +897,7 @@ get_input_types_array_datum(Aggref *original_aggregate)
 			elog(ERROR, "cache lookup failed for type %u", type_oid);
 
 		typtup = (Form_pg_type) GETSTRUCT(tp);
-		namecpy(type_name, &typtup->typname);
+		//namecpy(type_name, &typtup->typname);
 		schema_name = get_namespace_name(typtup->typnamespace);
 		ReleaseSysCache(tp);
 
@@ -903,18 +905,18 @@ get_input_types_array_datum(Aggref *original_aggregate)
 		/* using name in because creating from a char * (that may be null or too long) */
 		schema_datum = DirectFunctionCall1(namein, CStringGetDatum(schema_name));
 
-		accumArrayResult(schema_name_builder, schema_datum, false, NAMEOID, builder_context);
-		accumArrayResult(schema_name_builder, type_name_datum, false, NAMEOID, builder_context);
+		//accumArrayResult(schema_name_builder, schema_datum, false, NAMEOID, builder_context);
+		//accumArrayResult(schema_name_builder, type_name_datum, false, NAMEOID, builder_context);
 
-		inner_array_datum = makeArrayResult(schema_name_builder, CurrentMemoryContext);
+		//inner_array_datum = makeArrayResult(schema_name_builder, CurrentMemoryContext);
 
-		accumArrayResultArr(outer_builder,
-							inner_array_datum,
-							false,
-							name_array_type_oid,
-							builder_context);
+		//accumArrayResultArr(outer_builder,
+		//					inner_array_datum,
+		//					false,
+		//					name_array_type_oid,
+		//					builder_context);
 	}
-	result = makeArrayResultArr(outer_builder, CurrentMemoryContext, false);
+	//result = makeArrayResultArr(outer_builder, CurrentMemoryContext, false);
 
 	MemoryContextDelete(builder_context);
 	return result;
@@ -948,7 +950,7 @@ get_finalize_aggref(Aggref *inp, Var *partial_state_var)
 	Datum collation_schema_datum = (Datum) 0;
 	Oid finalfnoid = get_finalizefnoid();
 
-	argtypes = list_make5_oid(TEXTOID, NAMEOID, NAMEOID, name_array_type_oid, BYTEAOID);
+	//argtypes = list_make5_oid(TEXTOID, NAMEOID, NAMEOID, name_array_type_oid, BYTEAOID);
 	argtypes = lappend_oid(argtypes, inp->aggtype);
 
 	aggref = makeNode(Aggref);
@@ -956,16 +958,16 @@ get_finalize_aggref(Aggref *inp, Var *partial_state_var)
 	aggref->aggtype = inp->aggtype;
 	aggref->aggcollid = inp->aggcollid;
 	aggref->inputcollid = inp->inputcollid;
-	aggref->aggtranstype = InvalidOid; /* will be set by planner */
-	aggref->aggargtypes = argtypes;
+	//aggref->aggtranstype = InvalidOid; /* will be set by planner */
+	//aggref->aggargtypes = argtypes;
 	aggref->aggdirectargs = NULL; /*relevant for hypothetical set aggs*/
 	aggref->aggorder = NULL;
 	aggref->aggdistinct = NULL;
-	aggref->aggfilter = NULL;
+	//aggref->aggfilter = NULL;
 	aggref->aggstar = false;
 	aggref->aggvariadic = false;
 	aggref->aggkind = AGGKIND_NORMAL;
-	aggref->aggsplit = AGGSPLIT_SIMPLE; // TODO make sure plannerdoes not change this ???
+	//aggref->aggsplit = AGGSPLIT_SIMPLE; // TODO make sure plannerdoes not change this ???
 	aggref->location = -1;				/*unknown */
 										/* construct the arguments */
 	agggregate_signature = DatumGetCString(DirectFunctionCall1(regprocedureout, inp->aggfnoid));
@@ -1129,7 +1131,8 @@ mattablecolumninfo_addentry(MatTableColumnInfo *out, Node *input, int original_q
 			coltype = BYTEAOID;
 			coltypmod = -1;
 			colcollation = InvalidOid;
-			col = makeColumnDef(colname, coltype, coltypmod, colcollation);
+			//col = makeColumnDef(colname, coltype, coltypmod, colcollation);
+			col = makeColumnDef(colname, coltype);
 			part_te = makeTargetEntry((Expr *) fexpr, matcolno, pstrdup(colname), false);
 		}
 		break;
@@ -1167,7 +1170,8 @@ mattablecolumninfo_addentry(MatTableColumnInfo *out, Node *input, int original_q
 			coltype = exprType((Node *) tle->expr);
 			coltypmod = exprTypmod((Node *) tle->expr);
 			colcollation = exprCollation((Node *) tle->expr);
-			col = makeColumnDef(colname, coltype, coltypmod, colcollation);
+			//col = makeColumnDef(colname, coltype, coltypmod, colcollation);
+			col = makeColumnDef(colname, coltype);
 			part_te = (TargetEntry *) copyObject(input);
 			/*need to project all the partial entries so that materialization table is filled */
 			part_te->resjunk = false;
@@ -1217,10 +1221,11 @@ mattablecolumninfo_addinternal(MatTableColumnInfo *matcolinfo, RangeTblEntry *us
 
 	/* add a chunk_id column for materialization table */
 	Node *vexpr = (Node *) makeVar(1, colno, INT4OID, -1, InvalidOid, 0);
-	col = makeColumnDef(CONTINUOUS_AGG_CHUNK_ID_COL_NAME,
-						exprType(vexpr),
-						exprTypmod(vexpr),
-						exprCollation(vexpr));
+	//col = makeColumnDef(CONTINUOUS_AGG_CHUNK_ID_COL_NAME,
+	//					exprType(vexpr),
+	//					exprTypmod(vexpr),
+	//					exprCollation(vexpr));
+	col = makeColumnDef(CONTINUOUS_AGG_CHUNK_ID_COL_NAME, exprType(vexpr));
 	matcolinfo->matcollist = lappend(matcolinfo->matcollist, col);
 
 	/* need to add an entry to the target list for computing chunk_id column
@@ -1330,7 +1335,7 @@ add_aggregate_partialize_mutator(Node *node, AggPartCxt *cxt)
 typedef struct Cagg_havingcxt
 {
 	TargetEntry *old;
-	TargetEntry *new;
+	TargetEntry *my_cagg_new;
 	bool found;
 } cagg_havingcxt;
 
@@ -1345,7 +1350,7 @@ replace_having_qual_mutator(Node *node, cagg_havingcxt *cxt)
 	if (equal(node, cxt->old->expr))
 	{
 		cxt->found = true;
-		return (Node *) cxt->new->expr;
+		return (Node *) cxt->my_cagg_new->expr;
 	}
 	return expression_tree_mutator(node, replace_having_qual_mutator, cxt);
 }
@@ -1371,7 +1376,7 @@ replace_targetentry_in_havingqual(Query *origquery, List *newtlist)
 		TargetEntry *te = (TargetEntry *) lfirst(lc);
 		TargetEntry *modte = (TargetEntry *) lfirst(lc2);
 		hcxt.old = te;
-		hcxt.new = modte;
+		hcxt.my_cagg_new = modte;
 		hcxt.found = false;
 		having =
 			(Node *) expression_tree_mutator((Node *) having, replace_having_qual_mutator, &hcxt);
@@ -1757,19 +1762,19 @@ tsl_process_continuous_agg_viewstmt(ViewStmt *stmt, const char *query_string, vo
 	Query *query = NULL;
 	CAggTimebucketInfo timebucket_exprinfo;
 	Oid nspid;
-#if !PG96
-	PlannedStmt *pstmt_info = (PlannedStmt *) pstmt;
-	RawStmt *rawstmt = NULL;
-	/* we have a continuous aggregate query. convert to Query structure
-	 */
-	rawstmt = makeNode(RawStmt);
-	rawstmt->stmt = (Node *) copyObject(stmt->query);
-	rawstmt->stmt_location = pstmt_info->stmt_location;
-	rawstmt->stmt_len = pstmt_info->stmt_len;
-	query = parse_analyze(rawstmt, query_string, NULL, 0, NULL);
-#else
+//#if !PG96
+//	PlannedStmt *pstmt_info = (PlannedStmt *) pstmt;
+//	RawStmt *rawstmt = NULL;
+//	/* we have a continuous aggregate query. convert to Query structure
+//	 */
+//	rawstmt = makeNode(RawStmt);
+//	rawstmt->stmt = (Node *) copyObject(stmt->query);
+//	rawstmt->stmt_location = pstmt_info->stmt_location;
+//	rawstmt->stmt_len = pstmt_info->stmt_len;
+//	query = parse_analyze(rawstmt, query_string, NULL, 0, NULL);
+//#else
 	query = parse_analyze(copyObject(stmt->query), query_string, NULL, 0);
-#endif
+//#endif
 
 	nspid = RangeVarGetCreationNamespace(stmt->view);
 	if (get_relname_relid(stmt->view->relname, nspid))
@@ -1801,7 +1806,7 @@ cagg_update_view_definition(ContinuousAgg *agg, Hypertable *mat_ht,
 	/* cagg view created by the user */
 	Oid user_view_oid = relation_oid(agg->data.user_view_schema, agg->data.user_view_name);
 	Relation user_view_rel = relation_open(user_view_oid, AccessShareLock);
-	Query *user_query = get_view_query(user_view_rel);
+	//Query *user_query = get_view_query(user_view_rel);
 
 	FinalizeQueryInfo fqi;
 	MatTableColumnInfo mattblinfo;
@@ -1812,43 +1817,43 @@ cagg_update_view_definition(ContinuousAgg *agg, Hypertable *mat_ht,
 
 	Oid direct_view_oid = relation_oid(agg->data.direct_view_schema, agg->data.direct_view_name);
 	Relation direct_view_rel = relation_open(direct_view_oid, AccessShareLock);
-	Query *direct_query = copyObject(get_view_query(direct_view_rel));
-	List *rtable = direct_query->rtable;
+	//Query *direct_query = copyObject(get_view_query(direct_view_rel));
+	//List *rtable = direct_query->rtable;
 	/* When a view is created (StoreViewQuery), 2 dummy rtable entries corresponding to "old" and
 	 * "new" are prepended to the rtable list. We remove these and adjust the varnos to recreate
 	 * the original user supplied direct query
 	 */
-	Assert(list_length(rtable) == 3);
-	rtable = list_delete_first(rtable);
-	direct_query->rtable = list_delete_first(rtable);
-	OffsetVarNodes((Node *) direct_query, -2, 0);
-	Assert(list_length(direct_query->rtable) == 1);
-	CAggTimebucketInfo timebucket_exprinfo = cagg_validate_query(direct_query);
+	//Assert(list_length(rtable) == 3);
+	//rtable = list_delete_first(rtable);
+	//direct_query->rtable = list_delete_first(rtable);
+	//OffsetVarNodes((Node *) direct_query, -2, 0);
+	//Assert(list_length(direct_query->rtable) == 1);
+	//CAggTimebucketInfo timebucket_exprinfo = cagg_validate_query(direct_query);
 
-	mattablecolumninfo_init(&mattblinfo, NIL, NIL, copyObject(direct_query->groupClause));
-	finalizequery_init(&fqi, direct_query, &mattblinfo);
+	//mattablecolumninfo_init(&mattblinfo, NIL, NIL, copyObject(direct_query->groupClause));
+	//finalizequery_init(&fqi, direct_query, &mattblinfo);
 
 	Query *view_query = finalizequery_get_select_query(&fqi, mattblinfo.matcollist, &mataddress);
 
-	if (with_clause_options[ContinuousViewOptionMaterializedOnly].parsed == BoolGetDatum(false))
-		view_query = build_union_query(&timebucket_exprinfo,
-									   &mattblinfo,
-									   view_query,
-									   direct_query,
-									   mat_ht->fd.id);
+	//if (with_clause_options[ContinuousViewOptionMaterializedOnly].parsed == BoolGetDatum(false))
+	//	view_query = build_union_query(&timebucket_exprinfo,
+	//								   &mattblinfo,
+	//								   view_query,
+	//								   direct_query,
+	//								   mat_ht->fd.id);
 
 	/*
 	 * adjust names in the targetlist of the updated view to match the view definition
 	 */
-	Assert(list_length(view_query->targetList) == list_length(user_query->targetList));
+	//Assert(list_length(view_query->targetList) == list_length(user_query->targetList));
 
-	forboth (lc1, view_query->targetList, lc2, user_query->targetList)
-	{
-		TargetEntry *view_tle, *user_tle;
-		view_tle = lfirst_node(TargetEntry, lc1);
-		user_tle = lfirst_node(TargetEntry, lc2);
-		view_tle->resname = user_tle->resname;
-	}
+	//forboth (lc1, view_query->targetList, lc2, user_query->targetList)
+	//{
+	//	TargetEntry *view_tle, *user_tle;
+	//	view_tle = lfirst_node(TargetEntry, lc1);
+	//	user_tle = lfirst_node(TargetEntry, lc2);
+	//	view_tle->resname = user_tle->resname;
+	//}
 
 	/* keep locks until end of transaction */
 	relation_close(direct_view_rel, NoLock);
@@ -1893,7 +1898,7 @@ cagg_boundary_make_lower_bound(Oid type)
 					(errcode(ERRCODE_TS_INTERNAL_ERROR),
 					 errmsg("unsupported datatype \"%s\" for continuous aggregate",
 							format_type_be(type))));
-			pg_unreachable();
+			//pg_unreachable();
 	}
 	return makeConst(type, -1, InvalidOid, typlen, value, false, typbyval);
 }
@@ -1927,7 +1932,7 @@ cagg_get_boundary_converter_funcoid(Oid typoid)
 					(errcode(ERRCODE_TS_INTERNAL_ERROR),
 					 errmsg("no converter function defined for datatype: %s",
 							format_type_be(typoid))));
-			pg_unreachable();
+			//pg_unreachable();
 	}
 
 	List *func_name = list_make2(makeString(INTERNAL_SCHEMA_NAME), makeString(function_name));
@@ -1984,7 +1989,7 @@ build_conversion_call(Oid type, FuncExpr *boundary)
 					(errcode(ERRCODE_TS_INTERNAL_ERROR),
 					 errmsg("unsupported datatype for continuous aggregates: %s",
 							format_type_be(type))));
-			pg_unreachable();
+			//pg_unreachable();
 	}
 }
 

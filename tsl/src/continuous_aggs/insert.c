@@ -89,9 +89,9 @@ cache_inval_init()
 
 	Assert(continuous_aggs_trigger_mctx == NULL);
 
-	continuous_aggs_trigger_mctx = AllocSetContextCreate(TopTransactionContext,
-														 "ConinuousAggsTriggerCtx",
-														 ALLOCSET_DEFAULT_SIZES);
+	//continuous_aggs_trigger_mctx = AllocSetContextCreate(TopTransactionContext,
+	//													 "ConinuousAggsTriggerCtx",
+	//													 ALLOCSET_DEFAULT_SIZES);
 
 	memset(&ctl, 0, sizeof(ctl));
 	ctl.keysize = sizeof(int32);
@@ -330,10 +330,10 @@ continuous_agg_xact_invalidation_callback(XactEvent event, void *arg)
 
 	switch (event)
 	{
-		case XACT_EVENT_PRE_COMMIT:
-			cache_inval_htab_write();
-			cache_inval_cleanup();
-			break;
+		//case XACT_EVENT_PRE_COMMIT:
+		//	cache_inval_htab_write();
+		//	cache_inval_cleanup();
+		//	break;
 		case XACT_EVENT_ABORT:
 		//case XACT_EVENT_PARALLEL_ABORT:
 			cache_inval_cleanup();
@@ -384,17 +384,20 @@ get_lowest_invalidated_time_for_hypertable(Oid hypertable_relid)
 				Int32GetDatum(ts_hypertable_relid_to_id(hypertable_relid)));
 	scanctx = (ScannerCtx){
 		.table = catalog_get_table_id(catalog, CONTINUOUS_AGGS_INVALIDATION_THRESHOLD),
-		.index = catalog_get_index(catalog,
-								   CONTINUOUS_AGGS_INVALIDATION_THRESHOLD,
-								   CONTINUOUS_AGGS_INVALIDATION_THRESHOLD_PKEY),
 		.nkeys = 1,
-		.scankey = scankey,
-		.tuple_found = &invalidation_tuple_found,
-		.filter = NULL,
-		.data = &min_val,
 		.lockmode = AccessShareLock,
 		.scandirection = ForwardScanDirection,
 		.result_mctx = NULL,
+		.scankey = scankey,
+		.tuple_found = &invalidation_tuple_found,
+		.data = &min_val,
+		.index = catalog_get_index(catalog,
+								   CONTINUOUS_AGGS_INVALIDATION_THRESHOLD,
+								   CONTINUOUS_AGGS_INVALIDATION_THRESHOLD_PKEY),
+		.limit = NULL,
+		.norderbys = NULL,
+		.want_itup = NULL,
+		.filter = NULL,
 	};
 
 	/* if we don't find any watermark, then we've never done any materialization

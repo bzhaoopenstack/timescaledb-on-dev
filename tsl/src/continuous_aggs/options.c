@@ -9,7 +9,8 @@
 #include <commands/view.h>
 #include <miscadmin.h>
 #include <rewrite/rewriteManip.h>
-#include <utils/int8.h>
+// conflict Point struct
+//#include <utils/int8.h>
 #include <utils/builtins.h>
 
 #include "options.h"
@@ -24,12 +25,12 @@ static inline int64
 parse_int_interval(const char *value, int64 min, int64 max, const char *option_name)
 {
 	int64 result;
-	if (!scanint8(value, true, &result))
-		ereport(ERROR,
-				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-				 errmsg("parameter timescaledb.%s must be an integer for hypertables with integer "
-						"time values",
-						option_name)));
+	//if (!scanint8(value, true, &result))
+	//	ereport(ERROR,
+	//			(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+	//			 errmsg("parameter timescaledb.%s must be an integer for hypertables with integer "
+	//					"time values",
+	//					option_name)));
 	if (result < min || result > max)
 		ereport(ERROR,
 				(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
@@ -61,7 +62,7 @@ parse_interval(char *value, Oid column_type, const char *option_name)
 			return ts_interval_value_to_internal(interval, INTERVALOID);
 		default:
 			elog(ERROR, "unknown time type when parsing timescaledb.%s", option_name);
-			pg_unreachable();
+			//pg_unreachable();
 	}
 }
 
@@ -139,16 +140,16 @@ update_refresh_lag(ContinuousAgg *agg, int64 new_lag)
 		bool nulls[Natts_continuous_agg];
 		Datum values[Natts_continuous_agg];
 		bool repl[Natts_continuous_agg] = { false };
-		HeapTuple new;
+		HeapTuple new_hptuple;
 
 		heap_deform_tuple(ti->tuple, ti->desc, values, nulls);
 
 		repl[AttrNumberGetAttrOffset(Anum_continuous_agg_refresh_lag)] = true;
 		values[AttrNumberGetAttrOffset(Anum_continuous_agg_refresh_lag)] = Int64GetDatum(new_lag);
 
-		new = heap_modify_tuple(ti->tuple, ti->desc, values, nulls, repl);
+		new_hptuple = heap_modify_tuple(ti->tuple, ti->desc, values, nulls, repl);
 
-		ts_catalog_update(ti->scanrel, new);
+		ts_catalog_update(ti->scanrel, new_hptuple);
 		break;
 	}
 	ts_scan_iterator_close(&iterator);
@@ -173,7 +174,7 @@ update_materialized_only(ContinuousAgg *agg, bool materialized_only)
 		bool nulls[Natts_continuous_agg];
 		Datum values[Natts_continuous_agg];
 		bool repl[Natts_continuous_agg] = { false };
-		HeapTuple new;
+		HeapTuple new_hptuple;
 
 		heap_deform_tuple(ti->tuple, ti->desc, values, nulls);
 
@@ -181,9 +182,9 @@ update_materialized_only(ContinuousAgg *agg, bool materialized_only)
 		values[AttrNumberGetAttrOffset(Anum_continuous_agg_materialize_only)] =
 			BoolGetDatum(materialized_only);
 
-		new = heap_modify_tuple(ti->tuple, ti->desc, values, nulls, repl);
+		new_hptuple = heap_modify_tuple(ti->tuple, ti->desc, values, nulls, repl);
 
-		ts_catalog_update(ti->scanrel, new);
+		ts_catalog_update(ti->scanrel, new_hptuple);
 		break;
 	}
 	ts_scan_iterator_close(&iterator);
@@ -208,7 +209,7 @@ update_max_interval_per_job(ContinuousAgg *agg, int64 new_max)
 		bool nulls[Natts_continuous_agg];
 		Datum values[Natts_continuous_agg];
 		bool repl[Natts_continuous_agg] = { false };
-		HeapTuple new;
+		HeapTuple new_hptuple;
 
 		heap_deform_tuple(ti->tuple, ti->desc, values, nulls);
 
@@ -216,9 +217,9 @@ update_max_interval_per_job(ContinuousAgg *agg, int64 new_max)
 		values[AttrNumberGetAttrOffset(Anum_continuous_agg_max_interval_per_job)] =
 			Int64GetDatum(new_max);
 
-		new = heap_modify_tuple(ti->tuple, ti->desc, values, nulls, repl);
+		new_hptuple = heap_modify_tuple(ti->tuple, ti->desc, values, nulls, repl);
 
-		ts_catalog_update(ti->scanrel, new);
+		ts_catalog_update(ti->scanrel, new_hptuple);
 		break;
 	}
 	ts_scan_iterator_close(&iterator);
@@ -243,7 +244,7 @@ update_ignore_invalidation_older_than(ContinuousAgg *agg, int64 new_ignore_inval
 		bool nulls[Natts_continuous_agg];
 		Datum values[Natts_continuous_agg];
 		bool repl[Natts_continuous_agg] = { false };
-		HeapTuple new;
+		HeapTuple new_hptuple;
 
 		heap_deform_tuple(ti->tuple, ti->desc, values, nulls);
 
@@ -251,9 +252,9 @@ update_ignore_invalidation_older_than(ContinuousAgg *agg, int64 new_ignore_inval
 		values[AttrNumberGetAttrOffset(Anum_continuous_agg_ignore_invalidation_older_than)] =
 			Int64GetDatum(new_ignore_invalidation_older_than);
 
-		new = heap_modify_tuple(ti->tuple, ti->desc, values, nulls, repl);
+		new_hptuple = heap_modify_tuple(ti->tuple, ti->desc, values, nulls, repl);
 
-		ts_catalog_update(ti->scanrel, new);
+		ts_catalog_update(ti->scanrel, new_hptuple);
 		break;
 	}
 	ts_scan_iterator_close(&iterator);
