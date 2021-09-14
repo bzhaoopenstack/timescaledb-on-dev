@@ -397,7 +397,7 @@ tsl_bgw_policy_job_execute(BgwJob *job)
 				 "scheduler tried to run an invalid job type: \"%s\"",
 				 NameStr(job->fd.job_type));
 	}
-	pg_unreachable();
+	//pg_unreachable();
 }
 
 Datum

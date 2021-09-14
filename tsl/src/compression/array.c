@@ -7,7 +7,8 @@
 
 #include "compression/array.h"
 
-#include <access/htup_details.h>
+//#include <access/htup_details.h>
+#include <access/htup.h>
 #include <access/tupmacs.h>
 #include <catalog/namespace.h>
 #include <catalog/pg_type.h>
@@ -42,36 +43,36 @@ typedef struct ArrayCompressed
 	uint64 alignment_sentinel[FLEXIBLE_ARRAY_MEMBER];
 } ArrayCompressed;
 
-static void
-pg_attribute_unused() assertions(void)
-{
-	ArrayCompressed test_val = { { 0 } };
-	Simple8bRleSerialized test_simple8b = { 0 };
-	/* make sure no padding bytes make it to disk */
-	StaticAssertStmt(sizeof(ArrayCompressed) ==
-						 sizeof(test_val.vl_len_) + sizeof(test_val.compression_algorithm) +
-							 sizeof(test_val.has_nulls) + sizeof(test_val.padding) +
-							 sizeof(test_val.element_type),
-					 "ArrayCompressed wrong size");
-	StaticAssertStmt(sizeof(ArrayCompressed) == 16, "ArrayCompressed wrong size");
-
-	/* Note about alignment: the data[] field stores arbitrary Postgres types using store_att_byval
-	 * and fetch_att. For this to work the data must be aligned according to the types alignment
-	 * parameter (in CREATE TYPE; valid values are 1,2,4,8 bytes). In order to ease implementation,
-	 * we simply align the start of data[] on a MAXALIGN (8-byte) boundary. Individual items in the
-	 * array are then aligned as specified by the array element type. See top of array.h header in
-	 * Postgres source code since it uses the same trick. Thus, we make sure that all fields
-	 * before the alignment sentinal are 8-byte aligned, and also that the two Simple8bRleSerialized
-	 * elements before the data element are themselves 8-byte aligned as well.
-	 */
-
-	StaticAssertStmt(offsetof(ArrayCompressed, alignment_sentinel) % MAXIMUM_ALIGNOF == 0,
-					 "variable sized data must be 8-byte aligned");
-	StaticAssertStmt(sizeof(Simple8bRleSerialized) % MAXIMUM_ALIGNOF == 0,
-					 "Simple8bRle data must be 8-byte aligned");
-	StaticAssertStmt(sizeof(test_simple8b.slots[0]) % MAXIMUM_ALIGNOF == 0,
-					 "Simple8bRle variable-length slots must be 8-byte aligned");
-}
+//static void
+//pg_attribute_unused() assertions(void)
+//{
+//	ArrayCompressed test_val = { { 0 } };
+//	Simple8bRleSerialized test_simple8b = { 0 };
+//	/* make sure no padding bytes make it to disk */
+//	StaticAssertStmt(sizeof(ArrayCompressed) ==
+//						 sizeof(test_val.vl_len_) + sizeof(test_val.compression_algorithm) +
+//							 sizeof(test_val.has_nulls) + sizeof(test_val.padding) +
+//							 sizeof(test_val.element_type),
+//					 "ArrayCompressed wrong size");
+//	StaticAssertStmt(sizeof(ArrayCompressed) == 16, "ArrayCompressed wrong size");
+//
+//	/* Note about alignment: the data[] field stores arbitrary Postgres types using store_att_byval
+//	 * and fetch_att. For this to work the data must be aligned according to the types alignment
+//	 * parameter (in CREATE TYPE; valid values are 1,2,4,8 bytes). In order to ease implementation,
+//	 * we simply align the start of data[] on a MAXALIGN (8-byte) boundary. Individual items in the
+//	 * array are then aligned as specified by the array element type. See top of array.h header in
+//	 * Postgres source code since it uses the same trick. Thus, we make sure that all fields
+//	 * before the alignment sentinal are 8-byte aligned, and also that the two Simple8bRleSerialized
+//	 * elements before the data element are themselves 8-byte aligned as well.
+//	 */
+//
+//	StaticAssertStmt(offsetof(ArrayCompressed, alignment_sentinel) % MAXIMUM_ALIGNOF == 0,
+//					 "variable sized data must be 8-byte aligned");
+//	StaticAssertStmt(sizeof(Simple8bRleSerialized) % MAXIMUM_ALIGNOF == 0,
+//					 "Simple8bRle data must be 8-byte aligned");
+//	StaticAssertStmt(sizeof(test_simple8b.slots[0]) % MAXIMUM_ALIGNOF == 0,
+//					 "Simple8bRle variable-length slots must be 8-byte aligned");
+//}
 
 typedef struct ArrayCompressedData
 {
@@ -146,8 +147,8 @@ array_compressor_finish_and_reset(Compressor *compressor)
 }
 
 const Compressor array_compressor = {
-	.append_val = array_compressor_append_datum,
 	.append_null = array_compressor_append_null_value,
+	.append_val = array_compressor_append_datum,
 	.finish = array_compressor_finish_and_reset,
 };
 
@@ -155,11 +156,11 @@ Compressor *
 array_compressor_for_type(Oid element_type)
 {
 	ExtendedCompressor *compressor = palloc(sizeof(*compressor));
-	*compressor = (ExtendedCompressor){
-		.base = array_compressor,
-		.element_type = element_type,
-	};
-	return &compressor->base;
+	//*compressor = (ExtendedCompressor){
+	//	.base = array_compressor,
+	//	.element_type = element_type,
+	//};
+	//return &compressor->base;
 }
 
 ArrayCompressor *
@@ -287,11 +288,11 @@ array_compressed_from_serialization_info(ArrayCompressorSerializationInfo *info,
 
 	compressed_data = palloc0(compressed_size);
 	compressed_array = (ArrayCompressed *) compressed_data;
-	*compressed_array = (ArrayCompressed){
-		.compression_algorithm = COMPRESSION_ALGORITHM_ARRAY,
-		.has_nulls = info->nulls != NULL,
-		.element_type = element_type,
-	};
+	//*compressed_array = (ArrayCompressed){
+	//	.compression_algorithm = COMPRESSION_ALGORITHM_ARRAY,
+	//	.has_nulls = info->nulls != NULL,
+	//	.element_type = element_type,
+	//};
 	SET_VARSIZE(compressed_array->vl_len_, compressed_size);
 	compressed_data += sizeof(ArrayCompressed);
 	compressed_size -= sizeof(ArrayCompressed);
@@ -405,11 +406,14 @@ array_decompression_iterator_try_next_forward(DecompressionIterator *general_ite
 			simple8brle_decompression_iterator_try_next_forward(&iter->nulls);
 		if (null.is_done)
 			return (DecompressResult){
+				.val = NULL,
+				.is_null = NULL,
 				.is_done = true,
 			};
 
 		if (null.val != 0)
 			return (DecompressResult){
+				.val = NULL,
 				.is_null = true,
 			};
 	}
@@ -417,6 +421,8 @@ array_decompression_iterator_try_next_forward(DecompressionIterator *general_ite
 	datum_size = simple8brle_decompression_iterator_try_next_forward(&iter->sizes);
 	if (datum_size.is_done)
 		return (DecompressResult){
+			.val = NULL,
+			.is_null = NULL,
 			.is_done = true,
 		};
 
@@ -496,11 +502,14 @@ array_decompression_iterator_try_next_reverse(DecompressionIterator *base_iter)
 			simple8brle_decompression_iterator_try_next_reverse(&iter->nulls);
 		if (null.is_done)
 			return (DecompressResult){
+				.val = NULL,
+				.is_null = NULL,
 				.is_done = true,
 			};
 
 		if (null.val != 0)
 			return (DecompressResult){
+				.val = NULL,
 				.is_null = true,
 			};
 	}
@@ -508,6 +517,8 @@ array_decompression_iterator_try_next_reverse(DecompressionIterator *base_iter)
 	datum_size = simple8brle_decompression_iterator_try_next_reverse(&iter->sizes);
 	if (datum_size.is_done)
 		return (DecompressResult){
+			.val = NULL,
+			.is_null = NULL,
 			.is_done = true,
 		};
 

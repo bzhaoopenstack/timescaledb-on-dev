@@ -39,13 +39,13 @@ segment_meta_min_max_builder_create(Oid type_oid, Oid collation)
 				 errmsg("could not identify an less-than operator for type %s",
 						format_type_be(type_oid))));
 
-	*builder = (SegmentMetaMinMaxBuilder){
-		.type_oid = type_oid,
-		.empty = true,
-		.has_null = false,
-		.type_by_val = type->typbyval,
-		.type_len = type->typlen,
-	};
+	//*builder = (SegmentMetaMinMaxBuilder){
+	//	.type_oid = type_oid,
+	//	.empty = true,
+	//	.has_null = false,
+	//	.type_by_val = type->typbyval,
+	//	.type_len = type->typlen,
+	//};
 
 	builder->ssup.ssup_cxt = CurrentMemoryContext;
 	builder->ssup.ssup_collation = collation;

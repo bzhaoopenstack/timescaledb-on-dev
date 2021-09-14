@@ -5,7 +5,8 @@
  * LICENSE-TIMESCALE for a copy of the license.
  */
 #include <postgres.h>
-#include <access/htup_details.h>
+//#include <access/htup_details.h>
+#include <access/htup.h>
 #include <access/tupmacs.h>
 #include <catalog/pg_aggregate.h>
 #include <catalog/namespace.h>
@@ -47,18 +48,18 @@ typedef struct DictionaryCompressed
 	uint64 alignment_sentinel[FLEXIBLE_ARRAY_MEMBER];
 } DictionaryCompressed;
 
-static void
-pg_attribute_unused() assertions(void)
-{
-	DictionaryCompressed test_val = { { 0 } };
-	/* make sure no padding bytes make it to disk */
-	StaticAssertStmt(sizeof(DictionaryCompressed) ==
-						 sizeof(test_val.vl_len_) + sizeof(test_val.compression_algorithm) +
-							 sizeof(test_val.has_nulls) + sizeof(test_val.padding) +
-							 sizeof(test_val.element_type) + sizeof(test_val.num_distinct),
-					 "CompressedDictionary wrong size");
-	StaticAssertStmt(sizeof(DictionaryCompressed) == 16, "CompressedDictionary wrong size");
-}
+//static void
+//pg_attribute_unused() assertions(void)
+//{
+//	DictionaryCompressed test_val = { { 0 } };
+//	/* make sure no padding bytes make it to disk */
+//	StaticAssertStmt(sizeof(DictionaryCompressed) ==
+//						 sizeof(test_val.vl_len_) + sizeof(test_val.compression_algorithm) +
+//							 sizeof(test_val.has_nulls) + sizeof(test_val.padding) +
+//							 sizeof(test_val.element_type) + sizeof(test_val.num_distinct),
+//					 "CompressedDictionary wrong size");
+//	StaticAssertStmt(sizeof(DictionaryCompressed) == 16, "CompressedDictionary wrong size");
+//}
 
 struct DictionaryDecompressionIterator
 {
@@ -127,8 +128,8 @@ dictionary_compressor_finish_and_reset(Compressor *compressor)
 }
 
 const Compressor dictionary_compressor = {
-	.append_val = dictionary_compressor_append_datum,
 	.append_null = dictionary_compressor_append_null_value,
+	.append_val = dictionary_compressor_append_datum,
 	.finish = dictionary_compressor_finish_and_reset,
 };
 
@@ -138,6 +139,7 @@ dictionary_compressor_for_type(Oid element_type)
 	ExtendedCompressor *compressor = palloc(sizeof(*compressor));
 	*compressor = (ExtendedCompressor){
 		.base = dictionary_compressor,
+		.internal = NULL,
 		.element_type = element_type,
 	};
 	return &compressor->base;
@@ -218,14 +220,20 @@ compressor_get_serialization_info(DictionaryCompressor *compressor)
 	ArrayCompressor *array_comp = array_compressor_alloc(compressor->type);
 
 	/* the total size is header size + bitmaps size + nulls? + data sizesize */
-	DictionaryCompressorSerializationInfo sizes = { .dictionary_compressed_indexes = dict_indexes,
-													.compressed_nulls = nulls,
-													.value_array = palloc(compressor->next_index *
-																		  sizeof(Datum)) };
+	DictionaryCompressorSerializationInfo sizes = { 
+		.bitmaps_size = NULL,
+		.nulls_size = NULL,
+		.dictionary_size = NULL,
+		.total_size = NULL,
+		.num_distinct = NULL,
+		.dictionary_compressed_indexes = dict_indexes,
+		.compressed_nulls = nulls,
+		.value_array = palloc(compressor->next_index * sizeof(Datum))
+	};
 	Size header_size = sizeof(DictionaryCompressed);
 
-	if (sizes.dictionary_compressed_indexes == NULL)
-		return (DictionaryCompressorSerializationInfo){ .is_all_null = true };
+	//if (sizes.dictionary_compressed_indexes == NULL)
+		//return (DictionaryCompressorSerializationInfo){ .is_all_null = true };
 
 	sizes.bitmaps_size = simple8brle_serialized_total_size(dict_indexes);
 	sizes.total_size = MAXALIGN(header_size) + sizes.bitmaps_size;
@@ -355,17 +363,17 @@ dictionary_decompression_iterator_init(DictionaryDecompressionIterator *iter, co
 	Simple8bRleSerialized *s8_bitmap;
 	DecompressionIterator *dictionary_iterator;
 
-	*iter = (DictionaryDecompressionIterator){
-		.base = {
-			.compression_algorithm = COMPRESSION_ALGORITHM_DICTIONARY,
-			.forward = scan_forward,
-			.element_type = element_type,
-			.try_next = (scan_forward ? dictionary_decompression_iterator_try_next_forward : dictionary_decompression_iterator_try_next_reverse),
-		},
-		.compressed = bitmap,
-		.values = palloc(sizeof(Datum) * bitmap->num_distinct),
-		.has_nulls = bitmap->has_nulls == 1,
-	};
+	//*iter = (DictionaryDecompressionIterator){
+	//	.base = {
+	//		.compression_algorithm = COMPRESSION_ALGORITHM_DICTIONARY,
+	//		.forward = scan_forward,
+	//		.element_type = element_type,
+	//		.try_next = (scan_forward ? dictionary_decompression_iterator_try_next_forward : dictionary_decompression_iterator_try_next_reverse),
+	//	},
+	//	.compressed = bitmap,
+	//	.values = palloc(sizeof(Datum) * bitmap->num_distinct),
+	//	.has_nulls = bitmap->has_nulls == 1,
+	//};
 
 	data += sizeof(DictionaryCompressed);
 	s8_bitmap = bytes_deserialize_simple8b_and_advance(&data);
@@ -440,11 +448,14 @@ dictionary_decompression_iterator_try_next_forward(DecompressionIterator *iter_b
 			simple8brle_decompression_iterator_try_next_forward(&iter->nulls);
 		if (null.is_done)
 			return (DecompressResult){
+				.val = NULL,
+				.is_null = NULL,
 				.is_done = true,
 			};
 
 		if (null.val != 0)
 			return (DecompressResult){
+				.val = NULL,
 				.is_null = true,
 			};
 	}
@@ -452,6 +463,8 @@ dictionary_decompression_iterator_try_next_forward(DecompressionIterator *iter_b
 	result = simple8brle_decompression_iterator_try_next_forward(&iter->bitmap);
 	if (result.is_done)
 		return (DecompressResult){
+			.val = NULL,
+			.is_null = NULL,
 			.is_done = true,
 		};
 
@@ -479,11 +492,14 @@ dictionary_decompression_iterator_try_next_reverse(DecompressionIterator *iter_b
 			simple8brle_decompression_iterator_try_next_reverse(&iter->nulls);
 		if (null.is_done)
 			return (DecompressResult){
+				.val = NULL,
+				.is_null = NULL,
 				.is_done = true,
 			};
 
 		if (null.val != 0)
 			return (DecompressResult){
+				.val = NULL,
 				.is_null = true,
 			};
 	}
@@ -491,6 +507,8 @@ dictionary_decompression_iterator_try_next_reverse(DecompressionIterator *iter_b
 	result = simple8brle_decompression_iterator_try_next_reverse(&iter->bitmap);
 	if (result.is_done)
 		return (DecompressResult){
+			.val = NULL,
+			.is_null = NULL,
 			.is_done = true,
 		};
 

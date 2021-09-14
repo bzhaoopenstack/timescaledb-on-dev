@@ -328,11 +328,11 @@ static inline void SH_FREE(SH_TYPE *type, void *pointer);
 #ifndef SH_USE_NONDEFAULT_ALLOCATOR
 
 /* default memory allocator function */
-static inline void *
-SH_ALLOCATE(SH_TYPE *type, Size size)
-{
-	return MemoryContextAllocExtended(type->ctx, size, MCXT_ALLOC_HUGE | MCXT_ALLOC_ZERO);
-}
+//static inline void *
+//SH_ALLOCATE(SH_TYPE *type, Size size)
+//{
+//	return MemoryContextAllocExtended(type->ctx, size, MCXT_ALLOC_HUGE | MCXT_ALLOC_ZERO);
+//}
 
 /* default memory free function */
 static inline void

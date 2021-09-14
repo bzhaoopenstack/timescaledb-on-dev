@@ -86,9 +86,9 @@ dictionary_hash_alloc(TypeCacheEntry *tentry)
 {
 	HashMeta *meta = palloc(sizeof(*meta));
 	Oid collation = InvalidOid;
-#if PG12_GE
-	collation = tentry->typcollation;
-#endif
+//#if PG12_GE
+//	collation = tentry->typcollation;
+//#endif
 
 	if (tentry->hash_proc_finfo.fn_addr == NULL || tentry->eq_opr_finfo.fn_addr == NULL)
 		elog(ERROR,

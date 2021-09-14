@@ -14,13 +14,13 @@
 
 typedef struct CompressChunkDmlPath
 {
-	CustomPath cpath;
+//	CustomPath cpath;
 	Oid chunk_relid;
 } CompressChunkDmlPath;
 
 typedef struct CompressChunkDmlState
 {
-	CustomScanState cscan_state;
+//	CustomScanState cscan_state;
 	Oid chunk_relid;
 } CompressChunkDmlState;
 

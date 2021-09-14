@@ -4,7 +4,8 @@
  * LICENSE-TIMESCALE for a copy of the license.
  */
 #include <postgres.h>
-#include <access/htup_details.h>
+//#include <access/htup_details.h>
+#include <access/htup.h>
 #include <catalog/pg_type.h>
 #include <funcapi.h>
 #include <lib/stringinfo.h>
@@ -12,9 +13,9 @@
 #include <utils/memutils.h>
 
 #include "compat.h"
-#if PG12_GE
-#include <port/pg_bitutils.h>
-#endif
+//#if PG12_GE
+//#include <port/pg_bitutils.h>
+//#endif
 
 #include "compression/gorilla.h"
 #include "utils.h"
@@ -62,21 +63,21 @@ typedef struct CompressedGorillaData
 	Simple8bRleSerialized *nulls; /* NULL if no nulls */
 } CompressedGorillaData;
 
-static void
-pg_attribute_unused() assertions(void)
-{
-	GorillaCompressed test_val = { { 0 } };
-	/* make sure no padding bytes make it to disk */
-	StaticAssertStmt(sizeof(GorillaCompressed) ==
-						 sizeof(test_val.vl_len_) + sizeof(test_val.compression_algorithm) +
-							 sizeof(test_val.has_nulls) +
-							 sizeof(test_val.bits_used_in_last_xor_bucket) +
-							 sizeof(test_val.bits_used_in_last_leading_zeros_bucket) +
-							 sizeof(test_val.num_leading_zeroes_buckets) +
-							 sizeof(test_val.num_xor_buckets) + sizeof(test_val.last_value),
-					 "Gorilla wrong size");
-	StaticAssertStmt(sizeof(GorillaCompressed) == 24, "Gorilla wrong size");
-}
+//static void
+//pg_attribute_unused() assertions(void)
+//{
+//	GorillaCompressed test_val = { { 0 } };
+//	/* make sure no padding bytes make it to disk */
+//	StaticAssertStmt(sizeof(GorillaCompressed) ==
+//						 sizeof(test_val.vl_len_) + sizeof(test_val.compression_algorithm) +
+//							 sizeof(test_val.has_nulls) +
+//							 sizeof(test_val.bits_used_in_last_xor_bucket) +
+//							 sizeof(test_val.bits_used_in_last_leading_zeros_bucket) +
+//							 sizeof(test_val.num_leading_zeroes_buckets) +
+//							 sizeof(test_val.num_xor_buckets) + sizeof(test_val.last_value),
+//					 "Gorilla wrong size");
+//	StaticAssertStmt(sizeof(GorillaCompressed) == 24, "Gorilla wrong size");
+//}
 
 typedef struct GorillaCompressor
 {
@@ -277,29 +278,29 @@ gorilla_compressor_finish_and_reset(Compressor *compressor)
 }
 
 const Compressor gorilla_float_compressor = {
-	.append_val = gorilla_compressor_append_float,
 	.append_null = gorilla_compressor_append_null_value,
+	.append_val = gorilla_compressor_append_float,
 	.finish = gorilla_compressor_finish_and_reset,
 };
 
 const Compressor gorilla_double_compressor = {
-	.append_val = gorilla_compressor_append_double,
 	.append_null = gorilla_compressor_append_null_value,
+	.append_val = gorilla_compressor_append_double,
 	.finish = gorilla_compressor_finish_and_reset,
 };
 const Compressor gorilla_uint16_compressor = {
-	.append_val = gorilla_compressor_append_int16,
 	.append_null = gorilla_compressor_append_null_value,
+	.append_val = gorilla_compressor_append_int16,
 	.finish = gorilla_compressor_finish_and_reset,
 };
 const Compressor gorilla_uint32_compressor = {
-	.append_val = gorilla_compressor_append_int32,
 	.append_null = gorilla_compressor_append_null_value,
+	.append_val = gorilla_compressor_append_int32,
 	.finish = gorilla_compressor_finish_and_reset,
 };
 const Compressor gorilla_uint64_compressor = {
-	.append_val = gorilla_compressor_append_int64,
 	.append_null = gorilla_compressor_append_null_value,
+	.append_val = gorilla_compressor_append_int64,
 	.finish = gorilla_compressor_finish_and_reset,
 };
 
@@ -327,7 +328,7 @@ gorilla_compressor_for_type(Oid element_type)
 		default:
 			elog(ERROR, "invalid type for Gorilla compression %d", element_type);
 	}
-	pg_unreachable();
+	//pg_unreachable();
 }
 
 GorillaCompressor *
@@ -385,59 +386,59 @@ gorilla_compressor_append_null(GorillaCompressor *compressor)
 	compressor->has_nulls = true;
 }
 
-void
-gorilla_compressor_append_value(GorillaCompressor *compressor, uint64 val)
-{
-	bool has_values;
-	uint64 xor = compressor->prev_val ^ val;
-	simple8brle_compressor_append(&compressor->nulls, 0);
-
-	/* for the first value we store the bitsize even if the xor is all zeroes,
-	 * this ensures that the bits-per-xor isn't empty, and that we can calculate
-	 * the remaining offsets correctly.
-	 */
-	has_values = !simple8brle_compressor_is_empty(&compressor->bits_used_per_xor);
-
-	if (has_values && xor == 0)
-		simple8brle_compressor_append(&compressor->tag0s, 0);
-	else
-	{
-		/* leftmost/rightmost 1 is not well-defined when all the bits in the number
-		 * are 0; the C implementations of these functions will ERROR, while the
-		 * assembly versions may return any value. We special-case 0 to to use
-		 * values for leading and trailing-zeroes that we know will work.
-		 */
-		int leading_zeros = xor != 0 ? 63 - pg_leftmost_one_pos64(xor) : 63;
-		int trailing_zeros = xor != 0 ? pg_rightmost_one_pos64(xor) : 1;
-		/*   TODO this can easily get stuck with a bad value for trailing_zeroes
-		 *   we use a new trailing_zeroes if th delta is too large, but the
-		 *   threshold was picked in a completely unprincipled manner.
-		 *   Needs benchmarking
-		 */
-		bool reuse_bitsizes = has_values && leading_zeros >= compressor->prev_leading_zeroes &&
-							  trailing_zeros >= compressor->prev_trailing_zeros &&
-							  ((leading_zeros - compressor->prev_leading_zeroes) +
-								   (trailing_zeros - compressor->prev_trailing_zeros) <=
-							   12);
-		uint8 num_bits_used;
-
-		simple8brle_compressor_append(&compressor->tag0s, 1);
-		simple8brle_compressor_append(&compressor->tag1s, reuse_bitsizes ? 0 : 1);
-		if (!reuse_bitsizes)
-		{
-			compressor->prev_leading_zeroes = leading_zeros;
-			compressor->prev_trailing_zeros = trailing_zeros;
-			num_bits_used = 64 - (leading_zeros + trailing_zeros);
-
-			bit_array_append(&compressor->leading_zeros, BITS_PER_LEADING_ZEROS, leading_zeros);
-			simple8brle_compressor_append(&compressor->bits_used_per_xor, num_bits_used);
-		}
-
-		num_bits_used = 64 - (compressor->prev_leading_zeroes + compressor->prev_trailing_zeros);
-		bit_array_append(&compressor->xors, num_bits_used, xor >> compressor->prev_trailing_zeros);
-	}
-	compressor->prev_val = val;
-}
+//void
+//gorilla_compressor_append_value(GorillaCompressor *compressor, uint64 val)
+//{
+//	bool has_values;
+//	uint64 xor = compressor->prev_val ^ val;
+//	simple8brle_compressor_append(&compressor->nulls, 0);
+//
+//	/* for the first value we store the bitsize even if the xor is all zeroes,
+//	 * this ensures that the bits-per-xor isn't empty, and that we can calculate
+//	 * the remaining offsets correctly.
+//	 */
+//	has_values = !simple8brle_compressor_is_empty(&compressor->bits_used_per_xor);
+//
+//	if (has_values && xor == 0)
+//		simple8brle_compressor_append(&compressor->tag0s, 0);
+//	else
+//	{
+//		/* leftmost/rightmost 1 is not well-defined when all the bits in the number
+//		 * are 0; the C implementations of these functions will ERROR, while the
+//		 * assembly versions may return any value. We special-case 0 to to use
+//		 * values for leading and trailing-zeroes that we know will work.
+//		 */
+//		int leading_zeros = xor != 0 ? 63 - pg_leftmost_one_pos64(xor) : 63;
+//		int trailing_zeros = xor != 0 ? pg_rightmost_one_pos64(xor) : 1;
+//		/*   TODO this can easily get stuck with a bad value for trailing_zeroes
+//		 *   we use a new trailing_zeroes if th delta is too large, but the
+//		 *   threshold was picked in a completely unprincipled manner.
+//		 *   Needs benchmarking
+//		 */
+//		bool reuse_bitsizes = has_values && leading_zeros >= compressor->prev_leading_zeroes &&
+//							  trailing_zeros >= compressor->prev_trailing_zeros &&
+//							  ((leading_zeros - compressor->prev_leading_zeroes) +
+//								   (trailing_zeros - compressor->prev_trailing_zeros) <=
+//							   12);
+//		uint8 num_bits_used;
+//
+//		simple8brle_compressor_append(&compressor->tag0s, 1);
+//		simple8brle_compressor_append(&compressor->tag1s, reuse_bitsizes ? 0 : 1);
+//		if (!reuse_bitsizes)
+//		{
+//			compressor->prev_leading_zeroes = leading_zeros;
+//			compressor->prev_trailing_zeros = trailing_zeros;
+//			num_bits_used = 64 - (leading_zeros + trailing_zeros);
+//
+//			bit_array_append(&compressor->leading_zeros, BITS_PER_LEADING_ZEROS, leading_zeros);
+//			simple8brle_compressor_append(&compressor->bits_used_per_xor, num_bits_used);
+//		}
+//
+//		num_bits_used = 64 - (compressor->prev_leading_zeroes + compressor->prev_trailing_zeros);
+//		bit_array_append(&compressor->xors, num_bits_used, xor >> compressor->prev_trailing_zeros);
+//	}
+//	compressor->prev_val = val;
+//}
 
 static GorillaCompressed *
 compressed_gorilla_data_serialize(CompressedGorillaData *input)
@@ -498,11 +499,15 @@ compressed_gorilla_data_serialize(CompressedGorillaData *input)
 void *
 gorilla_compressor_finish(GorillaCompressor *compressor)
 {
-	GorillaCompressed header = {
-		.compression_algorithm = COMPRESSION_ALGORITHM_GORILLA,
-		.has_nulls = compressor->has_nulls ? 1 : 0,
-		.last_value = compressor->prev_val,
-	};
+	//GorillaCompressed header = {
+	//	.compression_algorithm = COMPRESSION_ALGORITHM_GORILLA,
+	//	.has_nulls = compressor->has_nulls ? 1 : 0,
+	//	.last_value = compressor->prev_val,
+	//};
+	GorillaCompressed header;
+	header.compression_algorithm = COMPRESSION_ALGORITHM_GORILLA;
+	header.has_nulls = compressor->has_nulls ? 1 : 0;
+	header.last_value = compressor->prev_val;
 	CompressedGorillaData data = { .header = &header };
 	data.tag0s = simple8brle_compressor_finish(&compressor->tag0s);
 	if (data.tag0s == NULL)
@@ -623,8 +628,9 @@ convert_from_internal(DecompressResultInternal res_internal, Oid element_type)
 	if (res_internal.is_done || res_internal.is_null)
 	{
 		return (DecompressResult){
-			.is_done = res_internal.is_done,
+			.val = NULL,
 			.is_null = res_internal.is_null,
+			.is_done = res_internal.is_done,
 		};
 	}
 
@@ -653,78 +659,78 @@ convert_from_internal(DecompressResultInternal res_internal, Oid element_type)
 		default:
 			elog(ERROR, "invalid type requested from gorilla decompression");
 	}
-	pg_unreachable();
+	//pg_unreachable();
 }
 
-static DecompressResultInternal
-gorilla_decompression_iterator_try_next_forward_internal(GorillaDecompressionIterator *iter)
-{
-	Simple8bRleDecompressResult tag0;
-	Simple8bRleDecompressResult tag1;
-	uint64 xor ;
-
-	if (iter->has_nulls)
-	{
-		Simple8bRleDecompressResult null =
-			simple8brle_decompression_iterator_try_next_forward(&iter->nulls);
-		// FIXME we probably don't need to return a tail of non-null bits
-		if (null.is_done)
-			return (DecompressResultInternal){
-				.is_done = true,
-			};
-
-		if (null.val != 0)
-		{
-			Assert(null.val == 1);
-			return (DecompressResultInternal){
-				.is_null = true,
-			};
-		}
-	}
-
-	tag0 = simple8brle_decompression_iterator_try_next_forward(&iter->tag0s);
-	/* if we don't have a null bitset, this will determine when we're done */
-	if (tag0.is_done)
-		return (DecompressResultInternal){
-			.is_done = true,
-		};
-
-	if (tag0.val == 0)
-		return (DecompressResultInternal){
-			.val = iter->prev_val,
-		};
-
-	tag1 = simple8brle_decompression_iterator_try_next_forward(&iter->tag1s);
-	Assert(!tag1.is_done);
-
-	if (tag1.val != 0)
-	{
-		Simple8bRleDecompressResult num_xor_bits;
-		/* get new xor sizes */
-		iter->prev_leading_zeroes =
-			bit_array_iter_next(&iter->leading_zeros, BITS_PER_LEADING_ZEROS);
-		num_xor_bits = simple8brle_decompression_iterator_try_next_forward(&iter->num_bits_used);
-		Assert(!num_xor_bits.is_done);
-		iter->prev_xor_bits_used = num_xor_bits.val;
-	}
-
-	xor = bit_array_iter_next(&iter->xors, iter->prev_xor_bits_used);
-	if (iter->prev_leading_zeroes + iter->prev_xor_bits_used < 64)
-		xor <<= 64 - (iter->prev_leading_zeroes + iter->prev_xor_bits_used);
-	iter->prev_val ^= xor;
-
-	return (DecompressResultInternal){
-		.val = iter->prev_val,
-	};
-}
+//static DecompressResultInternal
+//gorilla_decompression_iterator_try_next_forward_internal(GorillaDecompressionIterator *iter)
+//{
+//	Simple8bRleDecompressResult tag0;
+//	Simple8bRleDecompressResult tag1;
+//	uint64 xor ;
+//
+//	if (iter->has_nulls)
+//	{
+//		Simple8bRleDecompressResult null =
+//			simple8brle_decompression_iterator_try_next_forward(&iter->nulls);
+//		// FIXME we probably don't need to return a tail of non-null bits
+//		if (null.is_done)
+//			return (DecompressResultInternal){
+//				.is_done = true,
+//			};
+//
+//		if (null.val != 0)
+//		{
+//			Assert(null.val == 1);
+//			return (DecompressResultInternal){
+//				.is_null = true,
+//			};
+//		}
+//	}
+//
+//	tag0 = simple8brle_decompression_iterator_try_next_forward(&iter->tag0s);
+//	/* if we don't have a null bitset, this will determine when we're done */
+//	if (tag0.is_done)
+//		return (DecompressResultInternal){
+//			.is_done = true,
+//		};
+//
+//	if (tag0.val == 0)
+//		return (DecompressResultInternal){
+//			.val = iter->prev_val,
+//		};
+//
+//	tag1 = simple8brle_decompression_iterator_try_next_forward(&iter->tag1s);
+//	Assert(!tag1.is_done);
+//
+//	if (tag1.val != 0)
+//	{
+//		Simple8bRleDecompressResult num_xor_bits;
+//		/* get new xor sizes */
+//		iter->prev_leading_zeroes =
+//			bit_array_iter_next(&iter->leading_zeros, BITS_PER_LEADING_ZEROS);
+//		num_xor_bits = simple8brle_decompression_iterator_try_next_forward(&iter->num_bits_used);
+//		Assert(!num_xor_bits.is_done);
+//		iter->prev_xor_bits_used = num_xor_bits.val;
+//	}
+//
+//	xor = bit_array_iter_next(&iter->xors, iter->prev_xor_bits_used);
+//	if (iter->prev_leading_zeroes + iter->prev_xor_bits_used < 64)
+//		xor <<= 64 - (iter->prev_leading_zeroes + iter->prev_xor_bits_used);
+//	iter->prev_val ^= xor;
+//
+//	return (DecompressResultInternal){
+//		.val = iter->prev_val,
+//	};
+//}
 
 DecompressResult
 gorilla_decompression_iterator_try_next_forward(DecompressionIterator *iter_base)
 {
 	Assert(iter_base->compression_algorithm == COMPRESSION_ALGORITHM_GORILLA && iter_base->forward);
-	return convert_from_internal(gorilla_decompression_iterator_try_next_forward_internal(
-									 (GorillaDecompressionIterator *) iter_base),
-								 iter_base->element_type);
+	//return convert_from_internal(gorilla_decompression_iterator_try_next_forward_internal(
+	//								 (GorillaDecompressionIterator *) iter_base),
+	//							 iter_base->element_type);
 }
 
 /****************************************
@@ -779,88 +785,88 @@ gorilla_decompression_iterator_from_datum_reverse(Datum gorilla_compressed, Oid 
 	return &iter->base;
 }
 
-static DecompressResultInternal
-gorilla_decompression_iterator_try_next_reverse_internal(GorillaDecompressionIterator *iter)
-{
-	Simple8bRleDecompressResult tag0;
-	Simple8bRleDecompressResult tag1;
-	uint64 val;
-	uint64 xor ;
-
-	if (iter->has_nulls)
-	{
-		Simple8bRleDecompressResult null =
-			simple8brle_decompression_iterator_try_next_reverse(&iter->nulls);
-
-		if (null.is_done)
-			return (DecompressResultInternal){
-				.is_done = true,
-			};
-
-		if (null.val != 0)
-		{
-			Assert(null.val == 1);
-			return (DecompressResultInternal){
-				.is_null = true,
-			};
-		}
-	}
-
-	val = iter->prev_val;
-
-	tag0 = simple8brle_decompression_iterator_try_next_reverse(&iter->tag0s);
-	/* if we don't have a null bitset, this will determine when we're done */
-	if (tag0.is_done)
-		return (DecompressResultInternal){
-			.is_done = true,
-		};
-
-	if (tag0.val == 0)
-		return (DecompressResultInternal){
-			.val = val,
-		};
-
-	xor = bit_array_iter_next_rev(&iter->xors, iter->prev_xor_bits_used);
-
-	if (iter->prev_leading_zeroes + iter->prev_xor_bits_used < 64)
-		xor <<= 64 - (iter->prev_leading_zeroes + iter->prev_xor_bits_used);
-	iter->prev_val ^= xor;
-
-	tag1 = simple8brle_decompression_iterator_try_next_reverse(&iter->tag1s);
-
-	if (tag1.val != 0)
-	{
-		/* get new xor sizes */
-		Simple8bRleDecompressResult num_xor_bits =
-			simple8brle_decompression_iterator_try_next_reverse(&iter->num_bits_used);
-		/* there're an implicit leading 0 to num_xor_bits and prev_leading_zeroes,
-		 */
-		if (num_xor_bits.is_done)
-		{
-			iter->prev_xor_bits_used = 0;
-			iter->prev_leading_zeroes = 0;
-		}
-		else
-		{
-			iter->prev_xor_bits_used = num_xor_bits.val;
-			iter->prev_leading_zeroes =
-				bit_array_iter_next_rev(&iter->leading_zeros, BITS_PER_LEADING_ZEROS);
-		}
-	}
-
-	return (DecompressResultInternal){
-		.val = val,
-	};
-}
+//static DecompressResultInternal
+//gorilla_decompression_iterator_try_next_reverse_internal(GorillaDecompressionIterator *iter)
+//{
+//	Simple8bRleDecompressResult tag0;
+//	Simple8bRleDecompressResult tag1;
+//	uint64 val;
+//	uint64 xor ;
+//
+//	if (iter->has_nulls)
+//	{
+//		Simple8bRleDecompressResult null =
+//			simple8brle_decompression_iterator_try_next_reverse(&iter->nulls);
+//
+//		if (null.is_done)
+//			return (DecompressResultInternal){
+//				.is_done = true,
+//			};
+//
+//		if (null.val != 0)
+//		{
+//			Assert(null.val == 1);
+//			return (DecompressResultInternal){
+//				.is_null = true,
+//			};
+//		}
+//	}
+//
+//	val = iter->prev_val;
+//
+//	tag0 = simple8brle_decompression_iterator_try_next_reverse(&iter->tag0s);
+//	/* if we don't have a null bitset, this will determine when we're done */
+//	if (tag0.is_done)
+//		return (DecompressResultInternal){
+//			.is_done = true,
+//		};
+//
+//	if (tag0.val == 0)
+//		return (DecompressResultInternal){
+//			.val = val,
+//		};
+//
+//	xor = bit_array_iter_next_rev(&iter->xors, iter->prev_xor_bits_used);
+//
+//	if (iter->prev_leading_zeroes + iter->prev_xor_bits_used < 64)
+//		xor <<= 64 - (iter->prev_leading_zeroes + iter->prev_xor_bits_used);
+//	iter->prev_val ^= xor;
+//
+//	tag1 = simple8brle_decompression_iterator_try_next_reverse(&iter->tag1s);
+//
+//	if (tag1.val != 0)
+//	{
+//		/* get new xor sizes */
+//		Simple8bRleDecompressResult num_xor_bits =
+//			simple8brle_decompression_iterator_try_next_reverse(&iter->num_bits_used);
+//		/* there're an implicit leading 0 to num_xor_bits and prev_leading_zeroes,
+//		 */
+//		if (num_xor_bits.is_done)
+//		{
+//			iter->prev_xor_bits_used = 0;
+//			iter->prev_leading_zeroes = 0;
+//		}
+//		else
+//		{
+//			iter->prev_xor_bits_used = num_xor_bits.val;
+//			iter->prev_leading_zeroes =
+//				bit_array_iter_next_rev(&iter->leading_zeros, BITS_PER_LEADING_ZEROS);
+//		}
+//	}
+//
+//	return (DecompressResultInternal){
+//		.val = val,
+//	};
+//}
 
 DecompressResult
 gorilla_decompression_iterator_try_next_reverse(DecompressionIterator *iter_base)
 {
 	Assert(iter_base->compression_algorithm == COMPRESSION_ALGORITHM_GORILLA &&
 		   !iter_base->forward);
-	return convert_from_internal(gorilla_decompression_iterator_try_next_reverse_internal(
-									 (GorillaDecompressionIterator *) iter_base),
-								 iter_base->element_type);
+	//return convert_from_internal(gorilla_decompression_iterator_try_next_reverse_internal(
+	//								 (GorillaDecompressionIterator *) iter_base),
+	//							 iter_base->element_type);
 }
 
 /*************

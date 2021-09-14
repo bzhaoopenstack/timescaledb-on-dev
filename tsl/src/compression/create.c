@@ -9,9 +9,9 @@
 #include <access/tupdesc.h>
 #include <access/xact.h>
 #include <catalog/indexing.h>
-#if PG11_GE
-#include <catalog/pg_constraint_d.h>
-#endif
+//#if PG11_GE
+//#include <catalog/pg_constraint_d.h>
+//#endif
 #include <catalog/pg_constraint.h>
 #include <catalog/pg_type.h>
 #include <catalog/index.h>
@@ -151,17 +151,17 @@ compresscolinfo_add_metadata_columns(CompressColInfo *cc, Relation uncompressed_
 
 							 /* count of the number of uncompressed rows */
 							 makeColumnDef(COMPRESSION_COLUMN_METADATA_COUNT_NAME,
-										   INT4OID,
-										   -1 /* typemod */,
-										   0 /*collation*/));
+										   INT4OID));
+										   //-1 /* typemod */,
+										   //0 /*collation*/));
 	/* sequence_num column */
 	cc->coldeflist = lappend(cc->coldeflist,
 
 							 /* count of the number of uncompressed rows */
 							 makeColumnDef(COMPRESSION_COLUMN_METADATA_SEQUENCE_NUM_NAME,
-										   INT4OID,
-										   -1 /* typemod */,
-										   0 /*collation*/));
+										   INT4OID));
+										   //-1 /* typemod */,
+										   //0 /*collation*/));
 
 	for (colno = 0; colno < cc->numcols; colno++)
 	{
@@ -183,16 +183,16 @@ compresscolinfo_add_metadata_columns(CompressColInfo *cc, Relation uncompressed_
 			/* segment_meta min and max columns */
 			cc->coldeflist =
 				lappend(cc->coldeflist,
-						makeColumnDef(compression_column_segment_min_name(&cc->col_meta[colno]),
-									  attr->atttypid,
-									  -1 /* typemod */,
-									  0 /*collation*/));
+						makeColumnDef(compression_column_segment_min_name(&cc->col_meta[colno]), attr->atttypid));
+									  //attr->atttypid,
+									  //-1 /* typemod */,
+									  //0 /*collation*/));
 			cc->coldeflist =
 				lappend(cc->coldeflist,
-						makeColumnDef(compression_column_segment_max_name(&cc->col_meta[colno]),
-									  attr->atttypid,
-									  -1 /* typemod */,
-									  0 /*collation*/));
+						makeColumnDef(compression_column_segment_max_name(&cc->col_meta[colno]), attr->atttypid));
+									  //attr->atttypid,
+									  //-1 /* typemod */,
+									  //0 /*collation*/));
 		}
 	}
 }
@@ -314,7 +314,8 @@ compresscolinfo_init(CompressColInfo *cc, Oid srctbl_relid, List *segmentby_cols
 		{
 			cc->col_meta[colno].algo_id = 0; // invalid algo number
 		}
-		coldef = makeColumnDef(NameStr(attr->attname), attroid, -1 /*typmod*/, 0 /*collation*/);
+		//coldef = makeColumnDef(NameStr(attr->attname), attroid, -1 /*typmod*/, 0 /*collation*/);
+		coldef = makeColumnDef(NameStr(attr->attname), attroid);
 		cc->coldeflist = lappend(cc->coldeflist, coldef);
 		colno++;
 	}
@@ -396,9 +397,10 @@ create_compressed_table_indexes(Oid compresstable_relid, CompressColInfo *compre
 		ts_hypertable_cache_get_cache_and_entry(compresstable_relid, CACHE_FLAG_NONE, &hcache);
 	IndexStmt stmt = {
 		.type = T_IndexStmt,
-		.accessMethod = DEFAULT_INDEX_TYPE,
+		.schemaname = NULL,
 		.idxname = NULL,
 		.relation = makeRangeVar(NameStr(ht->fd.schema_name), NameStr(ht->fd.table_name), 0),
+		.accessMethod = DEFAULT_INDEX_TYPE,
 		.tableSpace = get_tablespace_name(get_rel_tablespace(ht->main_table_relid)),
 	};
 	IndexElem sequence_num_elem = {
@@ -418,18 +420,18 @@ create_compressed_table_indexes(Oid compresstable_relid, CompressColInfo *compre
 			continue;
 
 		stmt.indexParams = list_make2(&segment_elem, &sequence_num_elem);
-		index_addr = DefineIndexCompat(ht->main_table_relid,
-									   &stmt,
-									   InvalidOid,
-									   false,  /* is alter table */
-									   false,  /* check rights */
-									   false,  /* skip_build */
-									   false); /* quiet */
-		index_tuple = SearchSysCache1(RELOID, ObjectIdGetDatum(index_addr.objectId));
+		//index_addr = DefineIndexCompat(ht->main_table_relid,
+		//							   &stmt,
+		//							   InvalidOid,
+		//							   false,  /* is alter table */
+		//							   false,  /* check rights */
+		//							   false,  /* skip_build */
+		//							   false); /* quiet */
+		//index_tuple = SearchSysCache1(RELOID, ObjectIdGetDatum(index_addr.objectId));
 
-		if (!HeapTupleIsValid(index_tuple))
-			elog(ERROR, "cache lookup failed for index relid %d", index_addr.objectId);
-		index_name = ((Form_pg_class) GETSTRUCT(index_tuple))->relname;
+		//if (!HeapTupleIsValid(index_tuple))
+		//	elog(ERROR, "cache lookup failed for index relid %d", index_addr.objectId);
+		//index_name = ((Form_pg_class) GETSTRUCT(index_tuple))->relname;
 		elog(NOTICE,
 			 "adding index %s ON %s.%s USING BTREE(%s, %s)",
 			 NameStr(index_name),
@@ -437,7 +439,7 @@ create_compressed_table_indexes(Oid compresstable_relid, CompressColInfo *compre
 			 NameStr(ht->fd.table_name),
 			 NameStr(col->attname),
 			 COMPRESSION_COLUMN_METADATA_SEQUENCE_NUM_NAME);
-		ReleaseSysCache(index_tuple);
+		//ReleaseSysCache(index_tuple);
 	}
 
 	ts_cache_release(hcache);
@@ -483,7 +485,7 @@ set_statistics_on_compressed_table(Oid compressed_table_id)
 
 		CatalogTupleUpdate(attrelation, &tuple->t_self, tuple);
 
-		InvokeObjectPostAlterHook(RelationRelationId, compressed_table_id, attrtuple->attnum);
+		//InvokeObjectPostAlterHook(RelationRelationId, compressed_table_id, attrtuple->attnum);
 		heap_freetuple(tuple);
 	}
 
@@ -491,25 +493,25 @@ set_statistics_on_compressed_table(Oid compressed_table_id)
 	table_close(table_rel, NoLock);
 }
 
-#if !PG96 && !PG10
-static void
-set_toast_tuple_target_on_compressed(Oid compressed_table_id)
-{
-	DefElem def_elem = {
-		.type = T_DefElem,
-		.defname = "toast_tuple_target",
-		.arg = (Node *) makeInteger(128),
-		.defaction = DEFELEM_SET,
-		.location = -1,
-	};
-	AlterTableCmd cmd = {
-		.type = T_AlterTableCmd,
-		.subtype = AT_SetRelOptions,
-		.def = (Node *) list_make1(&def_elem),
-	};
-	AlterTableInternal(compressed_table_id, list_make1(&cmd), true);
-}
-#endif
+//#if !PG96 && !PG10
+//static void
+//set_toast_tuple_target_on_compressed(Oid compressed_table_id)
+//{
+//	DefElem def_elem = {
+//		.type = T_DefElem,
+//		.defname = "toast_tuple_target",
+//		.arg = (Node *) makeInteger(128),
+//		.defaction = DEFELEM_SET,
+//		.location = -1,
+//	};
+//	AlterTableCmd cmd = {
+//		.type = T_AlterTableCmd,
+//		.subtype = AT_SetRelOptions,
+//		.def = (Node *) list_make1(&def_elem),
+//	};
+//	AlterTableInternal(compressed_table_id, list_make1(&cmd), true);
+//}
+//#endif
 
 static int32
 create_compression_table(Oid owner, CompressColInfo *compress_cols)
@@ -543,24 +545,24 @@ create_compression_table(Oid owner, CompressColInfo *compress_cols)
 	compress_rel = makeRangeVar(pstrdup(INTERNAL_SCHEMA_NAME), pstrdup(relnamebuf), -1);
 
 	create->relation = compress_rel;
-	tbladdress = DefineRelationCompat(create, RELKIND_RELATION, owner, NULL, NULL);
+	//tbladdress = DefineRelationCompat(create, RELKIND_RELATION, owner, NULL, NULL);
 	CommandCounterIncrement();
-	compress_relid = tbladdress.objectId;
+	//compress_relid = tbladdress.objectId;
 	toast_options =
 		transformRelOptions((Datum) 0, create->options, "toast", validnsps, true, false);
 	(void) heap_reloptions(RELKIND_TOASTVALUE, toast_options, true);
-	NewRelationCreateToastTable(compress_relid, toast_options);
+	//NewRelationCreateToastTable(compress_relid, toast_options);
 	ts_catalog_restore_user(&sec_ctx);
-	modify_compressed_toast_table_storage(compress_cols, compress_relid);
-	ts_hypertable_create_compressed(compress_relid, compress_hypertable_id);
+	//modify_compressed_toast_table_storage(compress_cols, compress_relid);
+	//ts_hypertable_create_compressed(compress_relid, compress_hypertable_id);
 
-	set_statistics_on_compressed_table(compress_relid);
+	//set_statistics_on_compressed_table(compress_relid);
 
-#if !PG96 && !PG10
-	set_toast_tuple_target_on_compressed(compress_relid);
-#endif
+//#if !PG96 && !PG10
+//	set_toast_tuple_target_on_compressed(compress_relid);
+//#endif
 
-	create_compressed_table_indexes(compress_relid, compress_cols);
+	//create_compressed_table_indexes(compress_relid, compress_cols);
 	return compress_hypertable_id;
 }
 
@@ -663,13 +665,13 @@ add_time_to_order_by_if_not_included(List *orderby_cols, List *segmentby_cols, H
 	{
 		/* Add time DESC NULLS FIRST to order by list */
 		CompressedParsedCol *col = palloc(sizeof(*col));
-		*col = (CompressedParsedCol){
-			.index = list_length(orderby_cols),
-			.asc = false,
-			.nullsfirst = true,
-		};
-		namestrcpy(&col->colname, time_col_name);
-		orderby_cols = lappend(orderby_cols, col);
+		//*col = (CompressedParsedCol){
+		//	.index = list_length(orderby_cols),
+		//	.asc = false,
+		//	.nullsfirst = true,
+		//};
+		//namestrcpy(&col->colname, time_col_name);
+		//orderby_cols = lappend(orderby_cols, col);
 	}
 	return orderby_cols;
 }
@@ -742,14 +744,14 @@ validate_existing_constraints(Hypertable *ht, CompressColInfo *colinfo)
 										&is_null);
 			if (is_null)
 			{
-#if PG12_LT
+//#if PG12_LT
 				Oid oid = HeapTupleGetOid(tuple);
-#else
-				Oid oid = heap_getattr(tuple,
-									   Anum_pg_constraint_oid,
-									   RelationGetDescr(pg_constr),
-									   &is_null);
-#endif
+//#else
+//				Oid oid = heap_getattr(tuple,
+//									   Anum_pg_constraint_oid,
+//									   RelationGetDescr(pg_constr),
+//									   &is_null);
+//#endif
 				elog(ERROR, "null conkey for constraint %u", oid);
 			}
 
@@ -802,7 +804,7 @@ validate_existing_constraints(Hypertable *ht, CompressColInfo *colinfo)
 			if (form->contype == CONSTRAINT_FOREIGN)
 			{
 				Name conname = palloc0(NAMEDATALEN);
-				namecpy(conname, &form->conname);
+				//namecpy(conname, &form->conname);
 				conlist = lappend(conlist, conname);
 			}
 		}

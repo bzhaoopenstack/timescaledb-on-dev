@@ -229,8 +229,8 @@
 //#endif
 
 //#if PG96
-#define DefineRelationCompat(stmt, relkind, ownerid, typaddress, queryString)                      \
-	DefineRelation(stmt, relkind, ownerid, typaddress)
+//#define DefineRelationCompat(stmt, relkind, ownerid, typaddress, queryString)                      \
+//	DefineRelation(stmt, relkind, ownerid, typaddress)
 //#else
 //#define DefineRelationCompat(stmt, relkind, ownerid, typaddress, queryString)                      \
 //	DefineRelation(stmt, relkind, ownerid, typaddress, queryString)

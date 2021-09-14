@@ -6,7 +6,8 @@
 
 #include "compression/deltadelta.h"
 
-#include <access/htup_details.h>
+//#include <access/htup_details.h>
+#include <access/htup.h>
 #include <catalog/pg_aggregate.h>
 #include <catalog/pg_type.h>
 #include <utils/builtins.h>
@@ -36,19 +37,19 @@ typedef struct DeltaDeltaCompressed
 	Simple8bRleSerialized delta_deltas;
 } DeltaDeltaCompressed;
 
-static void
-pg_attribute_unused() assertions(void)
-{
-	DeltaDeltaCompressed test_val = { { 0 } };
-	/* make sure no padding bytes make it to disk */
-	StaticAssertStmt(sizeof(DeltaDeltaCompressed) ==
-						 sizeof(test_val.vl_len_) + sizeof(test_val.compression_algorithm) +
-							 sizeof(test_val.has_nulls) + sizeof(test_val.padding) +
-							 sizeof(test_val.last_value) + sizeof(test_val.last_delta) +
-							 sizeof(test_val.delta_deltas),
-					 "DeltaDeltaCompressed wrong size");
-	StaticAssertStmt(sizeof(DeltaDeltaCompressed) == 32, "DeltaDeltaCompressed wrong size");
-}
+//static void
+//pg_attribute_unused() assertions(void)
+//{
+//	DeltaDeltaCompressed test_val = { { 0 } };
+//	/* make sure no padding bytes make it to disk */
+//	StaticAssertStmt(sizeof(DeltaDeltaCompressed) ==
+//						 sizeof(test_val.vl_len_) + sizeof(test_val.compression_algorithm) +
+//							 sizeof(test_val.has_nulls) + sizeof(test_val.padding) +
+//							 sizeof(test_val.last_value) + sizeof(test_val.last_delta) +
+//							 sizeof(test_val.delta_deltas),
+//					 "DeltaDeltaCompressed wrong size");
+//	StaticAssertStmt(sizeof(DeltaDeltaCompressed) == 32, "DeltaDeltaCompressed wrong size");
+//}
 
 typedef struct DeltaDeltaDecompressionIterator
 {
@@ -168,42 +169,42 @@ deltadelta_compressor_finish_and_reset(Compressor *compressor)
 }
 
 const Compressor deltadelta_bool_compressor = {
-	.append_val = deltadelta_compressor_append_bool,
 	.append_null = deltadelta_compressor_append_null_value,
+	.append_val = deltadelta_compressor_append_bool,
 	.finish = deltadelta_compressor_finish_and_reset,
 };
 
 const Compressor deltadelta_uint16_compressor = {
-	.append_val = deltadelta_compressor_append_int16,
 	.append_null = deltadelta_compressor_append_null_value,
+	.append_val = deltadelta_compressor_append_int16,
 	.finish = deltadelta_compressor_finish_and_reset,
 };
 const Compressor deltadelta_uint32_compressor = {
-	.append_val = deltadelta_compressor_append_int32,
 	.append_null = deltadelta_compressor_append_null_value,
+	.append_val = deltadelta_compressor_append_int32,
 	.finish = deltadelta_compressor_finish_and_reset,
 };
 const Compressor deltadelta_uint64_compressor = {
-	.append_val = deltadelta_compressor_append_int64,
 	.append_null = deltadelta_compressor_append_null_value,
+	.append_val = deltadelta_compressor_append_int64,
 	.finish = deltadelta_compressor_finish_and_reset,
 };
 
 const Compressor deltadelta_date_compressor = {
-	.append_val = deltadelta_compressor_append_date,
 	.append_null = deltadelta_compressor_append_null_value,
+	.append_val = deltadelta_compressor_append_date,
 	.finish = deltadelta_compressor_finish_and_reset,
 };
 
 const Compressor deltadelta_timestamp_compressor = {
-	.append_val = deltadelta_compressor_append_timestamp,
 	.append_null = deltadelta_compressor_append_null_value,
+	.append_val = deltadelta_compressor_append_timestamp,
 	.finish = deltadelta_compressor_finish_and_reset,
 };
 
 const Compressor deltadelta_timestamptz_compressor = {
-	.append_val = deltadelta_compressor_append_timestamptz,
 	.append_null = deltadelta_compressor_append_null_value,
+	.append_val = deltadelta_compressor_append_timestamptz,
 	.finish = deltadelta_compressor_finish_and_reset,
 };
 
@@ -240,7 +241,7 @@ delta_delta_compressor_for_type(Oid element_type)
 			elog(ERROR, "invalid type for delta-delta compressor %d", element_type);
 	}
 
-	pg_unreachable();
+	//pg_unreachable();
 }
 
 Datum
@@ -415,17 +416,17 @@ int64_decompression_iterator_init_forward(DeltaDeltaDecompressionIterator *iter,
 	else
 		Assert(compressed->has_nulls == 0);
 
-	*iter = (DeltaDeltaDecompressionIterator){
-		.base = {
-			.compression_algorithm = COMPRESSION_ALGORITHM_DELTADELTA,
-			.forward = true,
-			.element_type = element_type,
-			.try_next = delta_delta_decompression_iterator_try_next_forward,
-		},
-		.prev_val = 0,
-		.prev_delta = 0,
-		.has_nulls = has_nulls,
-	};
+	//*iter = (DeltaDeltaDecompressionIterator){
+	//	.base = {
+	//		.compression_algorithm = COMPRESSION_ALGORITHM_DELTADELTA,
+	//		.forward = true,
+	//		.element_type = element_type,
+	//		.try_next = delta_delta_decompression_iterator_try_next_forward,
+	//	},
+	//	.prev_val = 0,
+	//	.prev_delta = 0,
+	//	.has_nulls = has_nulls,
+	//};
 
 	simple8brle_decompression_iterator_init_forward(&iter->delta_deltas, deltas);
 
@@ -447,17 +448,17 @@ int64_decompression_iterator_init_reverse(DeltaDeltaDecompressionIterator *iter,
 	else
 		Assert(compressed->has_nulls == 0);
 
-	*iter = (DeltaDeltaDecompressionIterator){
-		.base = {
-			.compression_algorithm = COMPRESSION_ALGORITHM_DELTADELTA,
-			.forward = false,
-			.element_type = element_type,
-			.try_next = delta_delta_decompression_iterator_try_next_reverse,
-		},
-		.prev_val = compressed->last_value,
-		.prev_delta = compressed->last_delta,
-		.has_nulls = has_nulls,
-	};
+	//*iter = (DeltaDeltaDecompressionIterator){
+	//	.base = {
+	//		.compression_algorithm = COMPRESSION_ALGORITHM_DELTADELTA,
+	//		.forward = false,
+	//		.element_type = element_type,
+	//		.try_next = delta_delta_decompression_iterator_try_next_reverse,
+	//	},
+	//	.prev_val = compressed->last_value,
+	//	.prev_delta = compressed->last_delta,
+	//	.has_nulls = has_nulls,
+	//};
 
 	simple8brle_decompression_iterator_init_reverse(&iter->delta_deltas, deltas);
 
@@ -471,8 +472,9 @@ convert_from_internal(DecompressResultInternal res_internal, Oid element_type)
 	if (res_internal.is_done || res_internal.is_null)
 	{
 		return (DecompressResult){
-			.is_done = res_internal.is_done,
+			.val = NULL,
 			.is_null = res_internal.is_null,
+			.is_done = res_internal.is_done,
 		};
 	}
 
@@ -512,7 +514,7 @@ convert_from_internal(DecompressResultInternal res_internal, Oid element_type)
 			elog(ERROR, "invalid type requested from deltadelta decompression %d", element_type);
 	}
 
-	pg_unreachable();
+	//pg_unreachable();
 }
 
 static DecompressResultInternal
@@ -528,6 +530,8 @@ delta_delta_decompression_iterator_try_next_forward_internal(DeltaDeltaDecompres
 			simple8brle_decompression_iterator_try_next_forward(&iter->nulls);
 		if (result.is_done)
 			return (DecompressResultInternal){
+				.val = NULL,
+				.is_null = NULL,
 				.is_done = true,
 			};
 
@@ -535,6 +539,7 @@ delta_delta_decompression_iterator_try_next_forward_internal(DeltaDeltaDecompres
 		{
 			Assert(result.val == 1);
 			return (DecompressResultInternal){
+				.val = NULL,
 				.is_null = true,
 			};
 		}
@@ -544,6 +549,8 @@ delta_delta_decompression_iterator_try_next_forward_internal(DeltaDeltaDecompres
 
 	if (result.is_done)
 		return (DecompressResultInternal){
+			.val = NULL,
+			.is_null = NULL,
 			.is_done = true,
 		};
 
@@ -581,6 +588,8 @@ delta_delta_decompression_iterator_try_next_reverse_internal(DeltaDeltaDecompres
 			simple8brle_decompression_iterator_try_next_reverse(&iter->nulls);
 		if (result.is_done)
 			return (DecompressResultInternal){
+				.val = NULL,
+				.is_null = NULL,
 				.is_done = true,
 			};
 
@@ -588,6 +597,7 @@ delta_delta_decompression_iterator_try_next_reverse_internal(DeltaDeltaDecompres
 		{
 			Assert(result.val == 1);
 			return (DecompressResultInternal){
+				.val = NULL,
 				.is_null = true,
 			};
 		}
@@ -597,6 +607,8 @@ delta_delta_decompression_iterator_try_next_reverse_internal(DeltaDeltaDecompres
 
 	if (result.is_done)
 		return (DecompressResultInternal){
+			.val = NULL,
+			.is_null = NULL,
 			.is_done = true,
 		};
 

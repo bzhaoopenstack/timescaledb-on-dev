@@ -80,16 +80,16 @@ typedef struct Simple8bRleSerialized
 	uint64 slots[FLEXIBLE_ARRAY_MEMBER];
 } Simple8bRleSerialized;
 
-static void
-pg_attribute_unused() simple8brle_size_assertions(void)
-{
-	Simple8bRleSerialized test_val = { 0 };
-	/* ensure no padding bits make it to disk */
-	StaticAssertStmt(sizeof(Simple8bRleSerialized) ==
-						 sizeof(test_val.num_elements) + sizeof(test_val.num_blocks),
-					 "simple8b_rle_oob wrong size");
-	StaticAssertStmt(sizeof(Simple8bRleSerialized) == 8, "simple8b_rle_oob wrong size");
-}
+//static void
+//pg_attribute_unused() simple8brle_size_assertions(void)
+//{
+//	Simple8bRleSerialized test_val = { 0 };
+//	/* ensure no padding bits make it to disk */
+//	StaticAssertStmt(sizeof(Simple8bRleSerialized) ==
+//						 sizeof(test_val.num_elements) + sizeof(test_val.num_blocks),
+//					 "simple8b_rle_oob wrong size");
+//	StaticAssertStmt(sizeof(Simple8bRleSerialized) == 8, "simple8b_rle_oob wrong size");
+//}
 
 typedef struct Simple8bRleBlock
 {
@@ -281,16 +281,16 @@ simple8brle_serialized_total_size(const Simple8bRleSerialized *data)
  ***  Simple8bRleCompressor  ***
  *******************************/
 
-static void
-simple8brle_compressor_init(Simple8bRleCompressor *compressor)
-{
-	*compressor = (Simple8bRleCompressor){
-		.num_elements = 0,
-		.num_uncompressed_elements = 0,
-	};
-	uint64_vec_init(&compressor->compressed_data, CurrentMemoryContext, 0);
-	bit_array_init(&compressor->selectors);
-}
+//static void
+//simple8brle_compressor_init(Simple8bRleCompressor *compressor)
+//{
+//	*compressor = (Simple8bRleCompressor){
+//		.num_elements = 0,
+//		.num_uncompressed_elements = 0,
+//	};
+//	uint64_vec_init(&compressor->compressed_data, CurrentMemoryContext, 0);
+//	bit_array_init(&compressor->selectors);
+//}
 
 static void
 simple8brle_compressor_append(Simple8bRleCompressor *compressor, uint64 val)
@@ -414,6 +414,8 @@ simple8brle_compressor_flush(Simple8bRleCompressor *compressor)
 	 * left from having too few values, and will re-attempt RLE if it's more efficient
 	 */
 	Simple8bRleBlock last_block = {
+		.data = NULL,
+		.num_elements_compressed = NULL,
 		.selector = 0,
 	};
 	Simple8bRlePartiallyCompressedData new_data;
@@ -437,22 +439,22 @@ simple8brle_compressor_flush(Simple8bRleCompressor *compressor)
 
 		simple8brle_compressor_push_block(compressor, last_block);
 
-		new_data = (Simple8bRlePartiallyCompressedData){
-			.data = compressor->uncompressed_elements + appended_to_rle,
-			.data_size = compressor->num_uncompressed_elements - appended_to_rle,
-			/* block is zeroed out, including it's selector */
-		};
+		//new_data = (Simple8bRlePartiallyCompressedData){
+		//	.block = NULL,
+		//	.data = compressor->uncompressed_elements + appended_to_rle,
+		//	.data_size = compressor->num_uncompressed_elements - appended_to_rle,
+		//};
 	}
-	else
-	{
-		new_data = (Simple8bRlePartiallyCompressedData){
-			.data = compressor->uncompressed_elements,
-			.data_size = compressor->num_uncompressed_elements,
-			.block = last_block,
-		};
-	}
+	//else
+	//{
+	//	new_data = (Simple8bRlePartiallyCompressedData){
+	//		.block = last_block,
+	//		.data = compressor->uncompressed_elements,
+	//		.data_size = compressor->num_uncompressed_elements,
+	//	};
+	//}
 
-	simple8brle_compressor_append_pcd(compressor, &new_data);
+	//simple8brle_compressor_append_pcd(compressor, &new_data);
 
 	compressor->num_elements += compressor->num_uncompressed_elements;
 	compressor->num_uncompressed_elements = 0;
@@ -467,6 +469,8 @@ simple8brle_compressor_append_pcd(Simple8bRleCompressor *compressor,
 	while (idx < new_data_len)
 	{
 		Simple8bRleBlock block = {
+			.data = NULL,
+			.num_elements_compressed = NULL,
 			.selector = SIMPLE8B_MINCODE,
 		};
 		uint8 num_packed = 0;
@@ -543,17 +547,17 @@ simple8brle_decompression_iterator_init_common(Simple8bRleDecompressionIterator 
 	uint32 num_selector_slots =
 		simple8brle_num_selector_slots_for_num_blocks(compressed->num_blocks);
 
-	*iter = (Simple8bRleDecompressionIterator){
-		.compressed_data = compressed->slots + num_selector_slots,
-		.current_compressed_pos = 0,
-		.current_in_compressed_pos = 0,
-		.num_elements = compressed->num_elements,
-		.num_elements_returned = 0,
-	};
+	//*iter = (Simple8bRleDecompressionIterator){
+	//	.compressed_data = compressed->slots + num_selector_slots,
+	//	.current_compressed_pos = 0,
+	//	.current_in_compressed_pos = 0,
+	//	.num_elements = compressed->num_elements,
+	//	.num_elements_returned = 0,
+	//};
 
-	bit_array_wrap(&iter->selector_data,
-				   compressed->slots,
-				   compressed->num_blocks * SIMPLE8B_BITS_PER_SELECTOR);
+	//bit_array_wrap(&iter->selector_data,
+	//			   compressed->slots,
+	//			   compressed->num_blocks * SIMPLE8B_BITS_PER_SELECTOR);
 }
 
 static void
@@ -624,6 +628,7 @@ simple8brle_decompression_iterator_try_next_forward(Simple8bRleDecompressionIter
 	uint64 uncompressed;
 	if (iter->num_elements_returned >= iter->num_elements)
 		return (Simple8bRleDecompressResult){
+			.val = NULL,
 			.is_done = true,
 		};
 
@@ -653,6 +658,7 @@ simple8brle_decompression_iterator_try_next_reverse(Simple8bRleDecompressionIter
 	uint64 uncompressed;
 	if (iter->num_elements_returned >= iter->num_elements)
 		return (Simple8bRleDecompressResult){
+			.val = NULL,
 			.is_done = true,
 		};
 
@@ -710,9 +716,9 @@ simple8brle_block_create_rle(uint32 rle_count, uint64 rle_val)
 	data = ((uint64) rle_count << SIMPLE8B_RLE_MAX_VALUE_BITS) | rle_val;
 
 	return (Simple8bRleBlock){
-		.selector = SIMPLE8B_RLE_SELECTOR,
 		.data = data,
 		.num_elements_compressed = rle_count,
+		.selector = SIMPLE8B_RLE_SELECTOR,
 	};
 }
 
@@ -720,8 +726,9 @@ static inline Simple8bRleBlock
 simple8brle_block_create(uint8 selector, uint64 data)
 {
 	Simple8bRleBlock block = (Simple8bRleBlock){
-		.selector = selector,
 		.data = data,
+		.num_elements_compressed = NULL,
+		.selector = selector,
 	};
 
 	Assert(block.selector != 0);
@@ -787,7 +794,7 @@ simple8brle_block_get_element(Simple8bRleBlock block, uint32 position_in_value)
 		return compressed_value;
 	}
 
-	pg_unreachable();
+	//pg_unreachable();
 }
 
 /***************************

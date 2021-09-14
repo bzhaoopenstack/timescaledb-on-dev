@@ -32,9 +32,9 @@
 #include "license.h"
 #include "compression_chunk_size.h"
 
-#if !PG96
-#include <utils/fmgrprotos.h>
-#endif
+//#if !PG96
+//#include <utils/fmgrprotos.h>
+//#endif
 
 #define CHUNK_DML_BLOCKER_TRIGGER "chunk_dml_blocker"
 #define CHUNK_DML_BLOCKER_NAME "compressed_chunk_insert_blocker"
@@ -127,19 +127,18 @@ chunk_dml_blocker_trigger_add(Oid relid)
 	/* stmt triggers are blocked on hypertable chunks */
 	CreateTrigStmt stmt = {
 		.type = T_CreateTrigStmt,
-		.row = true,
-		.timing = TRIGGER_TYPE_BEFORE,
 		.trigname = CHUNK_DML_BLOCKER_NAME,
 		.relation = makeRangeVar(schema, relname, -1),
-		.funcname =
-			list_make2(makeString(INTERNAL_SCHEMA_NAME), makeString(CHUNK_DML_BLOCKER_TRIGGER)),
+		.funcname = list_make2(makeString(INTERNAL_SCHEMA_NAME), makeString(CHUNK_DML_BLOCKER_TRIGGER)),
 		.args = NIL,
+		.row = true,
+		.timing = TRIGGER_TYPE_BEFORE,
 		.events = TRIGGER_TYPE_INSERT,
 	};
-	objaddr = CreateTriggerCompat(&stmt, NULL, relid, InvalidOid, InvalidOid, InvalidOid, false);
+	//objaddr = CreateTriggerCompat(&stmt, NULL, relid, InvalidOid, InvalidOid, InvalidOid, false);
 
-	if (!OidIsValid(objaddr.objectId))
-		elog(ERROR, "could not create DML blocker trigger");
+	//if (!OidIsValid(objaddr.objectId))
+	//	elog(ERROR, "could not create DML blocker trigger");
 
 	return;
 }

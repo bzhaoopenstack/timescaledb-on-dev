@@ -84,10 +84,14 @@ reorder_add_policy(PG_FUNCTION_ARGS)
 	Oid partitioning_type;
 	Oid owner_id;
 
-	BgwPolicyReorder policy = { .fd = {
-									.hypertable_id = hypertable_id,
-									.hypertable_index_name = *index_name,
-								} };
+	//BgwPolicyReorder policy = { .fd = {
+	//								.hypertable_id = hypertable_id,
+	//								.hypertable_index_name = *index_name,
+	//							} };
+	FormData_bgw_policy_reorder ffd;
+	ffd.hypertable_id = hypertable_id;
+	ffd.hypertable_index_name = *index_name;
+	BgwPolicyReorder policy = { .fd = ffd, };
 
 	owner_id = ts_hypertable_permissions_check(ht_oid, GetUserId());
 
@@ -143,23 +147,23 @@ reorder_add_policy(PG_FUNCTION_ARGS)
 	dim = hyperspace_get_open_dimension(ht->space, 0);
 
 	partitioning_type = ts_dimension_get_partition_type(dim);
-	if (dim && IS_TIMESTAMP_TYPE(partitioning_type))
-		default_schedule_interval = DatumGetIntervalP(
-			DirectFunctionCall7(make_interval,
-								Int32GetDatum(0),
-								Int32GetDatum(0),
-								Int32GetDatum(0),
-								Int32GetDatum(0),
-								Int32GetDatum(0),
-								Int32GetDatum(0),
-								Float8GetDatum(dim->fd.interval_length / 2000000)));
+	//if (dim && IS_TIMESTAMP_TYPE(partitioning_type))
+	//	default_schedule_interval = DatumGetIntervalP(
+	//		DirectFunctionCall7(make_interval,
+	//							Int32GetDatum(0),
+	//							Int32GetDatum(0),
+	//							Int32GetDatum(0),
+	//							Int32GetDatum(0),
+	//							Int32GetDatum(0),
+	//							Int32GetDatum(0),
+	//							Float8GetDatum(dim->fd.interval_length / 2000000)));
 
-	job_id = ts_bgw_job_insert_relation(&application_name,
-										&reorder_name,
-										default_schedule_interval,
-										DEFAULT_MAX_RUNTIME,
-										DEFAULT_MAX_RETRIES,
-										DEFAULT_RETRY_PERIOD);
+	//job_id = ts_bgw_job_insert_relation(&application_name,
+	//									&reorder_name,
+	//									default_schedule_interval,
+	//									DEFAULT_MAX_RUNTIME,
+	//									DEFAULT_MAX_RETRIES,
+	//									DEFAULT_RETRY_PERIOD);
 
 	/* Now, insert a new row in the reorder args table */
 	policy.fd.job_id = job_id;

@@ -48,28 +48,28 @@ static inline void bit_array_wrap_internal(BitArray *array, uint32 num_buckets,
 static inline void
 bit_array_init(BitArray *array)
 {
-	*array = (BitArray){
-		.bits_used_in_last_bucket = 0,
-	};
+	//*array = (BitArray){
+	//	.bits_used_in_last_bucket = 0,
+	//};
 	uint64_vec_init(&array->buckets, CurrentMemoryContext, 0);
 }
 
 /* This initializes the bit array by wrapping buckets. Note, that the bit array will
  * point to buckets instead of creating a new copy. */
-static inline void
-bit_array_wrap_internal(BitArray *array, uint32 num_buckets, uint8 bits_used_in_last_bucket,
-						uint64 *buckets)
-{
-	*array = (BitArray){
-		.bits_used_in_last_bucket = bits_used_in_last_bucket,
-		.buckets =
-			(uint64_vec){
-				.data = buckets,
-				.num_elements = num_buckets,
-				.max_elements = num_buckets,
-			},
-	};
-}
+//static inline void
+//bit_array_wrap_internal(BitArray *array, uint32 num_buckets, uint8 bits_used_in_last_bucket,
+//						uint64 *buckets)
+//{
+//	//*array = (BitArray){
+//	//	.bits_used_in_last_bucket = bits_used_in_last_bucket,
+//	//	.buckets =
+//	//		(uint64_vec){
+//	//			.data = buckets,
+//	//			.num_elements = num_buckets,
+//	//			.max_elements = num_buckets,
+//	//		},
+//	//};
+//}
 
 static inline size_t
 bit_array_data_bytes_used(const BitArray *array)
@@ -109,20 +109,20 @@ bit_array_recv(const StringInfo buffer)
 	if (bits_used_in_last_bucket > BITS_PER_BUCKET)
 		elog(ERROR, "invalid number of bits in last bucket of bit array");
 
-	array = (BitArray){
-		.bits_used_in_last_bucket = bits_used_in_last_bucket,
-		.buckets = {
-			.num_elements = num_elements,
-			.max_elements = num_elements,
-			.ctx = CurrentMemoryContext,
-			.data = palloc0(num_elements * sizeof(uint64)),
-		},
-	};
+	//array = (BitArray){
+	//	.bits_used_in_last_bucket = bits_used_in_last_bucket,
+	//	.buckets = {
+	//		.num_elements = num_elements,
+	//		.max_elements = num_elements,
+	//		.ctx = CurrentMemoryContext,
+	//		.data = palloc0(num_elements * sizeof(uint64)),
+	//	},
+	//};
 
-	for (i = 0; i < num_elements; i++)
-		array.buckets.data[i] = pq_getmsgint64(buffer);
+	//for (i = 0; i < num_elements; i++)
+	//	array.buckets.data[i] = pq_getmsgint64(buffer);
 
-	return array;
+	//return array;
 }
 
 static inline void
@@ -291,15 +291,15 @@ bit_array_iter_next(BitArrayIterator *iter, uint8 num_bits)
 	return value;
 }
 
-static inline void
-bit_array_iterator_init_rev(BitArrayIterator *iter, const BitArray *array)
-{
-	*iter = (BitArrayIterator){
-		.array = array,
-		.current_bucket = array->buckets.num_elements - 1,
-		.bits_used_in_current_bucket = array->bits_used_in_last_bucket,
-	};
-}
+//static inline void
+//bit_array_iterator_init_rev(BitArrayIterator *iter, const BitArray *array)
+//{
+//	*iter = (BitArrayIterator){
+//		.array = array,
+//		.current_bucket = array->buckets.num_elements - 1,
+//		.bits_used_in_current_bucket = array->bits_used_in_last_bucket,
+//	};
+//}
 
 static inline uint64
 bit_array_iter_next_rev(BitArrayIterator *iter, uint8 num_bits)

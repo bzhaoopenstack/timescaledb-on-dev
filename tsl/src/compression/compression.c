@@ -7,7 +7,8 @@
 #include "compression/compression.h"
 
 #include <access/heapam.h>
-#include <access/htup_details.h>
+//#include <access/htup_details.h>
+#include <access/htup.h>
 #include <access/multixact.h>
 #include <access/xact.h>
 #include <catalog/namespace.h>
@@ -30,6 +31,8 @@
 #include <utils/tuplesort.h>
 #include <utils/typcache.h>
 
+#include <knl/knl_session.h>
+
 #include <base64_compat.h>
 #include <catalog.h>
 #include <utils.h>
@@ -50,12 +53,12 @@
 #define COMPRESSIONCOL_IS_SEGMENT_BY(col) (col->segmentby_column_index > 0)
 #define COMPRESSIONCOL_IS_ORDER_BY(col) (col->orderby_column_index > 0)
 
-static const CompressionAlgorithmDefinition definitions[_END_COMPRESSION_ALGORITHMS] = {
-	[COMPRESSION_ALGORITHM_ARRAY] = ARRAY_ALGORITHM_DEFINITION,
-	[COMPRESSION_ALGORITHM_DICTIONARY] = DICTIONARY_ALGORITHM_DEFINITION,
-	[COMPRESSION_ALGORITHM_GORILLA] = GORILLA_ALGORITHM_DEFINITION,
-	[COMPRESSION_ALGORITHM_DELTADELTA] = DELTA_DELTA_ALGORITHM_DEFINITION,
-};
+//static const CompressionAlgorithmDefinition definitions[_END_COMPRESSION_ALGORITHMS] = {
+//	[COMPRESSION_ALGORITHM_ARRAY] = ARRAY_ALGORITHM_DEFINITION,
+//	[COMPRESSION_ALGORITHM_DICTIONARY] = DICTIONARY_ALGORITHM_DEFINITION,
+//	[COMPRESSION_ALGORITHM_GORILLA] = GORILLA_ALGORITHM_DEFINITION,
+//	[COMPRESSION_ALGORITHM_DELTADELTA] = DELTA_DELTA_ALGORITHM_DEFINITION,
+//};
 
 static Compressor *
 compressor_for_algorithm_and_type(CompressionAlgorithms algorithm, Oid type)
@@ -63,7 +66,7 @@ compressor_for_algorithm_and_type(CompressionAlgorithms algorithm, Oid type)
 	if (algorithm >= _END_COMPRESSION_ALGORITHMS)
 		elog(ERROR, "invalid compression algorithm %d", algorithm);
 
-	return definitions[algorithm].compressor_for_type(type);
+	//return definitions[algorithm].compressor_for_type(type);
 }
 
 DecompressionIterator *(*tsl_get_decompression_iterator_init(CompressionAlgorithms algorithm,
@@ -72,10 +75,10 @@ DecompressionIterator *(*tsl_get_decompression_iterator_init(CompressionAlgorith
 	if (algorithm >= _END_COMPRESSION_ALGORITHMS)
 		elog(ERROR, "invalid compression algorithm %d", algorithm);
 
-	if (reverse)
-		return definitions[algorithm].iterator_init_reverse;
-	else
-		return definitions[algorithm].iterator_init_forward;
+	//if (reverse)
+	//	return definitions[algorithm].iterator_init_reverse;
+	//else
+	//	return definitions[algorithm].iterator_init_forward;
 }
 
 typedef struct SegmentInfo
@@ -353,10 +356,10 @@ compress_chunk_sort_relation(Relation in_rel, int n_keys, const ColumnCompressio
 										  sort_operators,
 										  sort_collations,
 										  nulls_first,
-										  work_mem,
-#if PG11_GE
-										  NULL,
-#endif
+										  u_sess->attr.attr_memory.work_mem,
+//#if PG11_GE
+//										  NULL,
+//#endif
 										  false /*=randomAccess*/);
 
 	heapScan = table_beginscan(in_rel, GetLatestSnapshot(), 0, (ScanKey) NULL);
@@ -368,11 +371,11 @@ compress_chunk_sort_relation(Relation in_rel, int n_keys, const ColumnCompressio
 			// TODO is this the most efficient way to do this?
 			//     (since we use begin_heap() the tuplestore expects tupleslots,
 			//      so ISTM that the options are this or maybe putdatum())
-#if PG12_LT
+//#if PG12_LT
 			ExecStoreTuple(tuple, heap_tuple_slot, InvalidBuffer, false);
-#else
-			ExecStoreHeapTuple(tuple, heap_tuple_slot, false);
-#endif
+//#else
+//			ExecStoreHeapTuple(tuple, heap_tuple_slot, false);
+//#endif
 
 			tuplesort_puttupleslot(tuplesortstate, heap_tuple_slot);
 		}
@@ -468,26 +471,26 @@ row_compressor_init(RowCompressor *row_compressor, TupleDesc uncompressed_tuple_
 			 "missing metadata column '%s' in compressed table",
 			 COMPRESSION_COLUMN_METADATA_SEQUENCE_NUM_NAME);
 
-	*row_compressor = (RowCompressor){
-		.per_row_ctx = AllocSetContextCreate(CurrentMemoryContext,
-											 "compress chunk per-row",
-											 ALLOCSET_DEFAULT_SIZES),
-		.compressed_table = compressed_table,
-		.bistate = GetBulkInsertState(),
-		.n_input_columns = uncompressed_tuple_desc->natts,
-		.per_column = palloc0(sizeof(PerColumn) * uncompressed_tuple_desc->natts),
-		.uncompressed_col_to_compressed_col =
-			palloc0(sizeof(*row_compressor->uncompressed_col_to_compressed_col) *
-					uncompressed_tuple_desc->natts),
-		.count_metadata_column_offset = AttrNumberGetAttrOffset(count_metadata_column_num),
-		.sequence_num_metadata_column_offset = AttrNumberGetAttrOffset(sequence_num_column_num),
-		.compressed_values = palloc(sizeof(Datum) * num_columns_in_compressed_table),
-		.compressed_is_null = palloc(sizeof(bool) * num_columns_in_compressed_table),
-		.rows_compressed_into_current_value = 0,
-		.sequence_num = SEQUENCE_NUM_GAP,
-	};
+	//*row_compressor = (RowCompressor){
+	//	.per_row_ctx = AllocSetContextCreate(CurrentMemoryContext,
+	//										 "compress chunk per-row",
+	//										 ALLOCSET_DEFAULT_SIZES),
+	//	.compressed_table = compressed_table,
+	//	.bistate = GetBulkInsertState(),
+	//	.n_input_columns = uncompressed_tuple_desc->natts,
+	//	.per_column = palloc0(sizeof(PerColumn) * uncompressed_tuple_desc->natts),
+	//	.uncompressed_col_to_compressed_col =
+	//		palloc0(sizeof(*row_compressor->uncompressed_col_to_compressed_col) *
+	//				uncompressed_tuple_desc->natts),
+	//	.count_metadata_column_offset = AttrNumberGetAttrOffset(count_metadata_column_num),
+	//	.sequence_num_metadata_column_offset = AttrNumberGetAttrOffset(sequence_num_column_num),
+	//	.compressed_values = palloc(sizeof(Datum) * num_columns_in_compressed_table),
+	//	.compressed_is_null = palloc(sizeof(bool) * num_columns_in_compressed_table),
+	//	.rows_compressed_into_current_value = 0,
+	//	.sequence_num = SEQUENCE_NUM_GAP,
+	//};
 
-	memset(row_compressor->compressed_is_null, 1, sizeof(bool) * num_columns_in_compressed_table);
+	//memset(row_compressor->compressed_is_null, 1, sizeof(bool) * num_columns_in_compressed_table);
 
 	for (col = 0; col < num_compression_infos; col++)
 	{
@@ -545,11 +548,11 @@ row_compressor_init(RowCompressor *row_compressor, TupleDesc uncompressed_tuple_
 				elog(ERROR,
 					 "expected segment by column \"%s\" to be same type as uncompressed column",
 					 compression_info->attname.data);
-			*column = (PerColumn){
-				.segment_info = segment_info_new(column_attr),
-				.min_metadata_attr_offset = -1,
-				.max_metadata_attr_offset = -1,
-			};
+			//*column = (PerColumn){
+			//	.segment_info = segment_info_new(column_attr),
+			//	.min_metadata_attr_offset = -1,
+			//	.max_metadata_attr_offset = -1,
+			//};
 		}
 	}
 }
@@ -565,23 +568,23 @@ row_compressor_append_sorted_rows(RowCompressor *row_compressor, Tuplesortstate 
 
 	for (got_tuple = tuplesort_gettupleslot(sorted_rel,
 											true /*=forward*/,
-#if !PG96
-											false /*=copy*/,
-#endif
+//#if !PG96
+//											false /*=copy*/,
+//#endif
 											slot,
 											NULL /*=abbrev*/);
 		 got_tuple;
 		 got_tuple = tuplesort_gettupleslot(sorted_rel,
 											true /*=forward*/,
-#if !PG96
-											false /*=copy*/,
-#endif
+//#if !PG96
+//											false /*=copy*/,
+//#endif
 											slot,
 											NULL /*=abbrev*/))
 	{
 		bool changed_groups, compressed_row_is_full;
 		MemoryContext old_ctx;
-		slot_getallattrs(slot);
+		//slot_getallattrs(slot);
 		old_ctx = MemoryContextSwitchTo(row_compressor->per_row_ctx);
 
 		/* first time through */
@@ -634,8 +637,8 @@ row_compressor_update_group(RowCompressor *row_compressor, TupleTableSlot *row)
 
 		MemoryContextSwitchTo(row_compressor->per_row_ctx->parent);
 		// TODO we should just use array access here; everything is guaranteed to be fetched
-		val = slot_getattr(row, AttrOffsetGetAttrNumber(col), &is_null);
-		segment_info_update(column->segment_info, val, is_null);
+		//val = slot_getattr(row, AttrOffsetGetAttrNumber(col), &is_null);
+		//segment_info_update(column->segment_info, val, is_null);
 		MemoryContextSwitchTo(row_compressor->per_row_ctx);
 	}
 }
@@ -655,10 +658,10 @@ row_compressor_new_row_is_in_new_group(RowCompressor *row_compressor, TupleTable
 
 		Assert(column->compressor == NULL);
 
-		datum = slot_getattr(row, AttrOffsetGetAttrNumber(col), &is_null);
+		//datum = slot_getattr(row, AttrOffsetGetAttrNumber(col), &is_null);
 
-		if (!segment_info_datum_is_in_group(column->segment_info, datum, is_null))
-			return true;
+		//if (!segment_info_datum_is_in_group(column->segment_info, datum, is_null))
+		//	return true;
 	}
 
 	return false;
@@ -680,7 +683,7 @@ row_compressor_append_row(RowCompressor *row_compressor, TupleTableSlot *row)
 
 		// TODO since we call getallatts at the beginning, slot_getattr is useless
 		//     overhead here, and we should just access the array directly
-		val = slot_getattr(row, AttrOffsetGetAttrNumber(col), &is_null);
+		//val = slot_getattr(row, AttrOffsetGetAttrNumber(col), &is_null);
 		if (is_null)
 		{
 			compressor->append_null(compressor);
@@ -691,10 +694,10 @@ row_compressor_append_row(RowCompressor *row_compressor, TupleTableSlot *row)
 		else
 		{
 			compressor->append_val(compressor, val);
-			if (row_compressor->per_column[col].min_max_metadata_builder != NULL)
-				segment_meta_min_max_builder_update_val(row_compressor->per_column[col]
-															.min_max_metadata_builder,
-														val);
+			//if (row_compressor->per_column[col].min_max_metadata_builder != NULL)
+			//	segment_meta_min_max_builder_update_val(row_compressor->per_column[col]
+			//												.min_max_metadata_builder,
+			//											val);
 		}
 	}
 
@@ -849,10 +852,10 @@ segment_info_new(Form_pg_attribute column_attr)
 		lookup_type_cache(column_attr->atttypid, TYPECACHE_EQ_OPR_FINFO)->eq_opr_finfo.fn_oid;
 	SegmentInfo *segment_info = palloc(sizeof(*segment_info));
 
-	*segment_info = (SegmentInfo){
-		.typlen = column_attr->attlen,
-		.typ_by_val = column_attr->attbyval,
-	};
+	//*segment_info = (SegmentInfo){
+	//	.typlen = column_attr->attlen,
+	//	.typ_by_val = column_attr->attbyval,
+	//};
 
 	if (!OidIsValid(eq_fn_oid))
 		elog(ERROR, "no equality function for column \"%s\"", NameStr(column_attr->attname));
@@ -1082,10 +1085,10 @@ create_per_compressed_column(TupleDesc in_desc, TupleDesc out_desc, Oid out_reli
 		AttrNumber decompressed_colnum = get_attnum(out_relid, col_name);
 		if (!AttributeNumberIsValid(decompressed_colnum))
 		{
-			*per_compressed_col = (PerCompressedColumn){
-				.decompressed_column_offset = -1,
-				.is_null = true,
-			};
+			//*per_compressed_col = (PerCompressedColumn){
+			//	.decompressed_column_offset = -1,
+			//	.is_null = true,
+			//};
 			continue;
 		}
 
@@ -1103,12 +1106,12 @@ create_per_compressed_column(TupleDesc in_desc, TupleDesc out_desc, Oid out_reli
 				 format_type_be(decompressed_type),
 				 col_name);
 
-		*per_compressed_col = (PerCompressedColumn){
-			.decompressed_column_offset = decompressed_column_offset,
-			.is_null = true,
-			.is_compressed = is_compressed,
-			.decompressed_type = decompressed_type,
-		};
+		//*per_compressed_col = (PerCompressedColumn){
+		//	.decompressed_column_offset = decompressed_column_offset,
+		//	.is_null = true,
+		//	.is_compressed = is_compressed,
+		//	.decompressed_type = decompressed_type,
+		//};
 	}
 
 	return per_compressed_cols;
@@ -1138,9 +1141,9 @@ populate_per_compressed_columns_from_data(PerCompressedColumn *per_compressed_co
 			char *data = (char *) PG_DETOAST_DATUM(compressed_datums[col]);
 			CompressedDataHeader *header = (CompressedDataHeader *) data;
 
-			per_col->iterator =
-				definitions[header->compression_algorithm]
-					.iterator_init_forward(PointerGetDatum(data), per_col->decompressed_type);
+			//per_col->iterator =
+			//	definitions[header->compression_algorithm]
+			//		.iterator_init_forward(PointerGetDatum(data), per_col->decompressed_type);
 		}
 		else
 			per_col->val = compressed_datums[col];
@@ -1265,11 +1268,11 @@ tsl_compressed_data_decompress_forward(PG_FUNCTION_ARGS)
 		funcctx = SRF_FIRSTCALL_INIT();
 		oldcontext = MemoryContextSwitchTo(funcctx->multi_call_memory_ctx);
 
-		iter =
-			definitions[header->compression_algorithm]
-				.iterator_init_forward(PG_GETARG_DATUM(0), get_fn_expr_argtype(fcinfo->flinfo, 1));
-
-		funcctx->user_fctx = iter;
+//		iter =
+//			definitions[header->compression_algorithm]
+//				.iterator_init_forward(PG_GETARG_DATUM(0), get_fn_expr_argtype(fcinfo->flinfo, 1));
+//
+//		funcctx->user_fctx = iter;
 		MemoryContextSwitchTo(oldcontext);
 	}
 
@@ -1281,8 +1284,8 @@ tsl_compressed_data_decompress_forward(PG_FUNCTION_ARGS)
 	if (res.is_done)
 		SRF_RETURN_DONE(funcctx);
 
-	if (res.is_null)
-		SRF_RETURN_NEXT_NULL(funcctx);
+	//if (res.is_null)
+	//	SRF_RETURN_NEXT_NULL(funcctx);
 
 	SRF_RETURN_NEXT(funcctx, res.val);
 }
@@ -1307,11 +1310,11 @@ tsl_compressed_data_decompress_reverse(PG_FUNCTION_ARGS)
 		funcctx = SRF_FIRSTCALL_INIT();
 		oldcontext = MemoryContextSwitchTo(funcctx->multi_call_memory_ctx);
 
-		iter =
-			definitions[header->compression_algorithm]
-				.iterator_init_reverse(PG_GETARG_DATUM(0), get_fn_expr_argtype(fcinfo->flinfo, 1));
+		//iter =
+		//	definitions[header->compression_algorithm]
+		//		.iterator_init_reverse(PG_GETARG_DATUM(0), get_fn_expr_argtype(fcinfo->flinfo, 1));
 
-		funcctx->user_fctx = iter;
+		//funcctx->user_fctx = iter;
 		MemoryContextSwitchTo(oldcontext);
 	}
 
@@ -1323,8 +1326,8 @@ tsl_compressed_data_decompress_reverse(PG_FUNCTION_ARGS)
 	if (res.is_done)
 		SRF_RETURN_DONE(funcctx);
 
-	if (res.is_null)
-		SRF_RETURN_NEXT_NULL(funcctx);
+//	if (res.is_null)
+//		SRF_RETURN_NEXT_NULL(funcctx);
 
 	SRF_RETURN_NEXT(funcctx, res.val);
 	;
@@ -1338,7 +1341,7 @@ tsl_compressed_data_send(PG_FUNCTION_ARGS)
 	pq_begintypsend(&buf);
 	pq_sendbyte(&buf, header->compression_algorithm);
 
-	definitions[header->compression_algorithm].compressed_data_send(header, &buf);
+	//definitions[header->compression_algorithm].compressed_data_send(header, &buf);
 
 	PG_RETURN_BYTEA_P(pq_endtypsend(&buf));
 }
@@ -1351,7 +1354,7 @@ tsl_compressed_data_recv(PG_FUNCTION_ARGS)
 
 	header.compression_algorithm = pq_getmsgbyte(buf);
 
-	return definitions[header.compression_algorithm].compressed_data_recv(buf);
+	//return definitions[header.compression_algorithm].compressed_data_recv(buf);
 }
 
 extern Datum
@@ -1402,5 +1405,5 @@ compression_get_toast_storage(CompressionAlgorithms algorithm)
 {
 	if (algorithm == _INVALID_COMPRESSION_ALGORITHM || algorithm >= _END_COMPRESSION_ALGORITHMS)
 		elog(ERROR, "invalid compression algorithm %d", algorithm);
-	return definitions[algorithm].compressed_data_storage;
+	//return definitions[algorithm].compressed_data_storage;
 }

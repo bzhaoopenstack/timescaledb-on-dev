@@ -23,37 +23,37 @@
  * Default scheduled interval for compress jobs = default chunk length.
  * If this is non-timestamp based hypertable, then default is 1 day
  */
-#define DEFAULT_SCHEDULE_INTERVAL                                                                  \
-	DatumGetIntervalP(DirectFunctionCall7(make_interval,                                           \
-										  Int32GetDatum(0),                                        \
-										  Int32GetDatum(0),                                        \
-										  Int32GetDatum(0),                                        \
-										  Int32GetDatum(1),                                        \
-										  Int32GetDatum(0),                                        \
-										  Int32GetDatum(0),                                        \
-										  Float8GetDatum(0)))
-/* Default max runtime is unlimited for compress chunks */
-#define DEFAULT_MAX_RUNTIME                                                                        \
-	DatumGetIntervalP(DirectFunctionCall7(make_interval,                                           \
-										  Int32GetDatum(0),                                        \
-										  Int32GetDatum(0),                                        \
-										  Int32GetDatum(0),                                        \
-										  Int32GetDatum(0),                                        \
-										  Int32GetDatum(0),                                        \
-										  Int32GetDatum(0),                                        \
-										  Float8GetDatum(0)))
-/* Right now, there is an infinite number of retries for compress_chunks jobs */
-#define DEFAULT_MAX_RETRIES -1
-/* Default retry period for reorder_jobs is currently 1 hour */
-#define DEFAULT_RETRY_PERIOD                                                                       \
-	DatumGetIntervalP(DirectFunctionCall7(make_interval,                                           \
-										  Int32GetDatum(0),                                        \
-										  Int32GetDatum(0),                                        \
-										  Int32GetDatum(0),                                        \
-										  Int32GetDatum(0),                                        \
-										  Int32GetDatum(1),                                        \
-										  Int32GetDatum(0),                                        \
-										  Float8GetDatum(0)))
+//#define DEFAULT_SCHEDULE_INTERVAL                                                                  \
+//	DatumGetIntervalP(DirectFunctionCall7(make_interval,                                           \
+//										  Int32GetDatum(0),                                        \
+//										  Int32GetDatum(0),                                        \
+//										  Int32GetDatum(0),                                        \
+//										  Int32GetDatum(1),                                        \
+//										  Int32GetDatum(0),                                        \
+//										  Int32GetDatum(0),                                        \
+//										  Float8GetDatum(0)))
+///* Default max runtime is unlimited for compress chunks */
+//#define DEFAULT_MAX_RUNTIME                                                                        \
+//	DatumGetIntervalP(DirectFunctionCall7(make_interval,                                           \
+//										  Int32GetDatum(0),                                        \
+//										  Int32GetDatum(0),                                        \
+//										  Int32GetDatum(0),                                        \
+//										  Int32GetDatum(0),                                        \
+//										  Int32GetDatum(0),                                        \
+//										  Int32GetDatum(0),                                        \
+//										  Float8GetDatum(0)))
+///* Right now, there is an infinite number of retries for compress_chunks jobs */
+//#define DEFAULT_MAX_RETRIES -1
+///* Default retry period for reorder_jobs is currently 1 hour */
+//#define DEFAULT_RETRY_PERIOD                                                                       \
+//	DatumGetIntervalP(DirectFunctionCall7(make_interval,                                           \
+//										  Int32GetDatum(0),                                        \
+//										  Int32GetDatum(0),                                        \
+//										  Int32GetDatum(0),                                        \
+//										  Int32GetDatum(0),                                        \
+//										  Int32GetDatum(1),                                        \
+//										  Int32GetDatum(0),                                        \
+//										  Float8GetDatum(0)))
 
 Datum
 compress_chunks_add_policy(PG_FUNCTION_ARGS)
@@ -66,7 +66,7 @@ compress_chunks_add_policy(PG_FUNCTION_ARGS)
 	Datum older_than_datum = PG_GETARG_DATUM(1);
 	Oid older_than_type = PG_ARGISNULL(1) ? InvalidOid : get_fn_expr_argtype(fcinfo->flinfo, 1);
 	bool if_not_exists = PG_GETARG_BOOL(2);
-	Interval *default_schedule_interval = DEFAULT_SCHEDULE_INTERVAL;
+	//Interval *default_schedule_interval = DEFAULT_SCHEDULE_INTERVAL;
 
 	BgwPolicyCompressChunks policy;
 	Hypertable *hypertable;
@@ -128,21 +128,21 @@ compress_chunks_add_policy(PG_FUNCTION_ARGS)
 	}
 	dim = hyperspace_get_open_dimension(hypertable->space, 0);
 
-	if (dim && IS_TIMESTAMP_TYPE(ts_dimension_get_partition_type(dim)))
-	{
-		default_schedule_interval = DatumGetIntervalP(
-			ts_internal_to_interval_value(dim->fd.interval_length / 2, INTERVALOID));
-	}
+	//if (dim && IS_TIMESTAMP_TYPE(ts_dimension_get_partition_type(dim)))
+	//{
+	//	default_schedule_interval = DatumGetIntervalP(
+	//		ts_internal_to_interval_value(dim->fd.interval_length / 2, INTERVALOID));
+	//}
 
 	/* insert a new job into jobs table */
 	namestrcpy(&application_name, "Compress Chunks Background Job");
 	namestrcpy(&compress_chunks_name, "compress_chunks");
-	job_id = ts_bgw_job_insert_relation(&application_name,
-										&compress_chunks_name,
-										default_schedule_interval,
-										DEFAULT_MAX_RUNTIME,
-										DEFAULT_MAX_RETRIES,
-										DEFAULT_RETRY_PERIOD);
+	//job_id = ts_bgw_job_insert_relation(&application_name,
+	//									&compress_chunks_name,
+	//									default_schedule_interval,
+	//									DEFAULT_MAX_RUNTIME,
+	//									DEFAULT_MAX_RETRIES,
+	//									DEFAULT_RETRY_PERIOD);
 
 	policy = (BgwPolicyCompressChunks){ .fd = {
 											.job_id = job_id,
