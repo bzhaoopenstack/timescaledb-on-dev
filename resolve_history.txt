@@ -1,0 +1,2210 @@
+/opt/timescaledb/src/bgw/scheduler.h
+
+bgw module missed
+
+/opt/timescaledb/src/bgw/job.h:12:10: fatal error: postmaster/bgworker.h: No such file or directory
+ #include <postmaster/bgworker.h>
+
+ 
+In file included from /opt/timescaledb/src/chunk.c:44:0:
+/opt/timescaledb/src/cross_module_fn.h:11:10: fatal error: commands/event_trigger.h: No such file or directory
+ #include <commands/event_trigger.h>
+          ^~~~~~~~~~~~~~~~~~~~~~~~~~
+
+In file included from /opt/timescaledb/src/chunk.c:44:0:
+/opt/timescaledb/src/cross_module_fn.h:14:10: fatal error: utils/jsonb.h: No such file or directory
+ #include <utils/jsonb.h>
+          ^~~~~~~~~~~~~~~
+https://github.com/opengauss-mirror/openGauss-server/commit/4151b0666904473f688b44e1c629509ee84be07d
+
+
+/opt/timescaledb/src/process_utility.h  No enum type ProcessUtilityContext in openGauss
+#include <postgres.h>
+#include <nodes/plannodes.h>
+#include <tcop/utility.h>
+#include "hypertable_cache.h"
+#include "compat.h"
+
+typedef struct ProcessUtilityArgs
+{
+        Cache *hcache;
+/*
+ *#if !PG96
+ *      PlannedStmt *pstmt;
+ *      QueryEnvironment *queryEnv;
+ *      ParseState *parse_state;
+ *#endif
+ */
+        Node *parsetree;
+        const char *query_string;
+        ProcessUtilityContext context;
+        ParamListInfo params;
+        DestReceiver *dest;
+        List *hypertable_list;
+        char *completion_tag;
+} ProcessUtilityArgs;
+
+
+
+/opt/timescaledb/src/chunk.c: In function ‘void create_toast_table(CreateStmt*, Oid)’:
+/opt/timescaledb/src/chunk.c:599:2: error: ‘NewRelationCreateToastTable’ was not declared in this scope
+  NewRelationCreateToastTable(chunk_oid, toast_options);
+  ^~~~~~~~~~~~~~~~~~~~~~~~~~~
+Different implementation
+
+
+openGauss doesn't support ForeignKeyCacheInfo ForeignKeyCacheInfo
+In file included from /opt/timescaledb/src/agg_bookend.c:18:0:
+/opt/timescaledb/src/compat.h:984:2: error: ‘ForeignKeyCacheInfo’ does not name a type; did you mean ‘ForeignKeyCacheInfoCompat’?
+  ForeignKeyCacheInfo base;
+  ^~~~~~~~~~~~~~~~~~~
+  ForeignKeyCacheInfoCompat
+
+  
+
+No psprintf in openGauss
+psprintf("some chunks could not be read since they are being concurrently updated");
+
+
+No pg_unreachable
+pg_unreachable();
+
+
+‘TableScanDesc ‘HeapScanDesc are different in OG
+/opt/timescaledb/src/chunk_adaptive.c: In function ‘MinMaxResult minmax_heapscan(Relation, Oid, AttrNumber, Datum*)’:
+/opt/timescaledb/src/chunk_adaptive.c:150:62: error: cannot convert ‘TableScanDesc {aka TableScanDescData*}’ to ‘HeapScanDesc {aka HeapScanDescData*}’ in assignment
+  scan = heap_beginscan(rel, GetTransactionSnapshot(), 0, NULL);
+                                                              ^
+
+没有slot_getattr定义
+/opt/timescaledb/src/chunk_adaptive.c: In function ‘MinMaxResult minmax_indexscan(Relation, Relation, AttrNumber, Datum*)’:
+/opt/timescaledb/src/chunk_adaptive.c:203:15: error: ‘slot_getattr’ was not declared in this scope
+   minmax[i] = slot_getattr(slot, attnum, &isnull);
+               ^~~~~~~~~~~~
+/opt/timescaledb/src/chunk_adaptive.c:203:15: note: suggested alternative: ‘fastgetattr’
+   minmax[i] = slot_getattr(slot, attnum, &isnull);
+               ^~~~~~~~~~~~
+               fastgetattr
+
+
+Miss extensible node types.
+cc1plus: warning: command line option ‘-std=gnu11’ is valid for C/ObjC but not for C++
+/opt/timescaledb/src/chunk_dispatch.c:8:10: fatal error: nodes/extensible.h: No such file or directory
+ #include <nodes/extensible.h>
+          ^~~~~~~~~~~~~~~~~~~~
+miss CustomScanState
+In file included from /opt/timescaledb/src/chunk_dispatch.h:17:0,
+                 from /opt/timescaledb/src/chunk_dispatch.c:15:
+/opt/timescaledb/src/chunk_dispatch_state.h:19:2: error: ‘CustomScanState’ does not name a type; did you mean ‘CStoreScanState’?
+  CustomScanState cscan_state;
+  ^~~~~~~~~~~~~~~
+  CStoreScanState
+
+
+miss OnConflictAction enum type
+In file included from /opt/timescaledb/src/chunk_dispatch.c:15:0:
+/opt/timescaledb/src/chunk_dispatch.h:53:8: error: ‘OnConflictAction’ does not name a type; did you mean ‘OnCommitAction’?
+ extern OnConflictAction ts_chunk_dispatch_get_on_conflict_action(const ChunkDispatch *dispatch);
+        ^~~~~~~~~~~~~~~~
+        OnCommitAction
+
+		
+		
+No CustomPath and ModifyTableState provides
+In file included from /opt/timescaledb/src/chunk_dispatch_plan.c:16:0:
+/opt/timescaledb/src/chunk_dispatch_plan.h:16:2: error: ‘CustomPath’ does not name a type; did you mean ‘NestPath’?
+  CustomPath cpath;
+  ^~~~~~~~~~
+  NestPath
+/opt/timescaledb/src/chunk_dispatch_plan.h:17:2: error: ‘ModifyTablePath’ does not name a type; did you mean ‘ModifyTableState’?
+  ModifyTablePath *mtpath;
+  ^~~~~~~~~~~~~~~
+  ModifyTableState
+
+  
+  
+All codes are commented due to lacking  #include <nodes/extensible.h>
+vi /opt/timescaledb/src/chunk_dispatch.c
+vi /opt/timescaledb/src/chunk_dispatch.h
+vi /opt/timescaledb/src/chunk_dispatch_plan.c
+vi /opt/timescaledb/src/chunk_dispatch_state.c
+
+No T_CustomScanState
+/opt/timescaledb/src/chunk_dispatch_state.c: In function ‘ChunkDispatchState* ts_chunk_dispatch_state_create(Oid, Plan*)’:
+/opt/timescaledb/src/chunk_dispatch_state.c:185:69: error: ‘T_CustomScanState’ was not declared in this scope
+  state = (ChunkDispatchState *) newNode(sizeof(ChunkDispatchState), T_CustomScanState);
+                                                                     ^
+
+No utils/rls.h in OG																	 
+cc1plus: warning: command line option ‘-std=gnu11’ is valid for C/ObjC but not for C++
+/opt/timescaledb/src/chunk_insert_state.c:14:10: fatal error: utils/rls.h: No such file or directory
+ #include <utils/rls.h>
+
+  
+‘ResultRelInfo miss ri_WithCheckOptions and ri_WithCheckOptionExprs attrs
+/opt/timescaledb/src/chunk_insert_state.c:115:7: error: ‘ResultRelInfo {aka struct ResultRelInfo}’ has no member named ‘ri_WithCheckOptions’
+  rri->ri_WithCheckOptions = rri_orig->ri_WithCheckOptions;
+       ^~~~~~~~~~~~~~~~~~~
+/opt/timescaledb/src/chunk_insert_state.c:115:39: error: ‘ResultRelInfo {aka struct ResultRelInfo}’ has no member named ‘ri_WithCheckOptions’
+  rri->ri_WithCheckOptions = rri_orig->ri_WithCheckOptions;
+                                       ^~~~~~~~~~~~~~~~~~~
+/opt/timescaledb/src/chunk_insert_state.c:116:7: error: ‘ResultRelInfo {aka struct ResultRelInfo}’ has no member named ‘ri_WithCheckOptionExprs’
+  rri->ri_WithCheckOptionExprs = rri_orig->ri_WithCheckOptionExprs;
+       ^~~~~~~~~~~~~~~~~~~~~~~
+/opt/timescaledb/src/chunk_insert_state.c:116:43: error: ‘ResultRelInfo {aka struct ResultRelInfo}’ has no member named ‘ri_WithCheckOptionExprs’
+  rri->ri_WithCheckOptionExprs = rri_orig->ri_WithCheckOptionExprs;
+
+  
+ModifyTableState miss attrs mt_conflproj & mt_existing
+/opt/timescaledb/src/chunk_insert_state.c: In function ‘TupleTableSlot* get_default_confl_slot(ChunkInsertState*, ChunkDispatch*)’:
+/opt/timescaledb/src/chunk_insert_state.c:352:44: error: ‘ModifyTableState {aka struct ModifyTableState}’ has no member named ‘mt_conflproj’; did you mean ‘mt_mergeproj’?
+  return dispatch->dispatch_state->mtstate->mt_conflproj;
+                                            ^~~~~~~~~~~~
+                                            mt_mergeproj
+/opt/timescaledb/src/chunk_insert_state.c: In function ‘TupleTableSlot* get_confl_slot(ChunkInsertState*, ChunkDispatch*, TupleDesc)’:
+/opt/timescaledb/src/chunk_insert_state.c:358:44: error: ‘ModifyTableState {aka struct ModifyTableState}’ has no member named ‘mt_conflproj’; did you mean ‘mt_mergeproj’?
+  return dispatch->dispatch_state->mtstate->mt_conflproj;
+                                            ^~~~~~~~~~~~
+                                            mt_mergeproj
+/opt/timescaledb/src/chunk_insert_state.c: In function ‘TupleTableSlot* get_default_existing_slot(ChunkInsertState*, ChunkDispatch*)’:
+/opt/timescaledb/src/chunk_insert_state.c:364:44: error: ‘ModifyTableState {aka struct ModifyTableState}’ has no member named ‘mt_existing’; did you mean ‘mt_epqstate’?
+  return dispatch->dispatch_state->mtstate->mt_existing;
+                                            ^~~~~~~~~~~
+                                            mt_epqstate
+
+											
+不提供convert_tuples_by_name_map
+/opt/timescaledb/src/chunk_insert_state.c:403:19: error: ‘convert_tuples_by_name_map’ was not declared in this scope
+    chunk_attnos = convert_tuples_by_name_map(RelationGetDescr(chunk_rel),
+
+
+miss ri_onConflictSetProj ri_onConflictSetWhere attr in ResultRelInfo
+In file included from /opt/timescaledb/src/chunk_insert_state.c:26:0:
+/opt/timescaledb/src/compat.h:700:60: error: ‘ResultRelInfo {aka struct ResultRelInfo}’ has no member named ‘ri_onConflictSetProj’
+ #define ResultRelInfo_OnConflictProjInfoCompat(rri) (rri)->ri_onConflictSetProj
+                                                            ^
+/opt/timescaledb/src/chunk_insert_state.c:396:27: note: in expansion of macro ‘ResultRelInfo_OnConflictProjInfoCompat’
+   ExprContext *econtext = ResultRelInfo_OnConflictProjInfoCompat(hyper_rri)->pi_exprContext;
+                           ^
+
+						   
+miss get_confl_slot
+/opt/timescaledb/src/chunk_insert_state.c:419:27: error: ‘get_confl_slot’ was not declared in this scope
+   state->conflproj_slot = get_confl_slot(state, dispatch, state->conflproj_tupdesc);
+
+ 
+miss check_enable_rls
+/opt/timescaledb/src/chunk_insert_state.c:556:6: error: ‘check_enable_rls’ was not declared in this scope
+  if (check_enable_rls(chunk->table_id, InvalidOid, false) == RLS_ENABLED)
+      ^~~~~~~~~~~~~~~~
+
+	  
+miss table_slot_callbacks
+In file included from /opt/timescaledb/src/chunk_insert_state.c:26:0:
+/opt/timescaledb/src/chunk_insert_state.c:611:14: error: ‘table_slot_callbacks’ was not declared in this scope
+              table_slot_callbacks(resrelinfo->ri_RelationDesc));
+              ^
+
+  
+  
+  
+  
+NodeTag miss T_Result
+/opt/timescaledb/src/constraint_aware_append.c:111:8: error: ‘T_Result’ was not declared in this scope
+   case T_Result:
+        ^~~~~~~~
+
+		
+		
+depends on ‘CustomScanState’ , most part are commented
+/opt/timescaledb/src/constraint_aware_append.c:319:16: error: ‘CustomScanState’ was not declared in this scope
+  
+
+Not support global value setting constraint_exclusion
+  /opt/timescaledb/src/constraint_aware_append.c: In function ‘bool ts_constraint_aware_append_possible(Path*)’:
+/opt/timescaledb/src/constraint_aware_append.c:613:3: error: ‘constraint_exclusion’ was not declared in this scope
+   constraint_exclusion == CONSTRAINT_EXCLUSION_OFF)
+   ^~~~~~~~~~~~~~~~~~~~
+
+   
+No JsonbParseState struct
+ /opt/timescaledb/src/cross_module_fn.c: At global scope:
+/opt/timescaledb/src/cross_module_fn.c:280:23: error: variable or field ‘add_telemetry_default’ declared void
+ add_telemetry_default(JsonbParseState *parseState)
+
+ 
+ 
+ 
+ 
+ 
+utils/rls.h  again
+/opt/timescaledb/src/copy.c:34:10: fatal error: utils/rls.h: No such file or directory
+ #include <utils/rls.h>
+          ^~~~~~~~~~~~~
+
+		  
+miss ‘PreventCommandIfParallelMode’ func
+/opt/timescaledb/src/copy.c:616:2: error: ‘PreventCommandIfParallelMode’ was not declared in this scope
+  PreventCommandIfParallelMode("COPY FROM");
+  ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  
+  
+miss is_program attr in CopyStmt
+/opt/timescaledb/src/copy.c: In function ‘void timescaledb_DoCopy(const CopyStmt*, const char*, uint64*, Hypertable*)’:
+/opt/timescaledb/src/copy.c:633:13: error: ‘const CopyStmt {aka const struct CopyStmt}’ has no member named ‘is_program’; did you mean ‘is_from’?
+   if (stmt->is_program)
+             ^~~~~~~~~~
+             is_from
+
+  
+ExecARInsertTriggers not match params
+  /opt/timescaledb/src/compat.h:267:63: error: too few arguments to function ‘void ExecARInsertTriggers(EState*, ResultRelInfo*, Oid, int2, HeapTuple, List*)’
+   ExecARInsertTriggers(estate, relinfo, tuple, recheck_indexes);        
+  
+
+No namecpy
+/opt/timescaledb/src/dimension.c: In function ‘void dimension_fill_in_from_tuple(Dimension*, TupleInfo*, Oid)’:
+/opt/timescaledb/src/dimension.c:171:3: error: ‘namecpy’ was not declared in this scope
+   namecpy(&d->fd.integer_now_func_schema,
+   ^~~~~~~
+
+   
+   
+   
+No slot_getattr
+/opt/timescaledb/src/dimension.c: In function ‘Point* ts_hyperspace_calculate_point(Hyperspace*, TupleTableSlot*)’:
+/opt/timescaledb/src/dimension.c:737:12: error: ‘slot_getattr’ was not declared in this scope
+    datum = slot_getattr(slot, d->column_attno, &isnull);
+            ^~~~~~~~~~~~
+
+  
+  
+No HTSU_Result
+/opt/timescaledb/src/compat.h:314:19: error: ‘HTSU_Result’ does not name a type; did you mean ‘HTSV_Result’?
+ #define TM_Result HTSU_Result
+                   ^
+
+
+  
+  
+  
+No event_trigger.h
+[ 28%] Building C object src/CMakeFiles/timescaledb.dir/event_trigger.c.o
+cc1plus: warning: command line option ‘-std=gnu11’ is valid for C/ObjC but not for C++
+/opt/timescaledb/src/event_trigger.c:7:10: fatal error: commands/event_trigger.h: No such file or directory
+ #include <commands/event_trigger.h>
+
+  
+  
+
+  
+  
+  
+  
+No CollectedCommand
+  /opt/timescaledb/src/event_trigger.c:66:3: error: ‘CollectedCommand’ was not declared in this scope
+   CollectedCommand *cmd;
+
+
+No pg_constraint_fn.h
+/opt/timescaledb/src/hypertable.c:39:10: fatal error: catalog/pg_constraint_fn.h: No such file or directory
+ #include <catalog/pg_constraint_fn.h>
+
+  
+  
+No ‘authrole’ and .if_not_exists in ‘CreateSchemaStmt’
+/opt/timescaledb/src/hypertable.c: In function ‘void hypertable_create_schema(const char*)’:
+/opt/timescaledb/src/hypertable.c:1304:2: error: ‘CreateSchemaStmt’ has no non-static data member named ‘authrole’
+  };
+
+  
+  
+No  TM_WouldBlock
+/opt/timescaledb/src/hypertable.c:843:8: error: ‘TM_WouldBlock’ was not declared in this scope
+   case TM_WouldBlock:
+
+  
+
+  
+  
+CreateTriggerCompat's return_value is different
+/opt/timescaledb/src/hypertable.c:581:89: error: no match for ‘operator=’ (operand types are ‘ObjectAddress’ and ‘Oid {aka unsigned int}’)
+   CreateTriggerCompat(stmt, query, InvalidOid, InvalidOid, InvalidOid, InvalidOid, false);
+
+  
+No CacheMemoryContext
+/opt/timescaledb/src/hypertable_cache.c:56:25: error: ‘CacheMemoryContext’ was not declared in this scope
+   AllocSetContextCreate(CacheMemoryContext, "Hypertable cache", ALLOCSET_DEFAULT_SIZES);
+  
+  
+  
+No CreateCacheMemoryContext
+/opt/timescaledb/src/hypertable_cache.c:221:2: error: ‘CreateCacheMemoryContext’ was not declared in this scope
+  CreateCacheMemoryContext();
+
+  
+
+No CustomExecMethods
+/opt/timescaledb/src/hypertable_insert.c:109:8: error: ‘CustomExecMethods’ does not name a type; did you mean ‘ExtensibleExecMethods’?
+ static CustomExecMethods hypertable_insert_state_methods = {
+        ^~~~~~~~~~~~~~~~~
+  
+  
+No CustomScanMethods
+/opt/timescaledb/src/hypertable_insert.c:131:8: error: ‘CustomScanMethods’ does not name a type; did you mean ‘UnsuitableScanMethod’?
+ static CustomScanMethods hypertable_insert_plan_methods = {
+
+  
+  
+No CustomPathMethods
+  /opt/timescaledb/src/hypertable_insert.c:274:8: error: ‘CustomPathMethods’ does not name a type; did you mean ‘UniquePathMethod’?
+ static CustomPathMethods hypertable_insert_path_methods = {
+
+  
+  
+  
+  
+No EventTriggerAlterTableStart
+  /opt/timescaledb/src/indexing.c:336:2: error: ‘EventTriggerAlterTableStart’ was not declared in this scope
+  EventTriggerAlterTableStart((Node *) stmt);
+
+No indislive attr in ‘FormData_pg_index
+/opt/timescaledb/src/indexing.c: In function ‘bool ts_indexing_mark_as(Oid, IndexValidity)’:
+/opt/timescaledb/src/indexing.c:430:22: error: ‘FormData_pg_index {aka struct FormData_pg_index}’ has no member named ‘indislive’; did you mean ‘indrelid’?
+    Assert(indexForm->indislive);
+
+
+Different return_value of RangeVarGetRelidExtended
+/opt/timescaledb/src/indexing.c:309:18: error: too few arguments to function ‘Oid RangeVarGetRelidExtended(const RangeVar*, LOCKMODE, bool, bool, bool, bool, RangeVarGetRelidCallback, void*, StringInfo, Oid*)’
+In file included from /opt/timescaledb/src/indexing.c:13:0:
+/opt/openGauss-server/src/include/catalog/namespace.h:99:12: note: declared here
+ extern Oid RangeVarGetRelidExtended(const RangeVar *relation,
+            ^~~~~~~~~~~~~~~~~~~~~~~~
+/opt/timescaledb/src/indexing.c:352:19: error: no match for ‘operator=’ (operand types are ‘ObjectAddress’ and ‘Oid {aka unsigned int}’)
+              false);  /* quiet */
+
+NO typeStringToTypeName
+/opt/timescaledb/src/interval.c:200:24: error: ‘typeStringToTypeName’ was not declared in this scope
+   typenameTypeId(NULL, typeStringToTypeName(CATALOG_SCHEMA_NAME "." TS_INTERVAL_TYPE_NAME));
+                        ^~~~~~~~~~~~~~~~~~~~
+
+
+						
+Not support jsonb
+/opt/timescaledb/src/jsonb_utils.c:12:10: fatal error: utils/jsonapi.h: No such file or directory
+ #include <utils/jsonapi.h>
+          ^~~~~~~~~~~~~~~~~
+
+jsonb_utils.c  jsonb_utils.h full not support
+
+
+No tsmapi.h
+/opt/timescaledb/src/planner.c:7:10: fatal error: access/tsmapi.h: No such file or directory
+ #include <access/tsmapi.h>
+          ^~~~~~~~~~~~~~~~~
+
+No create_upper_paths_hook_type
+/opt/timescaledb/src/planner.c:80:8: error: ‘create_upper_paths_hook_type’ does not name a type; did you mean ‘set_rel_pathlist_hook_type’?
+ static create_upper_paths_hook_type prev_create_upper_paths_hook;
+
+
+No partial_pathlist attr in ‘RelOptInfo
+/opt/timescaledb/src/planner.c:706:21: error: ‘RelOptInfo {aka struct RelOptInfo}’ has no member named ‘partial_pathlist’; did you mean ‘pathlist’?
+   foreach (lc, rel->partial_pathlist)
+                     ^
+
+Different return_value of prev_planner_hook
+/opt/timescaledb/src/planner.c:293:63: error: void value not ignored as it ought to be
+    stmt = (prev_planner_hook)(parse, cursor_opts, bound_params);
+				 
+					 
+No partial_pathlist attr of ‘RelOptInfo	 
+/opt/timescaledb/src/planner.c:706:21: error: ‘RelOptInfo {aka struct RelOptInfo}’ has no member named ‘partial_pathlist’; did you mean ‘pathlist’?
+   foreach (lc, rel->partial_pathlist)
+			 
+					 
+					 
+No UpperRelationKind		 
+/opt/timescaledb/src/planner.c:993:54: error: ‘UpperRelationKind’ has not been declared
+ timescale_create_upper_paths_hook(PlannerInfo *root, UpperRelationKind stage, RelOptInfo *input_rel,
+
+					 
+					 
+No UPPERREL_GROUP_AGG
+/opt/timescaledb/src/planner.c:1023:34: error: ‘UPPERREL_GROUP_AGG’ was not declared in this scope
+   if (parse->hasAggs && stage == UPPERREL_GROUP_AGG)					 
+					 
+					 
+					 
+No processed_tlist attr in ‘PlannerInfo
+/opt/timescaledb/src/planner.c:1043:52: error: ‘PlannerInfo {aka struct PlannerInfo}’ has no member named ‘processed_tlist’
+    ts_preprocess_first_last_aggregates(root, root->processed_tlist);
+                                                    ^~~~~~~~~~~~~~~
+
+	
+No planner_hook
+/opt/timescaledb/src/planner.c:1183:22: error: ‘planner_hook’ was not declared in this scope
+  prev_planner_hook = planner_hook;
+                      ^~~~~~~~~~~~
+
+No create_upper_paths_hook
+/opt/timescaledb/src/planner.c:1191:33: error: ‘create_upper_paths_hook’ was not declared in this scope
+  prev_create_upper_paths_hook = create_upper_paths_hook;
+                                 ^~~~~~~~~~~~~~~~~~~~~~~
+
+No SearchSysCacheAttNum
+/opt/timescaledb/src/plan_expand_hypertable.c:896:21: error: ‘SearchSysCacheAttNum’ was not declared in this scope
+   HeapTuple tuple = SearchSysCacheAttNum(ht->main_table_relid, dim->column_attno);
+                     ^~~~~~~~~~~~~~~~~~~~
+
+Different attr return_value of cheapest_total_path in RelOptInfo
+/opt/timescaledb/src/plan_add_hashagg.c: In function ‘void ts_plan_add_hashagg(PlannerInfo*, RelOptInfo*, RelOptInfo*)’:
+/opt/timescaledb/src/plan_add_hashagg.c:122:35: error: cannot convert ‘List*’ to ‘Path*’ in initialization
+  Path *cheapest_path = input_rel->cheapest_total_path;
+                                   ^~~~~~~~~~~~~~~~~~~
+
+	
+
+No upper_targets attr in ‘PlannerInfo
+/opt/timescaledb/src/plan_add_hashagg.c:127:29: error: ‘PlannerInfo {aka struct PlannerInfo}’ has no member named ‘upper_targets’
+  PathTarget *target = root->upper_targets[UPPERREL_GROUP_AGG];
+
+No UPPERREL_GROUP_AGG
+/opt/timescaledb/src/plan_add_hashagg.c:127:43: error: ‘UPPERREL_GROUP_AGG’ was not declared in this scope
+  PathTarget *target = root->upper_targets[UPPERREL_GROUP_AGG];
+
+No AGGSPLIT_SIMPLE
+/opt/timescaledb/src/plan_add_hashagg.c:134:61: error: ‘AGGSPLIT_SIMPLE’ was not declared in this scope
+  get_agg_clause_costs(root, (Node *) root->processed_tlist, AGGSPLIT_SIMPLE, &agg_costs);
+
+
+No get_agg_clause_costs
+/opt/timescaledb/src/plan_add_hashagg.c:134:2: error: ‘get_agg_clause_costs’ was not declared in this scope
+  get_agg_clause_costs(root, (Node *) root->processed_tlist, AGGSPLIT_SIMPLE, &agg_costs);
+  ^~~~~~~~~~~~~~~~~~~~
+
+No consider_parallel attr in ‘RelOptInfo
+/opt/timescaledb/src/plan_add_hashagg.c:154:19: error: ‘RelOptInfo {aka struct RelOptInfo}’ has no member named ‘consider_parallel’
+  if (!output_rel->consider_parallel)
+                   ^~~~~~~~~~~~~~~~~
+
+No hasNonPartial and hasNonSerial attrs in ‘AggClauseCosts
+/opt/timescaledb/src/plan_add_hashagg.c:164:21: error: ‘AggClauseCosts {aka struct AggClauseCosts}’ has no member named ‘hasNonPartial’
+  else if (agg_costs.hasNonPartial || agg_costs.hasNonSerial)
+                     ^~~~~~~~~~~~~
+/opt/timescaledb/src/plan_add_hashagg.c:164:48: error: ‘AggClauseCosts {aka struct AggClauseCosts}’ has no member named ‘hasNonSerial’
+  else if (agg_costs.hasNonPartial || agg_costs.hasNonSerial)
+                                                ^~~~~~~~~~~~
+
+No plan_add_parallel_hashagg
+/opt/timescaledb/src/plan_add_hashagg.c:176:3: error: ‘plan_add_parallel_hashagg’ was not declared in this scope
+   plan_add_parallel_hashagg(root, input_rel, output_rel, d_num_groups);
+   ^~~~~~~~~~~~~~~~~~~~~~~~~
+
+	
+No create_agg_path
+/opt/timescaledb/src/plan_add_hashagg.c:183:14: error: ‘create_agg_path’ was not declared in this scope
+     (Path *) create_agg_path(root,
+              ^~~~~~~~~~~~~~~
+
+	
+No MinMaxAggPath
+/opt/timescaledb/src/plan_agg_bookend.c:82:2: error: ‘MinMaxAggPath’ does not name a type; did you mean ‘MinMaxAggInfo’?
+  MinMaxAggPath *mm_path;
+  ^~~~~~~~~~~~~
+
+	
+No mm_path attr in ‘MutatorContext
+/opt/timescaledb/src/plan_agg_bookend.c:108:16: error: ‘MutatorContext {aka struct MutatorContext}’ has no member named ‘mm_path’
+   if (context->mm_path != NULL && list_length(aggref->args) == 2)
+
+
+No SS_make_initplan_output_param
+/opt/timescaledb/src/plan_agg_bookend.c:379:19: error: ‘SS_make_initplan_output_param’ was not declared in this scope
+   mminfo->param = SS_make_initplan_output_param(root,
+                   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+	
+No fetch_upper_rel
+/opt/timescaledb/src/plan_agg_bookend.c:398:16: error: ‘fetch_upper_rel’ was not declared in this scope
+  grouped_rel = fetch_upper_rel(root, UPPERREL_GROUP_AGG, NULL);
+
+	
+	
+	
+	
+No create_pathtarget
+/opt/timescaledb/src/plan_agg_bookend.c:401:14: error: ‘create_pathtarget’ was not declared in this scope
+              create_pathtarget(root, tlist),
+              ^~~~~~~~~~~~~~~~~
+
+
+No create_minmaxagg_path
+/opt/timescaledb/src/plan_agg_bookend.c:399:19: error: ‘create_minmaxagg_path’ was not declared in this scope
+  minmaxagg_path = create_minmaxagg_path(root,
+                   ^~~~~~~~~~~~~~~~~~~~~
+
+
+No replace_aggref_in_tlist
+/opt/timescaledb/src/plan_agg_bookend.c:405:2: error: ‘replace_aggref_in_tlist’ was not declared in this scope
+  replace_aggref_in_tlist(minmaxagg_path);
+  ^~~~~~~~~~~~~~~~~~~~~~~
+
+
+No aggfilter attr in ‘Aggref
+/opt/timescaledb/src/plan_agg_bookend.c:474:15: error: ‘Aggref {aka struct Aggref}’ has no member named ‘aggfilter’; did you mean ‘aggorder’?
+   if (aggref->aggfilter != NULL)
+               ^~~~~~~~~
+
+	
+No aggargtypes attr in ‘Aggref
+/opt/timescaledb/src/plan_agg_bookend.c:478:34: error: ‘Aggref {aka struct Aggref}’ has no member named ‘aggargtypes’; did you mean ‘aggtype’?
+   sort_oid = lsecond_oid(aggref->aggargtypes);
+                                  ^
+
+  
+No outer_params attr in PlannerInfo
+/opt/timescaledb/src/plan_agg_bookend.c: In function ‘bool build_first_last_path(PlannerInfo*, FirstLastAggInfo*, Oid, Oid, bool)’:
+/opt/timescaledb/src/plan_agg_bookend.c:585:11: error: ‘PlannerInfo {aka struct PlannerInfo}’ has no member named ‘outer_params’; did you mean ‘plan_params’?
+  subroot->outer_params = NULL;
+
+  
+No location attr in NullTest
+/opt/timescaledb/src/plan_agg_bookend.c:637:9: error: ‘NullTest {aka struct NullTest}’ has no member named ‘location’
+  ntest->location = -1;
+         ^~~~~~~~
+
+
+		 
+No SS_identify_outer_params
+/opt/timescaledb/src/plan_agg_bookend.c:740:2: error: ‘SS_identify_outer_params’ was not declared in this scope
+  SS_identify_outer_params(subroot);
+  ^~~~~~~~~~~~~~~~~~~~~~~~
+
+		 
+		 
+No SS_charge_for_initplans
+/opt/timescaledb/src/plan_agg_bookend.c:741:2: error: ‘SS_charge_for_initplans’ was not declared in this scope
+  SS_charge_for_initplans(subroot, final_rel);
+  ^~~~~~~~~~~~~~~~~~~~~~~
+
+
+No apply_projection_to_path
+/opt/timescaledb/src/plan_agg_bookend.c:764:16: error: ‘apply_projection_to_path’ was not declared in this scope
+  sorted_path = apply_projection_to_path(subroot,
+                ^~~~~~~~~~~~~~~~~~~~~~~~
+
+		 
+Different args requests of query_planner
+/opt/timescaledb/src/plan_agg_bookend.c:719:14: error: cannot convert ‘void (*)(PlannerInfo*, void*)’ to ‘double’ for argument ‘3’ to ‘void query_planner(PlannerInfo*, List*, double, double, Path**, Path**, double*, List*, List*)’
+          NULL);
+              ^
+
+		 
+No aggsplit , aggsplit and aggtranstype attrs in ‘Aggref
+/opt/timescaledb/src/plan_partialize.c: In function ‘bool check_for_partialize_function_call(Node*, PartializeWalkerState*)’:
+/opt/timescaledb/src/plan_partialize.c:73:12: error: ‘Aggref {aka struct Aggref}’ has no member named ‘aggsplit’; did you mean ‘aggfnoid’?
+    aggref->aggsplit = AGGSPLIT_INITIAL_SERIAL;
+            ^~~~~~~~
+/opt/timescaledb/src/plan_partialize.c:75:16: error: ‘Aggref {aka struct Aggref}’ has no member named ‘aggtranstype’; did you mean ‘aggtrantype’?
+    if (aggref->aggtranstype == INTERNALOID &&
+                ^~~~~~~~~~~~
+/opt/timescaledb/src/plan_partialize.c:88:20: error: ‘Aggref {aka struct Aggref}’ has no member named ‘aggsplit’; did you mean ‘aggfnoid’?
+   else if (aggref->aggsplit != AGGSPLIT_INITIAL_SERIAL)
+                    ^~~~~~~~
+
+		 
+		 
+No AGGSPLIT_INITIAL_SERIAL
+/opt/timescaledb/src/plan_partialize.c:73:23: error: ‘AGGSPLIT_INITIAL_SERIAL’ was not declared in this scope
+    aggref->aggsplit = AGGSPLIT_INITIAL_SERIAL;
+                       ^~~~~~~~~~~~~~~~~~~~~~~
+
+		 
+No DO_AGGSPLIT_SERIALIZE
+/opt/timescaledb/src/plan_partialize.c:76:5: error: ‘DO_AGGSPLIT_SERIALIZE’ was not declared in this scope
+     DO_AGGSPLIT_SERIALIZE(AGGSPLIT_INITIAL_SERIAL))
+
+		 
+No AggPath
+/opt/timescaledb/src/plan_partialize.c:136:13: error: ‘AggPath’ was not declared in this scope
+    castNode(AggPath, path)->aggsplit = AGGSPLIT_INITIAL_SERIAL;
+
+		 
+		 
+No context attr in ProcessUtilityArgs
+/opt/timescaledb/src/process_utility.c: In function ‘void prev_ProcessUtility(ProcessUtilityArgs*)’:
+/opt/timescaledb/src/process_utility.c:99:18: error: ‘ProcessUtilityArgs {aka struct ProcessUtilityArgs}’ has no member named ‘context’
+            args->context,
+                  ^~~~~~~
+
+
+No AT_EnableRowSecurity and AT_DisableRowSecurity
+/opt/timescaledb/src/process_utility.c: In function ‘void check_chunk_alter_table_operation_allowed(Oid, AlterTableStmt*)’:
+/opt/timescaledb/src/process_utility.c:154:10: error: ‘AT_EnableRowSecurity’ was not declared in this scope
+     case AT_EnableRowSecurity:
+          ^~~~~~~~~~~~~~~~~~~~
+/opt/timescaledb/src/process_utility.c:154:10: note: suggested alternative: ‘AT_EnableRowMoveMent’
+     case AT_EnableRowSecurity:
+          ^~~~~~~~~~~~~~~~~~~~
+          AT_EnableRowMoveMent
+/opt/timescaledb/src/process_utility.c:155:10: error: ‘AT_DisableRowSecurity’ was not declared in this scope
+     case AT_DisableRowSecurity:
+          ^~~~~~~~~~~~~~~~~~~~~
+
+
+No AT_ForceRowSecurity and AT_NoForceRowSecurity
+/opt/timescaledb/src/process_utility.c:248:9: error: ‘AT_ForceRowSecurity’ was not declared in this scope
+    case AT_ForceRowSecurity:
+         ^~~~~~~~~~~~~~~~~~~
+/opt/timescaledb/src/process_utility.c:248:9: note: suggested alternative: ‘gs_popen_security’
+    case AT_ForceRowSecurity:
+         ^~~~~~~~~~~~~~~~~~~
+         gs_popen_security
+/opt/timescaledb/src/process_utility.c:249:9: error: ‘AT_NoForceRowSecurity’ was not declared in this scope
+    case AT_NoForceRowSecurity:
+
+
+
+No ‘ExecVacuum’
+/opt/timescaledb/src/process_utility.c: In function ‘void vacuum_chunk(Hypertable*, Oid, void*)’:
+/opt/timescaledb/src/process_utility.c:528:2: error: ‘ExecVacuum’ was not declared in this scope
+  ExecVacuum(ctx->stmt, ctx->is_toplevel);
+  ^~~~~~~~~~
+
+
+No PROCESS_UTILITY_TOPLEVEL
+/opt/timescaledb/src/process_utility.c:536:39: error: ‘PROCESS_UTILITY_TOPLEVEL’ was not declared in this scope
+  bool is_toplevel = (args->context == PROCESS_UTILITY_TOPLEVEL);
+                                       ^~~~~~~~~~~~~~~~~~~~~~~~
+
+
+No REINDEX_OBJECT_TABLE
+/opt/timescaledb/src/process_utility.c:1122:8: error: ‘REINDEX_OBJECT_TABLE’ was not declared in this scope
+   case REINDEX_OBJECT_TABLE:
+        ^~~~~~~~~~~~~~~~~~~~
+
+No REINDEX_OBJECT_INDEX
+/opt/timescaledb/src/process_utility.c:1181:8: error: ‘REINDEX_OBJECT_INDEX’ was not declared in this scope
+   case REINDEX_OBJECT_INDEX:
+        ^~~~~~~~~~~~~~~~~~~~
+
+
+No OBJECT_TABCONSTRAINT
+/opt/timescaledb/src/process_utility.c:1439:8: error: ‘OBJECT_TABCONSTRAINT’ was not declared in this scope
+   case OBJECT_TABCONSTRAINT:
+        ^~~~~~~~~~~~~~~~~~~~
+
+
+No newowner attr in ‘AlterTableCmd
+/opt/timescaledb/src/process_utility.c: In function ‘void process_altertable_change_owner(Hypertable*, AlterTableCmd*)’:
+/opt/timescaledb/src/process_utility.c:1468:18: error: ‘AlterTableCmd {aka struct AlterTableCmd}’ has no member named ‘newowner’
+  Assert(IsA(cmd->newowner, RoleSpec));
+
+
+
+No if_not_exists attr in ‘IndexStmt
+/opt/timescaledb/src/process_utility.c: In function ‘bool process_index_start(ProcessUtilityArgs*)’:
+/opt/timescaledb/src/process_utility.c:1956:54: error: ‘IndexStmt {aka struct IndexStmt}’ has no member named ‘if_not_exists’
+  if (!OidIsValid(root_table_index.objectId) && stmt->if_not_exists)
+                                                      ^~~~~~~~~~~~~
+
+No PortalContext
+/opt/timescaledb/src/process_utility.c:2157:32: error: ‘PortalContext’ was not declared in this scope
+   mcxt = AllocSetContextCreate(PortalContext, "Hypertable cluster", ALLOCSET_DEFAULT_SIZES);
+                                ^~~~~~~~~~~~~
+
+
+
+Different params requests for standard_ProcessUtility
+/opt/timescaledb/src/process_utility.c: In function ‘void prev_ProcessUtility(ProcessUtilityArgs*)’:
+/opt/timescaledb/src/process_utility.c:102:32: error: cannot convert ‘char*’ to ‘DestReceiver* {aka _DestReceiver*}’ in argument passing
+            args->completion_tag);
+                                ^
+/opt/timescaledb/src/process_utility.c:122:29: error: cannot convert ‘char*’ to ‘DestReceiver* {aka _DestReceiver*}’ for argument ‘5’ to ‘void standard_ProcessUtility(Node*, const char*, ParamListInfo, bool, DestReceiver*, bool, char*)’
+         args->completion_tag);
+                             ^
+
+
+No CollectedCommand
+/opt/timescaledb/src/process_utility.c:2419:47: error: ‘CollectedCommand’ has not been declared
+ process_altertable_end_index(Node *parsetree, CollectedCommand *cmd)
+                                               ^~~~~~~~~~~~~~~~
+
+
+No AT_SetUnLogged and AT_SetLogged
+/opt/timescaledb/src/process_utility.c: In function ‘void process_altertable_end_subcmd(Hypertable*, Node*, ObjectAddress*)’:
+/opt/timescaledb/src/process_utility.c:2785:8: error: ‘AT_SetUnLogged’ was not declared in this scope
+   case AT_SetUnLogged:
+        ^~~~~~~~~~~~~~
+/opt/timescaledb/src/process_utility.c:2832:8: error: ‘AT_SetLogged’ was not declared in this scope
+   case AT_SetLogged:
+        ^~~~~~~~~~~~
+
+		
+No AT_AlterConstraint
+/opt/timescaledb/src/process_utility.c:2804:8: error: ‘AT_AlterConstraint’ was not declared in this scope
+   case AT_AlterConstraint:
+        ^~~~~~~~~~~~~~~~~~
+
+
+No AT_ReAddComment
+/opt/timescaledb/src/process_utility.c:2886:8: error: ‘AT_ReAddComment’ was not declared in this scope
+   case AT_ReAddComment:      /* internal command never hit in our test
+        ^~~~~~~~~~~~~~~
+
+
+No CollectedATSubcmd
+/opt/timescaledb/src/process_utility.c: In function ‘void process_altertable_end_subcmds(Hypertable*, List*)’:
+/opt/timescaledb/src/process_utility.c:2925:3: error: ‘CollectedATSubcmd’ was not declared in this scope
+   CollectedATSubcmd *cmd = lfirst(lc);
+
+
+No EventTriggerData
+/opt/timescaledb/src/process_utility.c: At global scope:
+/opt/timescaledb/src/process_utility.c:3527:31: error: variable or field ‘process_ddl_event_command_end’ declared void
+ process_ddl_event_command_end(EventTriggerData *trigdata)
+                               ^~~~~~~~~~~~~~~~
+
+
+No CALLED_AS_EVENT_TRIGGER
+/opt/timescaledb/src/process_utility.c:3577:7: error: ‘CALLED_AS_EVENT_TRIGGER’ was not declared in this scope
+  if (!CALLED_AS_EVENT_TRIGGER(fcinfo))
+       ^~~~~~~~~~~~~~~~~~~~~~~
+
+
+Different params requests of get_eclass_for_sort_expr
+/opt/timescaledb/src/sort_transform.c: In function ‘EquivalenceClass* sort_transform_ec(PlannerInfo*, EquivalenceClass*)’:
+/opt/timescaledb/src/sort_transform.c:265:24: error: cannot convert ‘Relids {aka Bitmapset*}’ to ‘List*’ for argument ‘3’ to ‘EquivalenceClass* get_eclass_for_sort_expr(PlannerInfo*, Expr*, List*, Oid, Oid, Index, bool, Relids, bool)’
+                   false);
+                        ^
+
+
+
+No make_canonical_pathkey
+/opt/timescaledb/src/sort_transform.c:356:11: error: ‘make_canonical_pathkey’ was not declared in this scope
+  new_pk = make_canonical_pathkey(root,
+           ^~~~~~~~~~~~~~~~~~~~~~
+
+
+
+No RoleSpec
+/opt/timescaledb/src/tablespace.c:215:3: error: ‘RoleSpec’ was not declared in this scope
+   RoleSpec *role = lfirst(lc_role);
+   ^~~~~~~~
+
+
+No get_role_oid_or_public, but it's in the cpp file, not expose.
+/opt/timescaledb/src/tablespace.c:216:17: error: ‘get_role_oid_or_public’ was not declared in this scope
+   Oid roleoid = get_role_oid_or_public(role->rolename);
+                 ^~~~~~~~~~~~~~~~~~~~~~
+
+
+
+No get_rolespec_oid
+/opt/timescaledb/src/tablespace.c:261:17: error: ‘get_rolespec_oid’ was not declared in this scope
+   Oid grantee = get_rolespec_oid(rolespec, true);
+
+
+No MIN_TIMESTAMP and END_TIMESTAMP
+/opt/timescaledb/src/utils.c: In function ‘Datum ts_pg_timestamp_to_unix_microseconds(FunctionCallInfo)’:
+/opt/timescaledb/src/utils.c:49:18: error: ‘MIN_TIMESTAMP’ was not declared in this scope
+  if (timestamp < MIN_TIMESTAMP)
+                  ^~~~~~~~~~~~~
+/opt/timescaledb/src/utils.c:49:18: note: suggested alternative: ‘TCP_TIMESTAMP’
+  if (timestamp < MIN_TIMESTAMP)
+                  ^~~~~~~~~~~~~
+                  TCP_TIMESTAMP
+/opt/timescaledb/src/utils.c:53:20: error: ‘END_TIMESTAMP’ was not declared in this scope
+  if (timestamp >= (END_TIMESTAMP - TS_EPOCH_DIFF_MICROSECONDS))
+                    ^~~~~~~~~~~~~
+
+
+
+No DATETIME_MIN_JULIAN
+/opt/timescaledb/src/utils.h:25:61: error: ‘DATETIME_MIN_JULIAN’ was not declared in this scope
+ #define TS_INTERNAL_TIMESTAMP_MIN ((int64) USECS_PER_DAY * (DATETIME_MIN_JULIAN - UNIX_EPOCH_JDATE))
+
+
+No relforcerowsecurity and relrowsecurity attrs in FormData_pg_class
+/opt/timescaledb/src/utils.c:671:35: error: ‘FormData_pg_class {aka struct FormData_pg_class}’ has no member named ‘relforcerowsecurity’
+  relforcerowsecurity = classform->relforcerowsecurity;
+                                   ^~~~~~~~~~~~~~~~~~~
+/opt/timescaledb/src/utils.c:671:35: error: ‘FormData_pg_class {aka struct FormData_pg_class}’ has no member named ‘relforcerowsecurity’
+  relforcerowsecurity = classform->relforcerowsecurity;
+                                   ^~~~~~~~~~~~~~~~~~~
+
+
+
+No BackgroundWorkerHandle
+/opt/timescaledb/src/bgw/job.c:134:1: error: ‘BackgroundWorkerHandle’ does not name a type; did you mean ‘BackgroundWriterMain’?
+ BackgroundWorkerHandle *
+ ^~~~~~~~~~~~~~~~~~~~~~
+
+
+
+
+No isBackgroundWorker
+/opt/timescaledb/src/bgw/job.c:375:30: error: ‘PGPROC {aka struct PGPROC}’ has no member named ‘isBackgroundWorker’
+    if (proc != NULL && proc->isBackgroundWorker)
+                              ^~~~~~~~~~~~~~~~~~
+
+No make_interval
+/opt/timescaledb/src/bgw/job.c: In function ‘bool ts_bgw_job_execute(BgwJob*)’:
+/opt/timescaledb/src/bgw/job.c:512:63: error: ‘make_interval’ was not declared in this scope
+    Interval *one_hour = DatumGetIntervalP(DirectFunctionCall7(make_interval,
+
+
+
+
+No MyBgworkerEntry
+/opt/timescaledb/src/bgw/job.c:577:6: error: ‘MyBgworkerEntry’ was not declared in this scope
+      MyBgworkerEntry->bgw_name)));
+
+	  
+No BackgroundWorkerBlockSignals and BackgroundWorkerUnblockSignals
+/opt/timescaledb/src/bgw/job.c:610:2: error: ‘BackgroundWorkerBlockSignals’ was not declared in this scope
+  BackgroundWorkerBlockSignals();
+  ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/opt/timescaledb/src/bgw/job.c:618:2: error: ‘BackgroundWorkerUnblockSignals’ was not declared in this scope
+  BackgroundWorkerUnblockSignals();
+  ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+No pqsignal, but it's in cpp internal
+/opt/timescaledb/src/bgw/job.c:617:2: error: ‘pqsignal’ was not declared in this scope
+  pqsignal(SIGTERM, handle_sigterm);
+  ^~~~~~~~
+
+
+No BackgroundWorkerInitializeConnectionByOid and BackgroundWorkerInitializeConnection
+/opt/timescaledb/src/compat.h:102:2: error: ‘BackgroundWorkerInitializeConnectionByOid’ was not declared in this scope
+  BackgroundWorkerInitializeConnectionByOid(dboid, useroid)
+  ^
+
+
+
+
+No IS_VALID_TIMESTAMP
+/opt/timescaledb/src/bgw/job_stat.c: In function ‘TimestampTz calculate_next_start_on_success(TimestampTz, BgwJob*)’:
+/opt/timescaledb/src/bgw/job_stat.c:167:7: error: ‘IS_VALID_TIMESTAMP’ was not declared in this scope
+  if (!IS_VALID_TIMESTAMP(finish_time))
+       ^~~~~~~~~~~~~~~~~~
+
+
+
+
+
+Different return_value of load_external_function
+/opt/timescaledb/src/bgw/launcher_interface.c: In function ‘bool ts_bgw_worker_reserve()’:
+/opt/timescaledb/src/bgw/launcher_interface.c:19:95: error: cannot convert ‘CFunInfo’ to ‘PGFunction {aka long unsigned int (*)(FunctionCallInfoData*)}’ in initialization
+  PGFunction reserve = load_external_function(EXTENSION_SO, "ts_bgw_worker_reserve", true, NULL);
+                                                                                               ^
+/opt/timescaledb/src/bgw/launcher_interface.c: In function ‘void ts_bgw_worker_release()’:
+/opt/timescaledb/src/bgw/launcher_interface.c:28:95: error: cannot convert ‘CFunInfo’ to ‘PGFunction {aka long unsigned int (*)(FunctionCallInfoData*)}’ in initialization
+  PGFunction release = load_external_function(EXTENSION_SO, "ts_bgw_worker_release", true, NULL);
+                                                                                               ^
+/opt/timescaledb/src/bgw/launcher_interface.c: In function ‘int ts_bgw_num_unreserved()’:
+/opt/timescaledb/src/bgw/launcher_interface.c:37:75: error: cannot convert ‘CFunInfo’ to ‘PGFunction {aka long unsigned int (*)(FunctionCallInfoData*)}’ in initialization
+   load_external_function(EXTENSION_SO, "ts_bgw_num_unreserved", true, NULL);
+
+
+
+No BgwHandleStatus
+/opt/timescaledb/src/bgw/scheduler.c: In function ‘void assert_that_worker_has_stopped(ScheduledBgwJob*)’:
+/opt/timescaledb/src/bgw/scheduler.c:148:2: error: ‘BgwHandleStatus’ was not declared in this scope
+  BgwHandleStatus status;
+  ^~~~~~~~~~~~~~~
+
+
+
+
+No handle attr in ScheduledBgwJob
+/opt/timescaledb/src/bgw/scheduler.c:151:40: error: ‘ScheduledBgwJob {aka struct ScheduledBgwJob}’ has no member named ‘handle’
+  status = GetBackgroundWorkerPid(sjob->handle, &pid);
+                                        ^~~~~~
+
+No GetBackgroundWorkerPid
+/opt/timescaledb/src/bgw/scheduler.c:151:11: error: ‘GetBackgroundWorkerPid’ was not declared in this scope
+  status = GetBackgroundWorkerPid(sjob->handle, &pid);
+           ^~~~~~~~~~~~~~~~~~~~~~
+
+
+
+
+No BGWH_STOPPED
+/opt/timescaledb/src/bgw/scheduler.c:152:9: error: ‘BGWH_STOPPED’ was not declared in this scope
+  Assert(BGWH_STOPPED == status);
+
+
+No TerminateBackgroundWorker
+/opt/timescaledb/src/bgw/scheduler.c:334:4: error: ‘TerminateBackgroundWorker’ was not declared in this scope
+    TerminateBackgroundWorker(sjob->handle);
+    ^~~~~~~~~~~~~~~~~~~~~~~~~
+
+No register_background_worker_callback_type
+/opt/timescaledb/src/bgw/scheduler.c:385:10: error: ‘register_background_worker_callback_type’ has not been declared
+          register_background_worker_callback_type bgw_register)
+          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+
+
+
+
+
+No WaitForBackgroundWorkerShutdown
+/opt/timescaledb/src/bgw/scheduler.c:651:4: error: ‘WaitForBackgroundWorkerShutdown’ was not declared in this scope
+    WaitForBackgroundWorkerShutdown(sjob->handle);
+    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+
+
+No BGWH_POSTMASTER_DIED , BGWH_NOT_YET_STARTED and BGWH_STARTED BGWH_STOPPED
+/opt/timescaledb/src/bgw/scheduler.c:674:9: error: ‘BGWH_POSTMASTER_DIED’ was not declared in this scope
+    case BGWH_POSTMASTER_DIED:
+         ^~~~~~~~~~~~~~~~~~~~
+/opt/timescaledb/src/bgw/scheduler.c:674:9: note: suggested alternative: ‘POSTMASTER_LID’
+    case BGWH_POSTMASTER_DIED:
+         ^~~~~~~~~~~~~~~~~~~~
+         POSTMASTER_LID
+/opt/timescaledb/src/bgw/scheduler.c:677:9: error: ‘BGWH_NOT_YET_STARTED’ was not declared in this scope
+    case BGWH_NOT_YET_STARTED:
+         ^~~~~~~~~~~~~~~~~~~~
+/opt/timescaledb/src/bgw/scheduler.c:677:9: note: suggested alternative: ‘JOB_STATE_STARTED’
+    case BGWH_NOT_YET_STARTED:
+         ^~~~~~~~~~~~~~~~~~~~
+         JOB_STATE_STARTED
+/opt/timescaledb/src/bgw/scheduler.c:680:9: error: ‘BGWH_STARTED’ was not declared in this scope
+    case BGWH_STARTED:
+         ^~~~~~~~~~~~
+/opt/timescaledb/src/bgw/scheduler.c:680:9: note: suggested alternative: ‘GPC_SHARED’
+    case BGWH_STARTED:
+         ^~~~~~~~~~~~
+         GPC_SHARED
+/opt/timescaledb/src/bgw/scheduler.c:691:9: error: ‘BGWH_STOPPED’ was not declared in this scope
+    case BGWH_STOPPED:
+         ^~~~~~~~~~~~
+/opt/timescaledb/src/bgw/scheduler.c:691:9: note: suggested alternative: ‘CLD_STOPPED’
+    case BGWH_STOPPED:
+         ^~~~~~~~~~~~
+         CLD_STOPPED
+
+
+No ProcDiePending
+/opt/timescaledb/src/bgw/scheduler.c:744:58: error: ‘ProcDiePending’ was not declared in this scope
+  while (quit_time > ts_timer_get_current_timestamp() && !ProcDiePending && !ts_shutdown_bgw)
+                                                          ^~~~~~~~~~~~~~
+
+
+
+
+No start_scheduled_jobs
+/opt/timescaledb/src/bgw/scheduler.c:750:3: error: ‘start_scheduled_jobs’ was not declared in this scope
+   start_scheduled_jobs(bgw_register);
+   ^~~~~~~~~~~~~~~~~~~~
+
+
+
+No CurTransactionContext
+/opt/timescaledb/src/bgw/scheduler.c:773:35: error: ‘CurTransactionContext’ was not declared in this scope
+    Assert(CurrentMemoryContext == CurTransactionContext);
+
+
+
+No MyLatch
+/opt/timescaledb/src/bgw/scheduler.c: In function ‘void handle_sighup(int)’:
+/opt/timescaledb/src/bgw/scheduler.c:838:11: error: ‘MyLatch’ was not declared in this scope
+  SetLatch(MyLatch);
+           ^~~~~~~
+
+
+
+No PG_WAIT_EXTENSION
+/opt/timescaledb/src/compat.h:787:40: error: ‘PG_WAIT_EXTENSION’ was not declared in this scope
+  WaitLatch(latch, wakeEvents, timeout, PG_WAIT_EXTENSION)
+
+
+No T_CustomPath
+/opt/timescaledb/src/chunk_append/chunk_append.c: In function ‘Path* ts_chunk_append_path_create(PlannerInfo*, RelOptInfo*, Hypertable*, Path*, bool, bool, List*)’:
+/opt/timescaledb/src/chunk_append/chunk_append.c:53:62: error: ‘T_CustomPath’ was not declared in this scope
+  path = (ChunkAppendPath *) newNode(sizeof(ChunkAppendPath), T_CustomPath);
+
+
+
+
+
+
+No cpath attr in ChunkAppendPath
+/opt/timescaledb/src/chunk_append/chunk_append.c:55:8: error: ‘ChunkAppendPath {aka struct ChunkAppendPath}’ has no member named ‘cpath’
+  path->cpath.path.pathtype = T_CustomScan;
+        ^~~~~
+/opt/timescaledb/src/chunk_append/chunk_append.c:55:30: error: ‘T_CustomScan’ was not declared in this scope
+  path->cpath.path.pathtype = T_CustomScan;
+                              ^~~~~~~~~~~~
+/opt/timescaledb/src/chunk_append/chunk_append.c:55:30: note: suggested alternative: ‘T_CStoreScan’
+  path->cpath.path.pathtype = T_CustomScan;
+                              ^~~~~~~~~~~~
+                              T_CStoreScan
+
+
+
+
+
+No reltarget attr in RelOptInfo
+/opt/timescaledb/src/chunk_append/chunk_append.c:57:37: error: ‘RelOptInfo {aka struct RelOptInfo}’ has no member named ‘reltarget’; did you mean ‘reltargetlist’?
+  path->cpath.path.pathtarget = rel->reltarget;
+                                     ^~~~~~~~~
+
+
+
+No parallel_safe and parallel_workers attrs in Path
+/opt/timescaledb/src/chunk_append/chunk_append.c:61:44: error: ‘Path {aka struct Path}’ has no member named ‘parallel_safe’
+  path->cpath.path.parallel_safe = subpath->parallel_safe;
+                                            ^~~~~~~~~~~~~
+/opt/timescaledb/src/chunk_append/chunk_append.c:62:47: error: ‘Path {aka struct Path}’ has no member named ‘parallel_workers’
+  path->cpath.path.parallel_workers = subpath->parallel_workers;
+                                               ^~~~~~~~~~~~~~~~
+
+
+
+Different params requests of pull_var_clause						   
+/opt/timescaledb/src/chunk_append/chunk_append.c:112:62: error: too few arguments to function ‘List* pull_var_clause(Node*, PVCAggregateBehavior, PVCPlaceHolderBehavior, PVCSPExprBehavior, bool, bool)’
+    foreach (lc_var, pull_var_clause((Node *) rinfo->clause, 0))
+
+
+
+
+No ParallelContext
+/opt/timescaledb/src/chunk_append/exec.h:63:2: error: ‘ParallelContext’ does not name a type; did you mean ‘PlannerContext’?
+  ParallelContext *pcxt;
+  ^~~~~~~~~~~~~~~
+
+
+No location attr in NullTest
+/opt/timescaledb/src/chunk_append/exec.c:883:13: error: ‘NullTest {aka struct NullTest}’ has no member named ‘location’
+      ntest->location = -1;
+             ^~~~~~~~
+
+
+
+
+No csstate attr in ChunkAppendState
+/opt/timescaledb/src/chunk_append/exec.c:955:26: error: ‘ChunkAppendState {aka struct ChunkAppendState}’ has no member named ‘csstate’; did you mean ‘pstate’?
+  EState *estate = state->csstate.ss.ps.state;
+                          ^~~~~~~
+
+
+
+
+
+No deparse_cxt attr in ExplainState
+/opt/timescaledb/src/chunk_append/explain.c:89:46: error: ‘ExplainState {aka struct ExplainState}’ has no member named ‘deparse_cxt’
+  context = set_deparse_context_planstate(es->deparse_cxt, (Node *) state, ancestors);
+                                              ^~~~~~~~~~~
+
+
+No RegisterCustomScanMethods
+/opt/timescaledb/src/chunk_append/planner.c:50:2: error: ‘RegisterCustomScanMethods’ was not declared in this scope
+  RegisterCustomScanMethods(&chunk_append_plan_methods);
+  ^~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+
+
+No T_SampleScan and T_CustomScan
+/opt/timescaledb/src/chunk_append/planner.c:329:8: error: ‘T_SampleScan’ was not declared in this scope
+   case T_SampleScan:
+        ^~~~~~~~~~~~
+/opt/timescaledb/src/chunk_append/planner.c:337:8: error: ‘T_CustomScan’ was not declared in this scope
+   case T_CustomScan:
+        ^~~~~~~~~~~~
+
+
+
+
+No json_object_field_text
+/opt/timescaledb/src/telemetry/telemetry.c:116:38: error: ‘json_object_field_text’ was not declared in this scope
+  Datum version = DirectFunctionCall2(json_object_field_text,
+
+
+
+No slot_getallattrs
+/opt/timescaledb/src/compat/tupconvert.c:38:2: error: ‘slot_getallattrs’ was not declared in this scope
+  slot_getallattrs(in_slot);
+  ^~~~~~~~~~~~~~~~
+
+
+No T_ForeignKeyCacheInfo
+/opt/timescaledb/src/compat.h:999:37: error: ‘T_ForeignKeyCacheInfo’ was not declared in this scope
+ #define T_ForeignKeyCacheInfoCompat T_ForeignKeyCacheInfo
+
+
+
+No pathtarget attr in Path
+/opt/timescaledb/src/import/planner.c:174:33: error: ‘struct Path’ has no member named ‘pathtarget’; did you mean ‘pathtype’?
+  hashentrysize = MAXALIGN(path->pathtarget->width) + MAXALIGN(SizeofMinimalTupleHeader);
+
+
+
+No create_empty_pathtarget
+/opt/timescaledb/src/import/planner.c:201:19: error: ‘create_empty_pathtarget’ was not declared in this scope
+  partial_target = create_empty_pathtarget();
+
+
+
+?????
+/opt/timescaledb/src/import/planner.c:205:30: error: invalid use of incomplete type ‘struct PathTarget’
+  foreach (lc, grouping_target->exprs)
+                              ^
+
+
+
+No get_pathtarget_sortgroupref , get_sortgroupref_clause_noerr and add_column_to_pathtarget
+/opt/timescaledb/src/import/planner.c:208:24: error: ‘get_pathtarget_sortgroupref’ was not declared in this scope
+   unsigned int sgref = get_pathtarget_sortgroupref(grouping_target, i);
+                        ^~~~~~~~~~~~~~~~~~~~~~~~~~~
+/opt/timescaledb/src/import/planner.c:211:4: error: ‘get_sortgroupref_clause_noerr’ was not declared in this scope
+    get_sortgroupref_clause_noerr(sgref, parse->groupClause) != NULL)
+    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/opt/timescaledb/src/import/planner.c:211:4: note: suggested alternative: ‘get_sortgroupref_clause’
+    get_sortgroupref_clause_noerr(sgref, parse->groupClause) != NULL)
+    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    get_sortgroupref_clause
+/opt/timescaledb/src/import/planner.c:217:4: error: ‘add_column_to_pathtarget’ was not declared in this scope
+    add_column_to_pathtarget(partial_target, expr, sgref);
+    ^~~~~~~~~~~~~~~~~~~~~~~~
+
+
+
+No PVC_RECURSE_WINDOWFUNCS
+/opt/timescaledb/src/import/planner.c:245:37: error: ‘PVC_RECURSE_WINDOWFUNCS’ was not declared in this scope
+            PVC_INCLUDE_AGGREGATES | PVC_RECURSE_WINDOWFUNCS |
+                                     ^~~~~~~~~~~~~~~~~~~~~~~
+
+									 
+No add_new_columns_to_pathtarget
+/opt/timescaledb/src/import/planner.c:248:2: error: ‘add_new_columns_to_pathtarget’ was not declared in this scope
+  add_new_columns_to_pathtarget(partial_target, non_group_exprs);
+  ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+
+
+
+
+No mark_partial_aggref  and AGGSPLIT_INITIAL_SERIAL
+/opt/timescaledb/src/import/planner.c:271:35: error: ‘AGGSPLIT_INITIAL_SERIAL’ was not declared in this scope
+    mark_partial_aggref(newaggref, AGGSPLIT_INITIAL_SERIAL);
+                                   ^~~~~~~~~~~~~~~~~~~~~~~
+/opt/timescaledb/src/import/planner.c:271:4: error: ‘mark_partial_aggref’ was not declared in this scope
+    mark_partial_aggref(newaggref, AGGSPLIT_INITIAL_SERIAL);
+    ^~~~~~~~~~~~~~~~~~~
+
+
+
+
+
+
+
+No set_pathtarget_cost_width
+/opt/timescaledb/src/import/planner.c:282:9: error: ‘set_pathtarget_cost_width’ was not declared in this scope
+  return set_pathtarget_cost_width(root, partial_target);
+         ^~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+
+
+Different params requests of get_eclass_for_sort_expr
+/opt/timescaledb/src/import/planner.c:664:21: error: cannot convert ‘Relids {aka Bitmapset*}’ to ‘List*’ for argument ‘3’ to ‘EquivalenceClass* get_eclass_for_sort_expr(PlannerInfo*, Expr*, List*, Oid, Oid, Index, bool, Relids, bool)’
+            create_it);
+                     ^
+
+
+No make_canonical_pathkey, but there is defination in OG cpp file
+/opt/timescaledb/src/import/planner.c:671:9: error: ‘make_canonical_pathkey’ was not declared in this scope
+  return make_canonical_pathkey(root, eclass, opfamily, strategy, nulls_first);
+         ^~~~~~~~~~~~~~~~~~~~~~
+
+
+
+
+
+No access/parallel.h
+/opt/timescaledb/src/loader/loader.c:23:10: fatal error: access/parallel.h: No such file or directory
+ #include <access/parallel.h>
+          ^~~~~~~~~~~~~~~~~~~
+
+No storage/dsm.h
+/opt/timescaledb/src/loader/bgw_message_queue.h:10:10: fatal error: storage/dsm.h: No such file or directory
+ #include <storage/dsm.h>
+          ^~~~~~~~~~~~~~~
+
+
+
+
+No dsm_handle
+/opt/timescaledb/src/loader/bgw_message_queue.h:25:2: error: ‘dsm_handle’ does not name a type; did you mean ‘sa_handler’?
+  dsm_handle ack_dsm_handle;
+  ^~~~~~~~~~
+
+
+
+No roleSpecsToIds
+/opt/timescaledb/src/loader/loader.c:224:13: error: ‘roleSpecsToIds’ was not declared in this scope
+  role_ids = roleSpecsToIds(stmt->roles);
+             ^~~~~~~~~~~~~~
+
+
+
+
+Different return_value type of load_external_function
+/opt/timescaledb/src/loader/loader.c:604:65: error: cannot convert ‘CFunInfo’ to ‘PGFunction {aka long unsigned int (*)(FunctionCallInfoData*)}’ in initialization
+    load_external_function(soname, POST_LOAD_INIT_FN, false, NULL);
+                                                                 ^
+
+No IsParallelWorker
+/opt/timescaledb/src/loader/loader.c:96:34: error: ‘IsParallelWorker’ was not declared in this scope
+ #define CalledInParallelWorker() IsParallelWorker()
+                                  ^
+
+No storage/shm_mq.h
+/opt/timescaledb/src/loader/bgw_message_queue.c:14:10: fatal error: storage/shm_mq.h: No such file or directory
+ #include <storage/shm_mq.h>
+          ^~~~~~~~~~~~~~~~~~
+
+
+
+
+
+
+No InvalidPid, but there is defination in cpp of OG
+/opt/timescaledb/src/loader/bgw_message_queue.c:76:20: error: ‘InvalidPid’ was not declared in this scope
+   mq->reader_pid = InvalidPid;
+                    ^~~~~~~~~~
+
+
+
+
+No GetNamedLWLockTranche
+/opt/timescaledb/src/loader/bgw_message_queue.c:78:16: error: ‘GetNamedLWLockTranche’ was not declared in this scope
+   mq->lock = &(GetNamedLWLockTranche(BGW_MQ_TRANCHE_NAME))->lock;
+                ^~~~~~~~~~~~~~~~~~~~~
+
+
+
+
+
+
+No RequestNamedLWLockTranche
+/opt/timescaledb/src/loader/bgw_message_queue.c:97:2: error: ‘RequestNamedLWLockTranche’ was not declared in this scope
+  RequestNamedLWLockTranche(BGW_MQ_TRANCHE_NAME, 1);
+  ^~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+
+No dsm_segment
+/opt/timescaledb/src/loader/bgw_message_queue.c:213:2: error: ‘dsm_segment’ was not declared in this scope
+  dsm_segment *seg;
+  ^~~~~~~~~~~
+
+
+No shm_mq_minimum_size
+/opt/timescaledb/src/loader/bgw_message_queue.c:38:38: error: ‘shm_mq_minimum_size’ was not declared in this scope
+ #define BGW_ACK_QUEUE_SIZE (MAXALIGN(shm_mq_minimum_size + sizeof(int)))
+                                      ^
+
+No dsm_create
+/opt/timescaledb/src/loader/bgw_message_queue.c:217:8: error: ‘dsm_create’ was not declared in this scope
+  seg = dsm_create(BGW_ACK_QUEUE_SIZE, 0);
+        ^~~~~~~~~~
+
+No dsm_segment_handle
+/opt/timescaledb/src/loader/bgw_message_queue.c:222:27: error: ‘dsm_segment_handle’ was not declared in this scope
+         .ack_dsm_handle = dsm_segment_handle(seg) };
+                           ^~~~~~~~~~~~~~~~~~
+
+
+
+No shm_mq_result
+/opt/timescaledb/src/loader/bgw_message_queue.c:231:8: error: ‘shm_mq_result’ does not name a type; did you mean ‘SPI_result’?
+ static shm_mq_result
+        ^~~~~~~~~~~~~
+
+
+No shm_mq_handle
+/opt/timescaledb/src/loader/bgw_message_queue.c:265:9: error: ‘shm_mq_handle’ has not been declared
+         shm_mq_handle *ack_queue_handle)
+         ^~~~~~~~~~~~~
+
+
+
+
+No shm_mq
+/opt/timescaledb/src/loader/bgw_message_queue.c:328:2: error: ‘shm_mq’ was not declared in this scope
+  shm_mq *ack_queue;
+  ^~~~~~
+
+
+
+
+No ack_dsm_handle attr in BgwMessage
+/opt/timescaledb/src/loader/bgw_message_queue.c:336:34: error: ‘BgwMessage {aka struct BgwMessage}’ has no member named ‘ack_dsm_handle’
+  seg = dsm_find_mapping(message->ack_dsm_handle);
+                                  ^~~~~~~~~~~~~~
+
+No dsm_find_mapping and dsm_segment_address
+/opt/timescaledb/src/loader/bgw_message_queue.c:336:8: error: ‘dsm_find_mapping’ was not declared in this scope
+  seg = dsm_find_mapping(message->ack_dsm_handle);
+        ^~~~~~~~~~~~~~~~
+/opt/timescaledb/src/loader/bgw_message_queue.c:340:28: error: ‘dsm_segment_address’ was not declared in this scope
+  ack_queue = shm_mq_create(dsm_segment_address(seg), BGW_ACK_QUEUE_SIZE);
+                            ^~~~~~~~~~~~~~~~~~~
+
+
+
+No MyProc and shm_mq_set_receiver
+/opt/timescaledb/src/loader/bgw_message_queue.c:341:33: error: ‘MyProc’ was not declared in this scope
+  shm_mq_set_receiver(ack_queue, MyProc);
+                                 ^~~~~~
+/opt/timescaledb/src/loader/bgw_message_queue.c:341:2: error: ‘shm_mq_set_receiver’ was not declared in this scope
+  shm_mq_set_receiver(ack_queue, MyProc);
+  ^~~~~~~~~~~~~~~~~~~
+
+
+
+No shm_mq_attach and dsm_detach
+/opt/timescaledb/src/loader/bgw_message_queue.c:342:21: error: ‘shm_mq_attach’ was not declared in this scope
+  ack_queue_handle = shm_mq_attach(ack_queue, seg, NULL);
+                     ^~~~~~~~~~~~~
+/opt/timescaledb/src/loader/bgw_message_queue.c:345:2: error: ‘dsm_detach’ was not declared in this scope
+  dsm_detach(seg); /* Queue detach happens in dsm detach callback */
+  ^~~~~~~~~~
+
+
+
+
+
+
+No ack_dsm_handle attr in BgwMessage, no dsm_attach
+/opt/timescaledb/src/loader/bgw_message_queue.c:449:28: error: ‘BgwMessage {aka struct BgwMessage}’ has no member named ‘ack_dsm_handle’
+  seg = dsm_attach(message->ack_dsm_handle);
+                            ^~~~~~~~~~~~~~
+
+
+
+No dsm_detach
+/opt/timescaledb/src/loader/bgw_message_queue.c:461:3: error: ‘dsm_detach’ was not declared in this scope
+   dsm_detach(seg);
+   ^~~~~~~~~~
+
+
+
+No BGW_MAXLEN, BGWORKER_SHMEM_ACCESS, BGWORKER_BACKEND_DATABASE_CONNECTION
+/opt/timescaledb/src/loader/bgw_launcher.c:257:28: error: ‘BGW_MAXLEN’ was not declared in this scope
+  snprintf(worker.bgw_name, BGW_MAXLEN, "TimescaleDB Background Worker Launcher");
+                            ^~~~~~~~~~
+/opt/timescaledb/src/loader/bgw_launcher.c:258:21: error: ‘BGWORKER_SHMEM_ACCESS’ was not declared in this scope
+  worker.bgw_flags = BGWORKER_SHMEM_ACCESS | BGWORKER_BACKEND_DATABASE_CONNECTION;
+                     ^~~~~~~~~~~~~~~~~~~~~
+
+
+No BgWorkerStart_RecoveryFinished
+/opt/timescaledb/src/loader/bgw_launcher.c:267:26: error: ‘BgWorkerStart_RecoveryFinished’ was not declared in this scope
+  worker.bgw_start_time = BgWorkerStart_RecoveryFinished;
+                          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+
+No RegisterBackgroundWorker
+/opt/timescaledb/src/loader/bgw_launcher.c:271:2: error: ‘RegisterBackgroundWorker’ was not declared in this scope
+  RegisterBackgroundWorker(&worker);
+  ^~~~~~~~~~~~~~~~~~~~~~~~
+
+
+
+No BGW_NEVER_RESTART
+/opt/timescaledb/src/loader/bgw_launcher.c:289:28: error: ‘BGW_NEVER_RESTART’ was not declared in this scope
+  worker.bgw_restart_time = BGW_NEVER_RESTART;
+                            ^~~~~~~~~~~~~~~~~
+
+
+
+
+No RegisterDynamicBackgroundWorker
+/opt/timescaledb/src/loader/bgw_launcher.c:297:9: error: ‘RegisterDynamicBackgroundWorker’ was not declared in this scope
+  return RegisterDynamicBackgroundWorker(&worker, handle);
+         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+
+No db_scheduler_handle attr in DbHashEntry
+/opt/timescaledb/src/loader/bgw_launcher.c:325:10: error: ‘DbHashEntry {aka struct DbHashEntry}’ has no member named ‘db_scheduler_handle’
+   db_he->db_scheduler_handle = NULL;
+          ^~~~~~~~~~~~~~~~~~~
+
+
+No heap_beginscan_catalog
+/opt/timescaledb/src/loader/../compat/tableam.h:23:51: error: ‘heap_beginscan_catalog’ was not declared in this scope
+ #define table_beginscan_catalog(rel, nkeys, keys) heap_beginscan_catalog(rel, nkeys, keys)
+                                                   ^
+
+
+No oid attr in FormData_pg_database
+/opt/timescaledb/src/loader/bgw_launcher.c:380:53: error: ‘FormData_pg_database {aka struct FormData_pg_database}’ has no member named ‘oid’
+   db_hash_entry_create_if_not_exists(db_htab, pgdb->oid);
+                                                     ^~~
+
+
+
+No BGWH_STOPPED
+/opt/timescaledb/src/loader/bgw_launcher.c:424:72: error: ‘BGWH_STOPPED’ was not declared in this scope
+  Assert(get_background_worker_pid(entry->db_scheduler_handle, NULL) == BGWH_STOPPED);
+                                                                        ^
+
+
+
+No wait_for_background_worker_startup
+/opt/timescaledb/src/loader/bgw_launcher.c:450:2: error: ‘wait_for_background_worker_startup’ was not declared in this scope
+  wait_for_background_worker_startup(entry->db_scheduler_handle, &worker_pid);
+  ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+
+
+No terminate_background_worker and wait_for_background_worker_shutdown
+/opt/timescaledb/src/loader/bgw_launcher.c:613:4: error: ‘terminate_background_worker’ was not declared in this scope
+    terminate_background_worker(entry->db_scheduler_handle);
+    ^~~~~~~~~~~~~~~~~~~~~~~~~~~
+/opt/timescaledb/src/loader/bgw_launcher.c:614:4: error: ‘wait_for_background_worker_shutdown’ was not declared in this scope
+    wait_for_background_worker_shutdown(entry->db_scheduler_handle);
+    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+
+
+No BackgroundWorkerInitializeConnectionCompat
+/opt/timescaledb/src/loader/bgw_launcher.c:769:2: error: ‘BackgroundWorkerInitializeConnectionCompat’ was not declared in this scope
+  BackgroundWorkerInitializeConnectionCompat(NULL, NULL);
+  ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+No MyBgworkerEntry
+/opt/timescaledb/src/loader/bgw_launcher.c:770:24: error: ‘MyBgworkerEntry’ was not declared in this scope
+  pgstat_report_appname(MyBgworkerEntry->bgw_name);
+                        ^~~~~~~~~~~~~~~
+
+
+
+
+Different params requests of ApplySetting, and No PGC_S_GLOBAL
+/opt/timescaledb/src/loader/bgw_launcher.c:883:75: error: cannot convert ‘Relation {aka RelationData*}’ to ‘GucSource’ for argument ‘4’ to ‘void ApplySetting(Oid, Oid, Relation, GucSource)’
+/opt/timescaledb/src/loader/bgw_launcher.c:884:61: error: ‘PGC_S_GLOBAL’ was not declared in this scope
+  ApplySetting(snapshot, InvalidOid, InvalidOid, relsetting, PGC_S_GLOBAL);
+                                                             ^~~~~~~~~~~~
+
+
+
+
+No BackgroundWorkerInitializeConnectionByOidCompat
+/opt/timescaledb/src/loader/bgw_launcher.c:910:2: error: ‘BackgroundWorkerInitializeConnectionByOidCompat’ was not declared in this scope
+  BackgroundWorkerInitializeConnectionByOidCompat(db_id, InvalidOid);
+  ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+
+No GetNamedLWLockTranche
+/opt/timescaledb/src/loader/lwlocks.c:42:32: error: ‘GetNamedLWLockTranche’ was not declared in this scope
+   ts_lwlocks->chunk_append = &(GetNamedLWLockTranche(CHUNK_APPEND_LWLOCK_TRANCHE_NAME))->lock;
+                                ^~~~~~~~~~~~~~~~~~~~~
+
+
+No ALLOCSET_SMALL_SIZES
+/opt/timescaledb/tsl/src/license.c:151:14: error: ‘ALLOCSET_SMALL_SIZES’ was not declared in this scope
+              ALLOCSET_SMALL_SIZES);
+              ^~~~~~~~~~~~~~~~~~~~
+
+
+No jsonb_in
+/opt/timescaledb/tsl/src/license.c:202:40: error: ‘jsonb_in’ was not declared in this scope
+   Datum json_key = DirectFunctionCall1(jsonb_in, CStringGetDatum(expanded));
+                                        ^
+No Jsonb
+/opt/timescaledb/tsl/src/license.c:204:33: error: ‘Jsonb’ was not declared in this scope
+   license_info_init_from_jsonb((Jsonb *) DatumGetPointer(json_key), out);
+                                 ^~~~~
+
+
+
+
+No access/amapi.h
+/opt/timescaledb/tsl/src/reorder.c:17:10: fatal error: access/amapi.h: No such file or directory
+ #include <access/amapi.h>
+          ^~~~~~~~~~~~~~~~
+
+
+No ERRCODE_ASSERT_FAILURE
+/opt/timescaledb/tsl/src/reorder.c: In function ‘void timescale_reorder_rel(Oid, Oid, bool, Oid, Oid, Oid)’:
+/opt/timescaledb/tsl/src/reorder.c:443:14: error: ‘ERRCODE_ASSERT_FAILURE’ was not declared in this scope
+     (errcode(ERRCODE_ASSERT_FAILURE), errmsg("invalid index heap during reorder")));
+              ^
+
+
+
+No relminmxid attr in FormData_pg_class
+/opt/timescaledb/tsl/src/reorder.c:682:60: error: ‘FormData_pg_class {aka struct FormData_pg_class}’ has no member named ‘relminmxid’; did you mean ‘relkind’?
+  if (MultiXactIdPrecedes(MultiXactCutoff, OldHeap->rd_rel->relminmxid))
+                                                            ^
+
+No tuplesort
+/opt/timescaledb/tsl/src/reorder.c:737:3: error: ‘tuplesort’ was not declared in this scope
+   tuplesort = tuplesort_begin_cluster(oldTupDesc,
+   ^~~~~~~~~
+
+
+No indexScan
+/opt/timescaledb/tsl/src/reorder.c:761:3: error: ‘indexScan’ was not declared in this scope
+   indexScan = NULL;
+   ^~~~~~~~~
+
+
+
+No heapScan
+/opt/timescaledb/tsl/src/reorder.c:780:11: error: ‘heapScan’ was not declared in this scope
+    Assert(heapScan == NULL);
+           ^
+
+
+
+
+
+No rwstate
+/opt/timescaledb/tsl/src/reorder.c:852:32: error: ‘rwstate’ was not declared in this scope
+    if (rewrite_heap_dead_tuple(rwstate, tuple))
+                                ^~~~~~~
+
+
+No reform_and_rewrite_tuple
+/opt/timescaledb/tsl/src/reorder.c:865:4: error: ‘reform_and_rewrite_tuple’ was not declared in this scope
+    reform_and_rewrite_tuple(tuple, oldTupDesc, newTupDesc, values, isnull, rwstate);
+
+
+
+
+
+No toast_get_valid_index
+/opt/timescaledb/tsl/src/reorder.c: In function ‘void finish_heap_swaps(Oid, Oid, List*, List*, bool, bool, TransactionId, MultiXactId, Oid)’:
+/opt/timescaledb/tsl/src/reorder.c:1099:15: error: ‘toast_get_valid_index’ was not declared in this scope
+    toastidx = toast_get_valid_index(newrel->rd_rel->reltoastrelid, AccessShareLock);
+               ^~~~~~~~~~~~~~~~~~~~~
+
+
+
+No InvokeObjectPostAlterHookArg
+/opt/timescaledb/tsl/src/reorder.c:1249:2: error: ‘InvokeObjectPostAlterHookArg’ was not declared in this scope
+  InvokeObjectPostAlterHookArg(RelationRelationId, r1, 0, InvalidOid, is_internal);
+  ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+No aggcombinefn aggfinalextra and aggdeserialfn attrs in FormData_pg_aggregate
+/opt/timescaledb/tsl/src/partialize_finalize.c: In function ‘FAPerQueryState* fa_perquery_state_init(FunctionCallInfo)’:
+/opt/timescaledb/tsl/src/partialize_finalize.c:303:54: error: ‘FormData_pg_aggregate {aka struct FormData_pg_aggregate}’ has no member named ‘aggcombinefn’; did you mean ‘aggcollectfn’?
+  tstate->combine_meta.combinefnoid = inner_agg_form->aggcombinefn;
+                                                      ^~~~~~~~~~~~
+/opt/timescaledb/tsl/src/partialize_finalize.c:304:55: error: ‘FormData_pg_aggregate {aka struct FormData_pg_aggregate}’ has no member named ‘aggdeserialfn’; did you mean ‘aggfinalfn’?
+  tstate->combine_meta.deserialfnoid = inner_agg_form->aggdeserialfn;
+                                                       ^~~~~~~~~~~~~
+/opt/timescaledb/tsl/src/partialize_finalize.c:360:23: error: ‘FormData_pg_aggregate {aka struct FormData_pg_aggregate}’ has no member named ‘aggfinalextra’; did you mean ‘aggfinalfn’?
+   if (inner_agg_form->aggfinalextra)
+                       ^~~~~~~~~~~~~
+
+
+
+
+
+
+
+No build_aggregate_finalfn_expr
+/opt/timescaledb/tsl/src/partialize_finalize.c:381:4: error: ‘build_aggregate_finalfn_expr’ was not declared in this scope
+    build_aggregate_finalfn_expr(types,
+    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+
+
+
+No UPPERREL_GROUP_AGG and UPPERREL_WINDOW
+/opt/timescaledb/tsl/src/planner.c:25:6: error: ‘UPPERREL_GROUP_AGG’ was not declared in this scope
+  if (UPPERREL_GROUP_AGG == stage)
+      ^~~~~~~~~~~~~~~~~~
+/opt/timescaledb/tsl/src/planner.c:27:6: error: ‘UPPERREL_WINDOW’ was not declared in this scope
+  if (UPPERREL_WINDOW == stage)
+      ^~~~~~~~~~~~~~~
+
+No make_interval
+In file included from /opt/timescaledb/tsl/src/bgw_policy/reorder_api.c:7:0:
+/opt/timescaledb/tsl/src/bgw_policy/reorder_api.c:148:24: error: ‘make_interval’ was not declared in this scope
+    DirectFunctionCall7(make_interval,
+                        ^
+
+
+
+
+No SRF_RETURN_NEXT_NULL
+/opt/timescaledb/tsl/src/compression/compression.c:1328:3: error: ‘SRF_RETURN_NEXT_NULL’ was not declared in this scope
+   SRF_RETURN_NEXT_NULL(funcctx);
+   ^~~~~~~~~~~~~~~~~~~~
+
+
+
+
+
+Different return_value of DefineIndex
+/opt/timescaledb/tsl/src/compression/create.c:427:18: error: no match for ‘operator=’ (operand types are ‘ObjectAddress’ and ‘Oid {aka unsigned int}’)
+             false); /* quiet */
+                  ^
+
+
+No InvokeObjectPostAlterHook
+/opt/timescaledb/tsl/src/compression/create.c: In function ‘void set_statistics_on_compressed_table(Oid)’:
+/opt/timescaledb/tsl/src/compression/create.c:486:3: error: ‘InvokeObjectPostAlterHook’ was not declared in this scope
+   InvokeObjectPostAlterHook(RelationRelationId, compressed_table_id, attrtuple->attnum);
+   ^~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+Different return_value of DefineRelation
+No NewRelationCreateToastTable
+/opt/timescaledb/tsl/src/compression/create.c:552:2: error: ‘NewRelationCreateToastTable’ was not declared in this scope
+  NewRelationCreateToastTable(compress_relid, toast_options);
+  ^~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+
+Different return_value of CreateTriggerCompat
+/opt/timescaledb/tsl/src/compression/compress_utils.c:139:93: error: no match for ‘operator=’ (operand types are ‘ObjectAddress’ and ‘Oid {aka unsigned int}’)
+  objaddr = CreateTriggerCompat(&stmt, NULL, relid, InvalidOid, InvalidOid, InvalidOid, false);
+                                                                                             ^
+
+
+
+No MemoryContextAllocExtended
+/opt/timescaledb/src/adts/simplehash.h: In function ‘void* dictionary_allocate(dictionary_hash*, Size)’:
+/opt/timescaledb/src/adts/simplehash.h:334:9: error: ‘MemoryContextAllocExtended’ was not declared in this scope
+  return MemoryContextAllocExtended(type->ctx, size, MCXT_ALLOC_HUGE | MCXT_ALLOC_ZERO);
+         ^~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+
+
+So many operator needs to refactor in gorilla_compressor_append_value
+/opt/timescaledb/tsl/src/compression/gorilla.c: In function ‘void gorilla_compressor_append_value(GorillaCompressor*, uint64)’:
+/opt/timescaledb/tsl/src/compression/gorilla.c:393:9: error: expected unqualified-id before ‘xor’ token
+  uint64 xor = compressor->prev_val ^ val;
+         ^~~
+/opt/timescaledb/tsl/src/compression/gorilla.c:402:20: error: expected primary-expression before ‘xor’ token
+  if (has_values && xor == 0)
+                    ^~~
+/opt/timescaledb/tsl/src/compression/gorilla.c:402:24: error: expected primary-expression before ‘==’ token
+  if (has_values && xor == 0)
+                        ^~
+/opt/timescaledb/tsl/src/compression/gorilla.c:411:23: error: expected primary-expression before ‘xor’ token
+   int leading_zeros = xor != 0 ? 63 - pg_leftmost_one_pos64(xor) : 63;
+                       ^~~
+/opt/timescaledb/tsl/src/compression/gorilla.c:411:27: error: expected primary-expression before ‘!=’ token
+   int leading_zeros = xor != 0 ? 63 - pg_leftmost_one_pos64(xor) : 63;
+                           ^~
+/opt/timescaledb/tsl/src/compression/gorilla.c:411:61: error: expected primary-expression before ‘xor’ token
+   int leading_zeros = xor != 0 ? 63 - pg_leftmost_one_pos64(xor) : 63;
+                                                             ^~~
+/opt/timescaledb/tsl/src/compression/gorilla.c:411:64: error: expected primary-expression before ‘)’ token
+   int leading_zeros = xor != 0 ? 63 - pg_leftmost_one_pos64(xor) : 63;
+                                                                ^
+/opt/timescaledb/tsl/src/compression/gorilla.c:411:39: error: ‘pg_leftmost_one_pos64’ was not declared in this scope
+   int leading_zeros = xor != 0 ? 63 - pg_leftmost_one_pos64(xor) : 63;
+                                       ^~~~~~~~~~~~~~~~~~~~~
+/opt/timescaledb/tsl/src/compression/gorilla.c:412:24: error: expected primary-expression before ‘xor’ token
+   int trailing_zeros = xor != 0 ? pg_rightmost_one_pos64(xor) : 1;
+                        ^~~
+/opt/timescaledb/tsl/src/compression/gorilla.c:412:28: error: expected primary-expression before ‘!=’ token
+   int trailing_zeros = xor != 0 ? pg_rightmost_one_pos64(xor) : 1;
+                            ^~
+/opt/timescaledb/tsl/src/compression/gorilla.c:412:58: error: expected primary-expression before ‘xor’ token
+   int trailing_zeros = xor != 0 ? pg_rightmost_one_pos64(xor) : 1;
+                                                          ^~~
+/opt/timescaledb/tsl/src/compression/gorilla.c:412:61: error: expected primary-expression before ‘)’ token
+   int trailing_zeros = xor != 0 ? pg_rightmost_one_pos64(xor) : 1;
+                                                             ^
+/opt/timescaledb/tsl/src/compression/gorilla.c:412:35: error: ‘pg_rightmost_one_pos64’ was not declared in this scope
+   int trailing_zeros = xor != 0 ? pg_rightmost_one_pos64(xor) : 1;
+                                   ^~~~~~~~~~~~~~~~~~~~~~
+/opt/timescaledb/tsl/src/compression/gorilla.c:438:54: error: expected primary-expression before ‘xor’ token
+   bit_array_append(&compressor->xors, num_bits_used, xor >> compressor->prev_trailing_zeros);
+                                                      ^~~
+/opt/timescaledb/tsl/src/compression/gorilla.c:438:58: error: expected primary-expression before ‘>>’ token
+   bit_array_append(&compressor->xors, num_bits_used, xor >> compressor->prev_trailing_zeros);
+                                                          ^~
+
+
+So many operator needs to refactor in gorilla_decompression_iterator_try_next_forward_internal
+/opt/timescaledb/tsl/src/compression/gorilla.c: In function ‘DecompressResultInternal gorilla_decompression_iterator_try_next_forward_internal(GorillaDecompressionIterator*)’:
+/opt/timescaledb/tsl/src/compression/gorilla.c:665:9: error: expected unqualified-id before ‘xor’ token
+  uint64 xor ;
+         ^~~
+/opt/timescaledb/tsl/src/compression/gorilla.c:712:2: error: expected primary-expression before ‘xor’ token
+  xor = bit_array_iter_next(&iter->xors, iter->prev_xor_bits_used);
+  ^~~
+/opt/timescaledb/tsl/src/compression/gorilla.c:712:6: error: expected primary-expression before ‘=’ token
+  xor = bit_array_iter_next(&iter->xors, iter->prev_xor_bits_used);
+      ^
+/opt/timescaledb/tsl/src/compression/gorilla.c:714:3: error: expected primary-expression before ‘xor’ token
+   xor <<= 64 - (iter->prev_leading_zeroes + iter->prev_xor_bits_used);
+   ^~~
+/opt/timescaledb/tsl/src/compression/gorilla.c:714:7: error: expected primary-expression before ‘<<=’ token
+   xor <<= 64 - (iter->prev_leading_zeroes + iter->prev_xor_bits_used);
+       ^~~
+/opt/timescaledb/tsl/src/compression/gorilla.c:715:20: error: expected primary-expression before ‘xor’ token
+  iter->prev_val ^= xor;
+                    ^~~
+/opt/timescaledb/tsl/src/compression/gorilla.c:715:23: error: expected primary-expression before ‘;’ token
+  iter->prev_val ^= xor;
+                       ^
+
+
+
+
+
+
+
+
+
+
+So many operator needs to refactor in gorilla_decompression_iterator_try_next_reverse_internal
+/opt/timescaledb/tsl/src/compression/gorilla.c: In function ‘DecompressResultInternal gorilla_decompression_iterator_try_next_reverse_internal(GorillaDecompressionIterator*)’:
+/opt/timescaledb/tsl/src/compression/gorilla.c:789:9: error: expected unqualified-id before ‘xor’ token
+  uint64 xor ;
+         ^~~
+/opt/timescaledb/tsl/src/compression/gorilla.c:799:4: sorry, unimplemented: non-trivial designated initializers not supported
+    };
+    ^
+/opt/timescaledb/tsl/src/compression/gorilla.c:806:4: sorry, unimplemented: non-trivial designated initializers not supported
+    };
+    ^
+/opt/timescaledb/tsl/src/compression/gorilla.c:817:3: sorry, unimplemented: non-trivial designated initializers not supported
+   };
+   ^
+/opt/timescaledb/tsl/src/compression/gorilla.c:824:2: error: expected primary-expression before ‘xor’ token
+  xor = bit_array_iter_next_rev(&iter->xors, iter->prev_xor_bits_used);
+  ^~~
+/opt/timescaledb/tsl/src/compression/gorilla.c:824:6: error: expected primary-expression before ‘=’ token
+  xor = bit_array_iter_next_rev(&iter->xors, iter->prev_xor_bits_used);
+      ^
+/opt/timescaledb/tsl/src/compression/gorilla.c:827:3: error: expected primary-expression before ‘xor’ token
+   xor <<= 64 - (iter->prev_leading_zeroes + iter->prev_xor_bits_used);
+   ^~~
+/opt/timescaledb/tsl/src/compression/gorilla.c:827:7: error: expected primary-expression before ‘<<=’ token
+   xor <<= 64 - (iter->prev_leading_zeroes + iter->prev_xor_bits_used);
+       ^~~
+/opt/timescaledb/tsl/src/compression/gorilla.c:828:20: error: expected primary-expression before ‘xor’ token
+  iter->prev_val ^= xor;
+                    ^~~
+/opt/timescaledb/tsl/src/compression/gorilla.c:828:23: error: expected primary-expression before ‘;’ token
+  iter->prev_val ^= xor;
+                       ^
+
+
+
+
+
+No utils/ruleutils.h
+/opt/timescaledb/tsl/src/continuous_aggs/create.c:51:10: fatal error: utils/ruleutils.h: No such file or directory
+ #include <utils/ruleutils.h>
+          ^~~~~~~~~~~~~~~~~~~
+
+
+
+
+
+
+
+Confilct defination of Point
+In file included from /opt/timescaledb/src/hypertable.h:15:0,
+                 from /opt/timescaledb/src/chunk_constraint.h:13,
+                 from /opt/timescaledb/src/chunk.h:16,
+                 from /opt/timescaledb/src/continuous_agg.h:13,
+                 from /opt/timescaledb/tsl/src/continuous_aggs/create.h:11,
+                 from /opt/timescaledb/tsl/src/continuous_aggs/create.c:63:
+/opt/timescaledb/src/dimension.h:70:16: error: using typedef-name ‘Point’ after ‘struct’
+ typedef struct Point
+                ^~~~~
+In file included from /opt/openGauss-server/src/include/vecexecutor/vecexecutor.h:33:0,
+                 from /opt/openGauss-server/src/include/vectorsonic/vsonicarray.h:31,
+                 from /opt/openGauss-server/src/include/vectorsonic/vsonichash.h:31,
+                 from /opt/openGauss-server/src/include/vectorsonic/vsonichashagg.h:30,
+                 from /opt/openGauss-server/src/include/utils/../../gausskernel/runtime/vecexecutor/vecprimitive/int8.inl:33,
+                 from /opt/openGauss-server/src/include/utils/int8.h:130,
+                 from /opt/timescaledb/tsl/src/continuous_aggs/create.c:50:
+/opt/openGauss-server/src/include/utils/geo_decls.h:59:3: note: ‘Point’ has a previous declaration here
+ } Point;
+   ^~~~~
+
+
+
+
+
+
+
+
+
+
+No aggfilter aggcombinefn and aggdeserialfn attrs in Aggref
+/opt/timescaledb/tsl/src/continuous_aggs/create.c: In function ‘bool cagg_agg_validate(Node*, void*)’:
+/opt/timescaledb/tsl/src/continuous_aggs/create.c:686:49: error: ‘Aggref {aka struct Aggref}’ has no member named ‘aggfilter’; did you mean ‘aggorder’?
+   if (agg->aggorder || agg->aggdistinct || agg->aggfilter)
+                                                 ^~~~~~~~~
+                                                 aggorder
+/opt/timescaledb/tsl/src/continuous_aggs/create.c:707:16: error: ‘FormData_pg_aggregate {aka struct FormData_pg_aggregate}’ has no member named ‘aggcombinefn’; did you mean ‘aggcollectfn’?
+   if (aggform->aggcombinefn == InvalidOid ||
+                ^~~~~~~~~~~~
+                aggcollectfn
+/opt/timescaledb/tsl/src/continuous_aggs/create.c:708:54: error: ‘FormData_pg_aggregate {aka struct FormData_pg_aggregate}’ has no member named ‘aggdeserialfn’; did you mean ‘aggfinalfn’?
+    (aggform->aggtranstype == INTERNALOID && aggform->aggdeserialfn == InvalidOid))
+                                                      ^~~~~~~~~~~~~
+                                                      aggfinalfn
+
+
+
+
+
+
+
+
+Different return_value of DefineIndexCompat
+/opt/timescaledb/tsl/src/continuous_aggs/create.c: In function ‘void mattablecolumninfo_add_mattable_index(MatTableColumnInfo*, Hypertable*)’:
+/opt/timescaledb/tsl/src/continuous_aggs/create.c:422:99: error: no match for ‘operator=’ (operand types are ‘ObjectAddress’ and ‘Oid {aka unsigned int}’)
+   indxaddr = DefineIndexCompat(ht->main_table_relid, &stmt, InvalidOid, false, false, false, false);
+                                                                                                   ^
+
+
+
+No ArrayBuildStateArr and initArrayResultArr
+/opt/timescaledb/tsl/src/continuous_aggs/create.c: In function ‘Datum get_input_types_array_datum(Aggref*)’:
+/opt/timescaledb/tsl/src/continuous_aggs/create.c:878:2: error: ‘ArrayBuildStateArr’ was not declared in this scope
+  ArrayBuildStateArr *outer_builder =
+  ^~~~~~~~~~~~~~~~~~
+/opt/timescaledb/tsl/src/continuous_aggs/create.c:879:3: error: ‘initArrayResultArr’ was not declared in this scope
+   initArrayResultArr(name_array_type_oid, NAMEOID, builder_context, false);
+   ^~~~~~~~~~~~~~~~~~
+
+
+No initArrayResult
+/opt/timescaledb/tsl/src/continuous_aggs/create.c:886:42: error: ‘initArrayResult’ was not declared in this scope
+   ArrayBuildState *schema_name_builder = initArrayResult(NAMEOID, builder_context, false);
+                                          ^~~~~~~~~~~~~~~
+
+
+
+No accumArrayResultArr
+/opt/timescaledb/tsl/src/continuous_aggs/create.c:913:3: error: ‘accumArrayResultArr’ was not declared in this scope
+   accumArrayResultArr(outer_builder,
+   ^~~~~~~~~~~~~~~~~~~
+
+
+
+
+
+
+
+
+
+No makeArrayResultArr
+/opt/timescaledb/tsl/src/continuous_aggs/create.c:919:11: error: ‘makeArrayResultArr’ was not declared in this scope
+  result = makeArrayResultArr(outer_builder, CurrentMemoryContext, false);
+           ^~~~~~~~~~~~~~~~~~
+
+
+
+
+
+No list_make5_oid
+/opt/timescaledb/tsl/src/continuous_aggs/create.c:953:13: error: ‘list_make5_oid’ was not declared in this scope
+  argtypes = list_make5_oid(TEXTOID, NAMEOID, NAMEOID, name_array_type_oid, BYTEAOID);
+             ^~~~~~~~~~~~~~
+
+
+
+
+
+No aggtranstype  aggargtypes  aggfilter  aggsplit attrs in Aggref
+/opt/timescaledb/tsl/src/continuous_aggs/create.c:961:10: error: ‘Aggref {aka struct Aggref}’ has no member named ‘aggtranstype’; did you mean ‘aggtrantype’?
+  aggref->aggtranstype = InvalidOid; /* will be set by planner */
+          ^~~~~~~~~~~~
+          aggtrantype
+/opt/timescaledb/tsl/src/continuous_aggs/create.c:962:10: error: ‘Aggref {aka struct Aggref}’ has no member named ‘aggargtypes’; did you mean ‘aggtype’?
+  aggref->aggargtypes = argtypes;
+          ^~~~~~~~~~~
+          aggtype
+/opt/timescaledb/tsl/src/continuous_aggs/create.c:966:10: error: ‘Aggref {aka struct Aggref}’ has no member named ‘aggfilter’; did you mean ‘aggorder’?
+  aggref->aggfilter = NULL;
+          ^~~~~~~~~
+          aggorder
+/opt/timescaledb/tsl/src/continuous_aggs/create.c:970:10: error: ‘Aggref {aka struct Aggref}’ has no member named ‘aggsplit’; did you mean ‘aggfnoid’?
+  aggref->aggsplit = AGGSPLIT_SIMPLE; // TODO make sure plannerdoes not change this ???
+          ^~~~~~~~
+          aggfnoid
+
+
+
+
+
+No AGGSPLIT_SIMPLE
+/opt/timescaledb/tsl/src/continuous_aggs/create.c:970:21: error: ‘AGGSPLIT_SIMPLE’ was not declared in this scope
+  aggref->aggsplit = AGGSPLIT_SIMPLE; // TODO make sure plannerdoes not change this ???
+                     ^~~~~~~~~~~~~~~
+
+
+
+
+
+
+
+
+
+No get_view_query
+/opt/timescaledb/tsl/src/continuous_aggs/create.c: In function ‘void cagg_update_view_definition(ContinuousAgg*, Hypertable*, WithClauseResult*)’:
+/opt/timescaledb/tsl/src/continuous_aggs/create.c:1809:22: error: ‘get_view_query’ was not declared in this scope
+  Query *user_query = get_view_query(user_view_rel);
+                      ^~~~~~~~~~~~~~
+
+
+
+
+
+
+
+No TopTransactionContext
+/opt/timescaledb/tsl/src/continuous_aggs/insert.c: In function ‘void cache_inval_init()’:
+/opt/timescaledb/tsl/src/continuous_aggs/insert.c:92:55: error: ‘TopTransactionContext’ was not declared in this scope
+  continuous_aggs_trigger_mctx = AllocSetContextCreate(TopTransactionContext,
+                                                       ^~~~~~~~~~~~~~~~~~~~~
+
+
+
+
+
+
+No XACT_EVENT_PRE_COMMIT
+/opt/timescaledb/tsl/src/continuous_aggs/insert.c: In function ‘void continuous_agg_xact_invalidation_callback(XactEvent, void*)’:
+/opt/timescaledb/tsl/src/continuous_aggs/insert.c:333:8: error: ‘XACT_EVENT_PRE_COMMIT’ was not declared in this scope
+   case XACT_EVENT_PRE_COMMIT:
+        ^~~~~~~~~~~~~~~~~~~~~
+
+
+
+
+
+
+
+No scanint8
+/opt/timescaledb/tsl/src/continuous_aggs/options.c:28:7: error: ‘scanint8’ was not declared in this scope
+  if (!scanint8(value, true, &result))
+       ^~~~~~~~
+
+
+
+
+
+
+
+
+No cpath attr in CompressChunkDmlPath
+/opt/timescaledb/tsl/src/nodes/compress_dml/compress_dml.c: In function ‘Path* compress_chunk_dml_path_create(Path*, Oid)’:
+/opt/timescaledb/tsl/src/nodes/compress_dml/compress_dml.c:97:16: error: ‘CompressChunkDmlPath {aka struct CompressChunkDmlPath}’ has no member named ‘cpath’
+  memcpy(&path->cpath.path, subpath, sizeof(Path));
+                ^~~~~
+
+
+
+
+No Int4LessOperator
+/opt/timescaledb/tsl/src/nodes/decompress_chunk/decompress_chunk.c:244:28: error: ‘Int4LessOperator’ was not declared in this scope
+    sortop = get_commutator(Int4LessOperator);
+                            ^~~~~~~~~~~~~~~~
+
+
+
+
+
+
+Different params requests of pull_var_clause
+/opt/timescaledb/tsl/src/nodes/decompress_chunk/decompress_chunk.c:494:74: error: cannot convert ‘PVCPlaceHolderBehavior’ to ‘PVCAggregateBehavior’ for argument ‘2’ to ‘List* pull_var_clause(Node*, PVCAggregateBehavior, PVCPlaceHolderBehavior, PVCSPExprBehavior, bool, bool)’
+   List *chunk_vars = pull_var_clause(lfirst(lc), PVC_RECURSE_PLACEHOLDERS);
+                                                                          ^
+
+
+
+
+
+
+Different params requests of add_path
+/opt/timescaledb/tsl/src/nodes/decompress_chunk/decompress_chunk.c: In function ‘void create_compressed_scan_paths(PlannerInfo*, RelOptInfo*, int, CompressionInfo*, SortInfo*)’:
+/opt/timescaledb/tsl/src/nodes/decompress_chunk/decompress_chunk.c:982:42: error: cannot convert ‘RelOptInfo*’ to ‘PlannerInfo*’ for argument ‘1’ to ‘void add_path(PlannerInfo*, RelOptInfo*, Path*)’
+  add_path(compressed_rel, compressed_path);
+                                          ^
+
+
+
+No add_partial_path
+/opt/timescaledb/tsl/src/nodes/decompress_chunk/decompress_chunk.c:989:3: error: ‘add_partial_path’ was not declared in this scope
+   add_partial_path(compressed_rel, compressed_path);
+   ^~~~~~~~~~~~~~~~
+
+
+
+
+
+No check_index_predicates
+/opt/timescaledb/tsl/src/nodes/decompress_chunk/decompress_chunk.c:1002:3: error: ‘check_index_predicates’ was not declared in this scope
+   check_index_predicates(root, compressed_rel);
+   ^~~~~~~~~~~~~~~~~~~~~~
+
+
+
+
+
+
+
+No csstate attr in DecompressChunkState
+/opt/timescaledb/tsl/src/nodes/decompress_chunk/exec.c: In function ‘TupleTableSlot* decompress_chunk_create_tuple(DecompressChunkState*)’:
+/opt/timescaledb/tsl/src/nodes/decompress_chunk/exec.c:402:32: error: ‘DecompressChunkState {aka struct DecompressChunkState}’ has no member named ‘csstate’
+  TupleTableSlot *slot = state->csstate.ss.ss_ScanTupleSlot;
+                                ^~~~~~~
+
+
+
+
+No GetCustomScanMethods
+/opt/timescaledb/tsl/src/nodes/decompress_chunk/planner.c: In function ‘void _decompress_chunk_init()’:
+/opt/timescaledb/tsl/src/nodes/decompress_chunk/planner.c:58:6: error: ‘GetCustomScanMethods’ was not declared in this scope
+  if (GetCustomScanMethods("DecompressChunk", true) == NULL)
+      ^~~~~~~~~~~~~~~~~~~~
+
+
+
+
+
+
+No RegisterCustomScanMethods
+/opt/timescaledb/tsl/src/nodes/decompress_chunk/planner.c:60:3: error: ‘RegisterCustomScanMethods’ was not declared in this scope
+   RegisterCustomScanMethods(&decompress_chunk_plan_methods);
+   ^~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+
+
+???
+/opt/timescaledb/tsl/src/nodes/gapfill/planner.c: In function ‘bool gapfill_expression_walker(Expr*, bool (*)(), gapfill_walker_context*)’:
+/opt/timescaledb/tsl/src/nodes/gapfill/planner.c:201:41: error: too many arguments to function
+  return (*walker)((Node *) node, context);
+                                         ^
+
+
+
+
+
+???
+/opt/timescaledb/tsl/src/nodes/gapfill/planner.c: In function ‘void gapfill_build_pathtarget(PathTarget*, PathTarget*, PathTarget*)’:
+/opt/timescaledb/tsl/src/nodes/gapfill/planner.c:216:23: error: invalid use of incomplete type ‘struct PathTarget’
+  foreach (lc, pt_upper->exprs)
+                       ^
+
+
+
+No add_column_to_pathtarget
+/opt/timescaledb/tsl/src/nodes/gapfill/planner.c:256:4: error: ‘add_column_to_pathtarget’ was not declared in this scope
+    add_column_to_pathtarget(pt_path, context.call.expr, pt_upper->sortgrouprefs[i]);
+    ^~~~~~~~~~~~~~~~~~~~~~~~
+
+
+
+
+
+
+No create_empty_pathtarget
+/opt/timescaledb/tsl/src/nodes/gapfill/planner.c:343:32: error: ‘create_empty_pathtarget’ was not declared in this scope
+  path->cpath.path.pathtarget = create_empty_pathtarget();
+                                ^~~~~~~~~~~~~~~~~~~~~~~
+
+
+
+
+
+
+
+No upper_targets attr in PlannerInfo
+/opt/timescaledb/tsl/src/nodes/gapfill/planner.c:345:33: error: ‘PlannerInfo {aka struct PlannerInfo}’ has no member named ‘upper_targets’
+  gapfill_build_pathtarget(root->upper_targets[UPPERREL_FINAL],
+                                 ^~~~~~~~~~~~~
+
+
+No UPPERREL_FINAL
+/opt/timescaledb/tsl/src/nodes/gapfill/planner.c:345:47: error: ‘UPPERREL_FINAL’ was not declared in this scope
+  gapfill_build_pathtarget(root->upper_targets[UPPERREL_FINAL],
+                                               ^~~~~~~~~~~~~~
+
+
+
+
+
+
+
+No make_canonical_pathkey, but there is a defination in OG cpp file
+/opt/timescaledb/tsl/src/nodes/gapfill/planner.c:367:16: error: ‘make_canonical_pathkey’ was not declared in this scope
+      pk_func = make_canonical_pathkey(root,
+                ^~~~~~~~~~~~~~~~~~~~~~
+
+
+
+
+
+No create_sort_path
+/opt/timescaledb/tsl/src/nodes/gapfill/planner.c:383:4: error: ‘create_sort_path’ was not declared in this scope
+    create_sort_path(root, subpath->parent, subpath, new_order, root->limit_tuples);
+    ^~~~~~~~~~~~~~~~
+
+
+
+
+
+
+
+No WindowAggPath
+/opt/timescaledb/tsl/src/nodes/gapfill/planner.c:492:3: error: ‘WindowAggPath’ was not declared in this scope
+   WindowAggPath *toppath = lfirst(lc);
+   ^~~~~~~~~~~~~
+
+
+
+
+
+
+No csstate attr in GapFillState
+/opt/timescaledb/tsl/src/nodes/gapfill/exec.c:319:50: error: ‘GapFillState {aka struct GapFillState}’ has no member named ‘csstate’; did you mean ‘state’?
+  CustomScan *cscan = castNode(CustomScan, state->csstate.ss.ps.plan);
+                                                  ^
+
+
+
+
+
+Different params requests of pull_var_clause
+/opt/timescaledb/tsl/src/nodes/gapfill/exec.c: In function ‘Expr* gapfill_adjust_varnos(GapFillState*, Expr*)’:
+/opt/timescaledb/tsl/src/nodes/gapfill/exec.c:1364:47: warning: invalid conversion from ‘int’ to ‘PVCAggregateBehavior’ [-fpermissive]
+  List *vars = pull_var_clause((Node *) expr, 0);
+                                               ^
+/opt/timescaledb/tsl/src/nodes/gapfill/exec.c:1364:47: error: too few arguments to function ‘List* pull_var_clause(Node*, PVCAggregateBehavior, PVCPlaceHolderBehavior, PVCSPExprBehavior, bool, bool)’
+
+
+
+
+  
