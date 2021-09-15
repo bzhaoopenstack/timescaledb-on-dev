@@ -56,7 +56,7 @@ typedef struct DecompressChunkColumnState
 
 typedef struct DecompressChunkState
 {
-	CustomScanState csstate;
+	//CustomScanState csstate;
 	List *varattno_map;
 	int num_columns;
 	DecompressChunkColumnState *columns;
@@ -70,37 +70,37 @@ typedef struct DecompressChunkState
 	MemoryContext per_batch_context;
 } DecompressChunkState;
 
-static TupleTableSlot *decompress_chunk_exec(CustomScanState *node);
-static void decompress_chunk_begin(CustomScanState *node, EState *estate, int eflags);
-static void decompress_chunk_end(CustomScanState *node);
-static void decompress_chunk_rescan(CustomScanState *node);
+//static TupleTableSlot *decompress_chunk_exec(CustomScanState *node);
+//static void decompress_chunk_begin(CustomScanState *node, EState *estate, int eflags);
+//static void decompress_chunk_end(CustomScanState *node);
+//static void decompress_chunk_rescan(CustomScanState *node);
 static TupleTableSlot *decompress_chunk_create_tuple(DecompressChunkState *state);
 
-static CustomExecMethods decompress_chunk_state_methods = {
-	.BeginCustomScan = decompress_chunk_begin,
-	.ExecCustomScan = decompress_chunk_exec,
-	.EndCustomScan = decompress_chunk_end,
-	.ReScanCustomScan = decompress_chunk_rescan,
-};
+//static CustomExecMethods decompress_chunk_state_methods = {
+//	.BeginCustomScan = decompress_chunk_begin,
+//	.ExecCustomScan = decompress_chunk_exec,
+//	.EndCustomScan = decompress_chunk_end,
+//	.ReScanCustomScan = decompress_chunk_rescan,
+//};
 
-Node *
-decompress_chunk_state_create(CustomScan *cscan)
-{
-	DecompressChunkState *state;
-	List *settings;
-
-	state = (DecompressChunkState *) newNode(sizeof(DecompressChunkState), T_CustomScanState);
-
-	state->csstate.methods = &decompress_chunk_state_methods;
-
-	settings = linitial(cscan->custom_private);
-	state->hypertable_id = linitial_int(settings);
-	state->chunk_relid = lsecond_int(settings);
-	state->reverse = lthird_int(settings);
-	state->varattno_map = lsecond(cscan->custom_private);
-
-	return (Node *) state;
-}
+//Node *
+//decompress_chunk_state_create(CustomScan *cscan)
+//{
+//	DecompressChunkState *state;
+//	List *settings;
+//
+//	state = (DecompressChunkState *) newNode(sizeof(DecompressChunkState), T_CustomScanState);
+//
+//	state->csstate.methods = &decompress_chunk_state_methods;
+//
+//	settings = linitial(cscan->custom_private);
+//	state->hypertable_id = linitial_int(settings);
+//	state->chunk_relid = lsecond_int(settings);
+//	state->reverse = lthird_int(settings);
+//	state->varattno_map = lsecond(cscan->custom_private);
+//
+//	return (Node *) state;
+//}
 
 /*
  * initialize column state
@@ -214,47 +214,47 @@ constify_tableoid(List *node, Index chunk_index, Oid chunk_relid)
  * Standard fields have been initialized by ExecInitCustomScan,
  * but any private fields should be initialized here.
  */
-static void
-decompress_chunk_begin(CustomScanState *node, EState *estate, int eflags)
-{
-	DecompressChunkState *state = (DecompressChunkState *) node;
-	CustomScan *cscan = castNode(CustomScan, node->ss.ps.plan);
-	Plan *compressed_scan = linitial(cscan->custom_plans);
-	Assert(list_length(cscan->custom_plans) == 1);
-
-	if (node->ss.ps.ps_ProjInfo)
-	{
-		/*
-		 * if we are projecting we need to constify tableoid references here
-		 * because decompressed tuple are virtual tuples and don't have
-		 * system columns.
-		 *
-		 * We do the constify in executor because even after plan creation
-		 * our targetlist might still get modified by parent nodes pushing
-		 * down targetlist.
-		 */
-		List *tlist = node->ss.ps.plan->targetlist;
-		PlanState *ps = &node->ss.ps;
-		tlist = constify_tableoid(tlist, cscan->scan.scanrelid, state->chunk_relid);
-
-		ps->ps_ProjInfo =
-			ExecBuildProjectionInfoCompat(tlist,
-										  ps->ps_ExprContext,
-										  ps->ps_ResultTupleSlot,
-										  ps,
-										  node->ss.ss_ScanTupleSlot->tts_tupleDescriptor);
-	}
-
-	state->hypertable_compression_info = ts_hypertable_compression_get(state->hypertable_id);
-
-	initialize_column_state(state);
-
-	node->custom_ps = lappend(node->custom_ps, ExecInitNode(compressed_scan, estate, eflags));
-
-	state->per_batch_context = AllocSetContextCreate(CurrentMemoryContext,
-													 "DecompressChunk per_batch",
-													 ALLOCSET_DEFAULT_SIZES);
-}
+//static void
+//decompress_chunk_begin(CustomScanState *node, EState *estate, int eflags)
+//{
+//	DecompressChunkState *state = (DecompressChunkState *) node;
+//	CustomScan *cscan = castNode(CustomScan, node->ss.ps.plan);
+//	Plan *compressed_scan = linitial(cscan->custom_plans);
+//	Assert(list_length(cscan->custom_plans) == 1);
+//
+//	if (node->ss.ps.ps_ProjInfo)
+//	{
+//		/*
+//		 * if we are projecting we need to constify tableoid references here
+//		 * because decompressed tuple are virtual tuples and don't have
+//		 * system columns.
+//		 *
+//		 * We do the constify in executor because even after plan creation
+//		 * our targetlist might still get modified by parent nodes pushing
+//		 * down targetlist.
+//		 */
+//		List *tlist = node->ss.ps.plan->targetlist;
+//		PlanState *ps = &node->ss.ps;
+//		tlist = constify_tableoid(tlist, cscan->scan.scanrelid, state->chunk_relid);
+//
+//		ps->ps_ProjInfo =
+//			ExecBuildProjectionInfoCompat(tlist,
+//										  ps->ps_ExprContext,
+//										  ps->ps_ResultTupleSlot,
+//										  ps,
+//										  node->ss.ss_ScanTupleSlot->tts_tupleDescriptor);
+//	}
+//
+//	state->hypertable_compression_info = ts_hypertable_compression_get(state->hypertable_id);
+//
+//	initialize_column_state(state);
+//
+//	node->custom_ps = lappend(node->custom_ps, ExecInitNode(compressed_scan, estate, eflags));
+//
+//	state->per_batch_context = AllocSetContextCreate(CurrentMemoryContext,
+//													 "DecompressChunk per_batch",
+//													 ALLOCSET_DEFAULT_SIZES);
+//}
 
 static void
 initialize_batch(DecompressChunkState *state, TupleTableSlot *slot)
@@ -273,7 +273,7 @@ initialize_batch(DecompressChunkState *state, TupleTableSlot *slot)
 		{
 			case COMPRESSED_COLUMN:
 			{
-				value = slot_getattr(slot, AttrOffsetGetAttrNumber(i), &isnull);
+				//value = slot_getattr(slot, AttrOffsetGetAttrNumber(i), &isnull);
 				if (!isnull)
 				{
 					CompressedDataHeader *header = (CompressedDataHeader *) PG_DETOAST_DATUM(value);
@@ -289,7 +289,7 @@ initialize_batch(DecompressChunkState *state, TupleTableSlot *slot)
 				break;
 			}
 			case SEGMENTBY_COLUMN:
-				value = slot_getattr(slot, AttrOffsetGetAttrNumber(i), &isnull);
+				//value = slot_getattr(slot, AttrOffsetGetAttrNumber(i), &isnull);
 				if (!isnull)
 					column->segmentby.value = value;
 				else
@@ -298,7 +298,7 @@ initialize_batch(DecompressChunkState *state, TupleTableSlot *slot)
 				column->segmentby.isnull = isnull;
 				break;
 			case COUNT_COLUMN:
-				value = slot_getattr(slot, AttrOffsetGetAttrNumber(i), &isnull);
+				//value = slot_getattr(slot, AttrOffsetGetAttrNumber(i), &isnull);
 				state->counter = DatumGetInt32(value);
 				/* count column should never be NULL */
 				Assert(!isnull);
@@ -315,83 +315,83 @@ initialize_batch(DecompressChunkState *state, TupleTableSlot *slot)
 	MemoryContextSwitchTo(old_context);
 }
 
-static TupleTableSlot *
-decompress_chunk_exec(CustomScanState *node)
-{
-	DecompressChunkState *state = (DecompressChunkState *) node;
-	ExprContext *econtext = node->ss.ps.ps_ExprContext;
-#if PG96
-	TupleTableSlot *resultslot;
-	ExprDoneCond isDone;
-#endif
+//static TupleTableSlot *
+//decompress_chunk_exec(CustomScanState *node)
+//{
+//	DecompressChunkState *state = (DecompressChunkState *) node;
+//	ExprContext *econtext = node->ss.ps.ps_ExprContext;
+//#if PG96
+//	TupleTableSlot *resultslot;
+//	ExprDoneCond isDone;
+//#endif
+//
+//	if (node->custom_ps == NIL)
+//		return NULL;
+//
+//#if PG96
+//	if (node->ss.ps.ps_TupFromTlist)
+//	{
+//		resultslot = ExecProject(node->ss.ps.ps_ProjInfo, &isDone);
+//
+//		if (isDone == ExprMultipleResult)
+//			return resultslot;
+//
+//		node->ss.ps.ps_TupFromTlist = false;
+//	}
+//#endif
+//
+//	ResetExprContext(econtext);
+//
+//	while (true)
+//	{
+//		TupleTableSlot *slot = decompress_chunk_create_tuple(state);
+//
+//		if (TupIsNull(slot))
+//			return NULL;
+//
+//		econtext->ecxt_scantuple = slot;
+//
+//#if PG96
+//		if (node->ss.ps.qual && !ExecQual(node->ss.ps.qual, econtext, false))
+//#else
+//		if (node->ss.ps.qual && !ExecQual(node->ss.ps.qual, econtext))
+//#endif
+//		{
+//			InstrCountFiltered1(node, 1);
+//			ExecClearTuple(slot);
+//			continue;
+//		}
+//
+//		if (!node->ss.ps.ps_ProjInfo)
+//			return slot;
+//
+//#if PG96
+//		resultslot = ExecProject(node->ss.ps.ps_ProjInfo, &isDone);
+//
+//		if (isDone != ExprEndResult)
+//		{
+//			node->ss.ps.ps_TupFromTlist = (isDone == ExprMultipleResult);
+//			return resultslot;
+//		}
+//#else
+//		return ExecProject(node->ss.ps.ps_ProjInfo);
+//#endif
+//	}
+//}
 
-	if (node->custom_ps == NIL)
-		return NULL;
+//static void
+//decompress_chunk_rescan(CustomScanState *node)
+//{
+//	((DecompressChunkState *) node)->initialized = false;
+//	ExecReScan(linitial(node->custom_ps));
+//}
 
-#if PG96
-	if (node->ss.ps.ps_TupFromTlist)
-	{
-		resultslot = ExecProject(node->ss.ps.ps_ProjInfo, &isDone);
-
-		if (isDone == ExprMultipleResult)
-			return resultslot;
-
-		node->ss.ps.ps_TupFromTlist = false;
-	}
-#endif
-
-	ResetExprContext(econtext);
-
-	while (true)
-	{
-		TupleTableSlot *slot = decompress_chunk_create_tuple(state);
-
-		if (TupIsNull(slot))
-			return NULL;
-
-		econtext->ecxt_scantuple = slot;
-
-#if PG96
-		if (node->ss.ps.qual && !ExecQual(node->ss.ps.qual, econtext, false))
-#else
-		if (node->ss.ps.qual && !ExecQual(node->ss.ps.qual, econtext))
-#endif
-		{
-			InstrCountFiltered1(node, 1);
-			ExecClearTuple(slot);
-			continue;
-		}
-
-		if (!node->ss.ps.ps_ProjInfo)
-			return slot;
-
-#if PG96
-		resultslot = ExecProject(node->ss.ps.ps_ProjInfo, &isDone);
-
-		if (isDone != ExprEndResult)
-		{
-			node->ss.ps.ps_TupFromTlist = (isDone == ExprMultipleResult);
-			return resultslot;
-		}
-#else
-		return ExecProject(node->ss.ps.ps_ProjInfo);
-#endif
-	}
-}
-
-static void
-decompress_chunk_rescan(CustomScanState *node)
-{
-	((DecompressChunkState *) node)->initialized = false;
-	ExecReScan(linitial(node->custom_ps));
-}
-
-static void
-decompress_chunk_end(CustomScanState *node)
-{
-	MemoryContextReset(((DecompressChunkState *) node)->per_batch_context);
-	ExecEndNode(linitial(node->custom_ps));
-}
+//static void
+//decompress_chunk_end(CustomScanState *node)
+//{
+//	MemoryContextReset(((DecompressChunkState *) node)->per_batch_context);
+//	ExecEndNode(linitial(node->custom_ps));
+//}
 
 /*
  * Create generated tuple according to column state
@@ -399,7 +399,7 @@ decompress_chunk_end(CustomScanState *node)
 static TupleTableSlot *
 decompress_chunk_create_tuple(DecompressChunkState *state)
 {
-	TupleTableSlot *slot = state->csstate.ss.ss_ScanTupleSlot;
+	//TupleTableSlot *slot = state->csstate.ss.ss_ScanTupleSlot;
 	bool batch_done = false;
 	int i;
 
@@ -407,16 +407,16 @@ decompress_chunk_create_tuple(DecompressChunkState *state)
 	{
 		if (!state->initialized)
 		{
-			TupleTableSlot *subslot = ExecProcNode(linitial(state->csstate.custom_ps));
+			//TupleTableSlot *subslot = ExecProcNode(linitial(state->csstate.custom_ps));
 
-			if (TupIsNull(subslot))
-				return NULL;
+			//if (TupIsNull(subslot))
+			//	return NULL;
 
 			batch_done = false;
-			initialize_batch(state, subslot);
+			//initialize_batch(state, subslot);
 		}
 
-		ExecClearTuple(slot);
+		//ExecClearTuple(slot);
 
 		for (i = 0; i < state->num_columns; i++)
 		{
@@ -458,11 +458,11 @@ decompress_chunk_create_tuple(DecompressChunkState *state)
 							elog(ERROR, "compressed column out of sync with batch counter");
 						}
 
-						slot->tts_values[attr] = result.val;
-						slot->tts_isnull[attr] = result.is_null;
+						//slot->tts_values[attr] = result.val;
+						//slot->tts_isnull[attr] = result.is_null;
 					}
-					else
-						slot->tts_isnull[attr] = true;
+					//else
+					//	slot->tts_isnull[attr] = true;
 
 					break;
 				}
@@ -470,8 +470,8 @@ decompress_chunk_create_tuple(DecompressChunkState *state)
 				{
 					AttrNumber attr = AttrNumberGetAttrOffset(column->attno);
 
-					slot->tts_values[attr] = column->segmentby.value;
-					slot->tts_isnull[attr] = column->segmentby.isnull;
+					//slot->tts_values[attr] = column->segmentby.value;
+					//slot->tts_isnull[attr] = column->segmentby.isnull;
 					break;
 				}
 				case SEQUENCE_NUM_COLUMN:
@@ -489,8 +489,8 @@ decompress_chunk_create_tuple(DecompressChunkState *state)
 			continue;
 		}
 
-		ExecStoreVirtualTuple(slot);
+		//ExecStoreVirtualTuple(slot);
 
-		return slot;
+		//return slot;
 	}
 }

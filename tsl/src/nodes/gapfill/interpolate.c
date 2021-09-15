@@ -5,7 +5,8 @@
  */
 
 #include <postgres.h>
-#include <access/htup_details.h>
+//#include <access/htup_details.h>
+#include <access/htup.h>
 #include <catalog/pg_type.h>
 #include <utils/builtins.h>
 #include <utils/datum.h>
@@ -103,7 +104,8 @@ gapfill_fetch_sample(GapFillState *state, GapFillInterpolateColumnState *column,
 	}
 
 	th = DatumGetHeapTupleHeader(datum);
-	if (HeapTupleHeaderGetNatts(th) != 2)
+	//if (HeapTupleHeaderGetNatts(th) != 2)
+	if (HeapTupleHeaderGetNatts(th, NULL) != 2)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				 errmsg("interpolate RECORD arguments must have 2 elements")));
@@ -246,7 +248,7 @@ gapfill_interpolate_calculate(GapFillInterpolateColumnState *column, GapFillStat
 					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 					 errmsg("unsupported datatype for interpolate: %s",
 							format_type_be(column->base.typid))));
-			pg_unreachable();
+			//pg_unreachable();
 			break;
 	}
 }

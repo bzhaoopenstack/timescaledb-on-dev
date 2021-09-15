@@ -14,14 +14,14 @@
 #include <utils/typcache.h>
 
 #include "compat.h"
-#if PG12_LT
+//#if PG12_LT
 #include <optimizer/clauses.h>
 #include <optimizer/pathnode.h>
 #include <optimizer/tlist.h>
 #include <optimizer/var.h>
-#else
-#include <optimizer/optimizer.h>
-#endif
+//#else
+//#include <optimizer/optimizer.h>
+//#endif
 
 #include "decompress_chunk.h"
 #include "qual_pushdown.h"

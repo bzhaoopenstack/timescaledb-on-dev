@@ -19,14 +19,14 @@
 #include <miscadmin.h>
 
 #include "compat.h"
-#if PG12_LT
+//#if PG12_LT
 #include <optimizer/clauses.h>
 #include <optimizer/restrictinfo.h>
 #include <optimizer/tlist.h>
 #include <optimizer/var.h>
-#else
-#include <optimizer/optimizer.h>
-#endif
+//#else
+//#include <optimizer/optimizer.h>
+//#endif
 
 #include "hypertable_compression.h"
 #include "import/planner.h"
@@ -39,10 +39,10 @@
 #define DECOMPRESS_CHUNK_CPU_TUPLE_COST 0.01
 #define DECOMPRESS_CHUNK_BATCH_SIZE 1000
 
-static CustomPathMethods decompress_chunk_path_methods = {
-	.CustomName = "DecompressChunk",
-	.PlanCustomPath = decompress_chunk_plan_create,
-};
+//static CustomPathMethods decompress_chunk_path_methods = {
+//	.CustomName = "DecompressChunk",
+//	.PlanCustomPath = decompress_chunk_plan_create,
+//};
 
 typedef struct SortInfo
 {
@@ -241,12 +241,12 @@ build_compressed_scan_pathkeys(SortInfo *sort_info, PlannerInfo *root, List *chu
 
 		if (sort_info->reverse)
 		{
-			sortop = get_commutator(Int4LessOperator);
+			//sortop = get_commutator(Int4LessOperator);
 			nulls_first = true;
 		}
 		else
 		{
-			sortop = Int4LessOperator;
+			//sortop = Int4LessOperator;
 			nulls_first = false;
 		}
 
@@ -355,13 +355,13 @@ ts_decompress_chunk_generate_paths(PlannerInfo *root, RelOptInfo *chunk_rel, Hyp
 	Assert(chunk->fd.compressed_chunk_id > 0);
 
 	chunk_rel->pathlist = NIL;
-	chunk_rel->partial_pathlist = NIL;
+	//chunk_rel->partial_pathlist = NIL;
 
 	/* add RangeTblEntry and RelOptInfo for compressed chunk */
 	decompress_chunk_add_plannerinfo(root, info, chunk, chunk_rel, sort_info.needs_sequence_num);
 	compressed_rel = info->compressed_rel;
 
-	compressed_rel->consider_parallel = chunk_rel->consider_parallel;
+	//compressed_rel->consider_parallel = chunk_rel->consider_parallel;
 	/* translate chunk_rel->baserestrictinfo */
 	pushdown_quals(root, chunk_rel, compressed_rel, info->hypertable_compression_info);
 	set_baserel_size_estimates(root, compressed_rel);
@@ -369,11 +369,11 @@ ts_decompress_chunk_generate_paths(PlannerInfo *root, RelOptInfo *chunk_rel, Hyp
 	/* adjust the parent's estimate by the diff of new and old estimate */
 	hypertable_rel->rows += (new_row_estimate - chunk_rel->rows);
 	chunk_rel->rows = new_row_estimate;
-	create_compressed_scan_paths(root,
-								 compressed_rel,
-								 compressed_rel->consider_parallel ? parallel_workers : 0,
-								 info,
-								 &sort_info);
+	//create_compressed_scan_paths(root,
+	//							 compressed_rel,
+	//							 compressed_rel->consider_parallel ? parallel_workers : 0,
+	//							 info,
+	//							 &sort_info);
 
 	/* create non-parallel paths */
 	foreach (lc, compressed_rel->pathlist)
@@ -403,7 +403,7 @@ ts_decompress_chunk_generate_paths(PlannerInfo *root, RelOptInfo *chunk_rel, Hyp
 			dcpath->reverse = sort_info.reverse;
 			dcpath->needs_sequence_num = sort_info.needs_sequence_num;
 			dcpath->compressed_pathkeys = sort_info.compressed_pathkeys;
-			dcpath->cpath.path.pathkeys = root->query_pathkeys;
+			//dcpath->cpath.path.pathkeys = root->query_pathkeys;
 
 			/*
 			 * Add costing for a sort. The standard Postgres pattern is to add the cost during
@@ -414,56 +414,56 @@ ts_decompress_chunk_generate_paths(PlannerInfo *root, RelOptInfo *chunk_rel, Hyp
 			{
 				Path sort_path; /* dummy for result of cost_sort */
 
-				cost_sort(&sort_path,
-						  root,
-						  dcpath->compressed_pathkeys,
-						  child_path->total_cost,
-						  child_path->rows,
-						  child_path->pathtarget->width,
-						  0.0,
-						  work_mem,
-						  -1);
-				cost_decompress_chunk(&dcpath->cpath.path, &sort_path);
+				//cost_sort(&sort_path,
+				//		  root,
+				//		  dcpath->compressed_pathkeys,
+				//		  child_path->total_cost,
+				//		  child_path->rows,
+				//		  child_path->pathtarget->width,
+				//		  0.0,
+				//		  work_mem,
+				//		  -1);
+				//cost_decompress_chunk(&dcpath->cpath.path, &sort_path);
 			}
-			add_path(chunk_rel, &dcpath->cpath.path);
+			//add_path(chunk_rel, &dcpath->cpath.path);
 		}
 
 		/* this has to go after the path is copied for the ordered path since path can get freed in
 		 * add_path */
-		add_path(chunk_rel, &path->cpath.path);
+		//add_path(chunk_rel, &path->cpath.path);
 	}
 	/* the chunk_rel now owns the paths, remove them from the compressed_rel so they can't be freed
 	 * if it's planned */
 	compressed_rel->pathlist = NIL;
 	/* create parallel paths */
-	if (compressed_rel->consider_parallel)
-	{
-		foreach (lc, compressed_rel->partial_pathlist)
-		{
-			Path *child_path = lfirst(lc);
-			DecompressChunkPath *path;
-			if (child_path->param_info != NULL &&
-				(bms_is_member(chunk_rel->relid, child_path->param_info->ppi_req_outer) ||
-				 bms_is_member(ht_index, child_path->param_info->ppi_req_outer)))
-				continue;
-			path = decompress_chunk_path_create(root, info, parallel_workers, child_path);
-			add_partial_path(chunk_rel, &path->cpath.path);
-		}
-		/* the chunk_rel now owns the paths, remove them from the compressed_rel so they can't be
-		 * freed if it's planned */
-		compressed_rel->partial_pathlist = NIL;
-	}
+	//if (compressed_rel->consider_parallel)
+	//{
+	//	foreach (lc, compressed_rel->partial_pathlist)
+	//	{
+	//		Path *child_path = lfirst(lc);
+	//		DecompressChunkPath *path;
+	//		if (child_path->param_info != NULL &&
+	//			(bms_is_member(chunk_rel->relid, child_path->param_info->ppi_req_outer) ||
+	//			 bms_is_member(ht_index, child_path->param_info->ppi_req_outer)))
+	//			continue;
+	//		path = decompress_chunk_path_create(root, info, parallel_workers, child_path);
+	//		add_partial_path(chunk_rel, &path->cpath.path);
+	//	}
+	//	/* the chunk_rel now owns the paths, remove them from the compressed_rel so they can't be
+	//	 * freed if it's planned */
+	//	compressed_rel->partial_pathlist = NIL;
+	//}
 	/* set reloptkind to RELOPT_DEADREL to prevent postgresql from replanning this relation */
 	compressed_rel->reloptkind = RELOPT_DEADREL;
 }
 
-static void
-compressed_reltarget_add_whole_row_var(RelOptInfo *compressed_rel)
-{
-	compressed_rel->reltarget->exprs =
-		lappend(compressed_rel->reltarget->exprs,
-				makeVar(compressed_rel->relid, 0, get_atttype(compressed_rel->relid, 0), -1, 0, 0));
-}
+//static void
+//compressed_reltarget_add_whole_row_var(RelOptInfo *compressed_rel)
+//{
+//	compressed_rel->reltarget->exprs =
+//		lappend(compressed_rel->reltarget->exprs,
+//				makeVar(compressed_rel->relid, 0, get_atttype(compressed_rel->relid, 0), -1, 0, 0));
+//}
 
 static void
 compressed_reltarget_add_var_for_column(RelOptInfo *compressed_rel, Oid compressed_relid,
@@ -474,9 +474,9 @@ compressed_reltarget_add_var_for_column(RelOptInfo *compressed_rel, Oid compress
 	int32 typmod;
 	Assert(attnum > 0);
 	get_atttypetypmodcoll(compressed_relid, attnum, &typid, &typmod, &collid);
-	compressed_rel->reltarget->exprs =
-		lappend(compressed_rel->reltarget->exprs,
-				makeVar(compressed_rel->relid, attnum, typid, typmod, collid, 0));
+	//compressed_rel->reltarget->exprs =
+	//	lappend(compressed_rel->reltarget->exprs,
+	//			makeVar(compressed_rel->relid, attnum, typid, typmod, collid, 0));
 }
 
 /* copy over the vars from the chunk_rel->reltarget to the compressed_rel->reltarget
@@ -488,51 +488,51 @@ compressed_rel_setup_reltarget(RelOptInfo *compressed_rel, CompressionInfo *info
 {
 	Oid compressed_relid = info->compressed_rte->relid;
 	ListCell *lc;
-	foreach (lc, info->chunk_rel->reltarget->exprs)
-	{
-		ListCell *lc2;
-		List *chunk_vars = pull_var_clause(lfirst(lc), PVC_RECURSE_PLACEHOLDERS);
-		foreach (lc2, chunk_vars)
-		{
-			FormData_hypertable_compression *column_info;
-			char *column_name;
-			Var *chunk_var = castNode(Var, lfirst(lc2));
+	//foreach (lc, info->chunk_rel->reltarget->exprs)
+	//{
+	//	ListCell *lc2;
+	//	List *chunk_vars = pull_var_clause(lfirst(lc), PVC_RECURSE_PLACEHOLDERS);
+	//	foreach (lc2, chunk_vars)
+	//	{
+	//		FormData_hypertable_compression *column_info;
+	//		char *column_name;
+	//		Var *chunk_var = castNode(Var, lfirst(lc2));
 
-			/* skip vars that aren't from the uncompressed chunk */
-			if (chunk_var->varno != info->chunk_rel->relid)
-				continue;
+	//		/* skip vars that aren't from the uncompressed chunk */
+	//		if (chunk_var->varno != info->chunk_rel->relid)
+	//			continue;
 
-			/* if there's a system column or whole-row reference, add a whole-
-			 * row reference, and we're done.
-			 */
-			if (chunk_var->varattno <= 0)
-			{
-				compressed_reltarget_add_whole_row_var(compressed_rel);
-				return;
-			}
+	//		/* if there's a system column or whole-row reference, add a whole-
+	//		 * row reference, and we're done.
+	//		 */
+	//		if (chunk_var->varattno <= 0)
+	//		{
+	//			compressed_reltarget_add_whole_row_var(compressed_rel);
+	//			return;
+	//		}
 
-			column_name = get_attname_compat(info->chunk_rte->relid, chunk_var->varattno, false);
-			column_info =
-				get_column_compressioninfo(info->hypertable_compression_info, column_name);
+	//		column_name = get_attname_compat(info->chunk_rte->relid, chunk_var->varattno, false);
+	//		column_info =
+	//			get_column_compressioninfo(info->hypertable_compression_info, column_name);
 
-			Assert(column_info != NULL);
+	//		Assert(column_info != NULL);
 
-			compressed_reltarget_add_var_for_column(compressed_rel, compressed_relid, column_name);
+	//		compressed_reltarget_add_var_for_column(compressed_rel, compressed_relid, column_name);
 
-			/* if the column is an orderby, add it's metadata columns too */
-			if (column_info->orderby_column_index > 0)
-			{
-				compressed_reltarget_add_var_for_column(compressed_rel,
-														compressed_relid,
-														compression_column_segment_min_name(
-															column_info));
-				compressed_reltarget_add_var_for_column(compressed_rel,
-														compressed_relid,
-														compression_column_segment_max_name(
-															column_info));
-			}
-		}
-	}
+	//		/* if the column is an orderby, add it's metadata columns too */
+	//		if (column_info->orderby_column_index > 0)
+	//		{
+	//			compressed_reltarget_add_var_for_column(compressed_rel,
+	//													compressed_relid,
+	//													compression_column_segment_min_name(
+	//														column_info));
+	//			compressed_reltarget_add_var_for_column(compressed_rel,
+	//													compressed_relid,
+	//													compression_column_segment_max_name(
+	//														column_info));
+	//		}
+	//	}
+	//}
 
 	/* always add the count column */
 	compressed_reltarget_add_var_for_column(compressed_rel,
@@ -634,12 +634,12 @@ chunk_joininfo_mutator(Node *node, CompressionInfo *context)
 		newinfo->left_em = NULL;
 		newinfo->right_em = NULL;
 		newinfo->scansel_cache = NIL;
-		newinfo->left_bucketsize = -1;
-		newinfo->right_bucketsize = -1;
-#if PG11_GE
-		newinfo->left_mcvfreq = -1;
-		newinfo->right_mcvfreq = -1;
-#endif
+		//newinfo->left_bucketsize = -1;
+		//newinfo->right_bucketsize = -1;
+//#if PG11_GE
+//		newinfo->left_mcvfreq = -1;
+//		newinfo->right_mcvfreq = -1;
+//#endif
 		return (Node *) newinfo;
 	}
 	return expression_tree_mutator(node, chunk_joininfo_mutator, context);
@@ -886,11 +886,11 @@ decompress_chunk_add_plannerinfo(PlannerInfo *root, CompressionInfo *info, Chunk
 		repalloc(root->simple_rel_array, root->simple_rel_array_size * sizeof(RelOptInfo *));
 	root->simple_rte_array =
 		repalloc(root->simple_rte_array, root->simple_rel_array_size * sizeof(RangeTblEntry *));
-#if PG11_GE
-	root->append_rel_array =
-		repalloc(root->append_rel_array, root->simple_rel_array_size * sizeof(AppendRelInfo *));
-	root->append_rel_array[compressed_index] = NULL;
-#endif
+//#if PG11_GE
+//	root->append_rel_array =
+//		repalloc(root->append_rel_array, root->simple_rel_array_size * sizeof(AppendRelInfo *));
+//	root->append_rel_array[compressed_index] = NULL;
+//#endif
 
 	info->compressed_rte = decompress_chunk_make_rte(compressed_relid, AccessShareLock);
 	root->simple_rte_array[compressed_index] = info->compressed_rte;
@@ -899,21 +899,21 @@ decompress_chunk_add_plannerinfo(PlannerInfo *root, CompressionInfo *info, Chunk
 
 	root->simple_rel_array[compressed_index] = NULL;
 
-#if PG96
+//#if PG96
 	compressed_rel = build_simple_rel(root, compressed_index, RELOPT_BASEREL);
-#else
-	compressed_rel = build_simple_rel(root, compressed_index, NULL);
-#endif
+//#else
+//	compressed_rel = build_simple_rel(root, compressed_index, NULL);
+//#endif
 	/* github issue :1558
 	 * set up top_parent_relids for this rel as the same as the
 	 * original hypertable, otherwise eq classes are not computed correctly
 	 * in generate_join_implied_equalities (called by
 	 * get_baserel_parampathinfo <- create_index_paths)
 	 */
-#if !PG96
-	Assert(chunk_rel->top_parent_relids != NULL);
-	compressed_rel->top_parent_relids = bms_copy(chunk_rel->top_parent_relids);
-#endif
+//#if !PG96
+//	Assert(chunk_rel->top_parent_relids != NULL);
+//	compressed_rel->top_parent_relids = bms_copy(chunk_rel->top_parent_relids);
+//#endif
 	root->simple_rel_array[compressed_index] = compressed_rel;
 	info->compressed_rel = compressed_rel;
 	foreach (lc, info->hypertable_compression_info)
@@ -940,29 +940,29 @@ decompress_chunk_path_create(PlannerInfo *root, CompressionInfo *info, int paral
 {
 	DecompressChunkPath *path;
 
-	path = (DecompressChunkPath *) newNode(sizeof(DecompressChunkPath), T_CustomPath);
+	//path = (DecompressChunkPath *) newNode(sizeof(DecompressChunkPath), T_CustomPath);
 
 	path->info = info;
 
-	path->cpath.path.pathtype = T_CustomScan;
-	path->cpath.path.parent = info->chunk_rel;
-	path->cpath.path.pathtarget = info->chunk_rel->reltarget;
+	//path->cpath.path.pathtype = T_CustomScan;
+	//path->cpath.path.parent = info->chunk_rel;
+	//path->cpath.path.pathtarget = info->chunk_rel->reltarget;
 
-	path->cpath.path.param_info = compressed_path->param_info;
+	//path->cpath.path.param_info = compressed_path->param_info;
 
-	path->cpath.flags = 0;
-	path->cpath.methods = &decompress_chunk_path_methods;
+	//path->cpath.flags = 0;
+	//path->cpath.methods = &decompress_chunk_path_methods;
 
-	Assert(parallel_workers == 0 || compressed_path->parallel_safe);
+	//Assert(parallel_workers == 0 || compressed_path->parallel_safe);
 
-	path->cpath.path.parallel_aware = false;
-	path->cpath.path.parallel_safe = compressed_path->parallel_safe;
-	path->cpath.path.parallel_workers = parallel_workers;
+	//path->cpath.path.parallel_aware = false;
+	//path->cpath.path.parallel_safe = compressed_path->parallel_safe;
+	//path->cpath.path.parallel_workers = parallel_workers;
 
-	path->cpath.custom_paths = list_make1(compressed_path);
+	//path->cpath.custom_paths = list_make1(compressed_path);
 	path->reverse = false;
 	path->compressed_pathkeys = NIL;
-	cost_decompress_chunk(&path->cpath.path, compressed_path);
+	//cost_decompress_chunk(&path->cpath.path, compressed_path);
 
 	return path;
 }
@@ -979,15 +979,15 @@ create_compressed_scan_paths(PlannerInfo *root, RelOptInfo *compressed_rel, int 
 
 	/* create non parallel scan path */
 	compressed_path = create_seqscan_path(root, compressed_rel, NULL, 0);
-	add_path(compressed_rel, compressed_path);
+	//add_path(compressed_rel, compressed_path);
 
 	/* create parallel scan path */
-	if (compressed_rel->consider_parallel && parallel_workers > 0)
-	{
-		compressed_path = create_seqscan_path(root, compressed_rel, NULL, parallel_workers);
-		Assert(compressed_path->parallel_aware);
-		add_partial_path(compressed_rel, compressed_path);
-	}
+	//if (compressed_rel->consider_parallel && parallel_workers > 0)
+	//{
+	//	compressed_path = create_seqscan_path(root, compressed_rel, NULL, parallel_workers);
+	//	Assert(compressed_path->parallel_aware);
+	//	add_partial_path(compressed_rel, compressed_path);
+	//}
 
 	if (sort_info->can_pushdown_sort)
 	{
@@ -999,13 +999,13 @@ create_compressed_scan_paths(PlannerInfo *root, RelOptInfo *compressed_rel, int 
 		List *orig_pathkeys = root->query_pathkeys;
 		build_compressed_scan_pathkeys(sort_info, root, root->query_pathkeys, info);
 		root->query_pathkeys = sort_info->compressed_pathkeys;
-		check_index_predicates(root, compressed_rel);
+		//check_index_predicates(root, compressed_rel);
 		create_index_paths(root, compressed_rel);
 		root->query_pathkeys = orig_pathkeys;
 	}
 	else
 	{
-		check_index_predicates(root, compressed_rel);
+		//check_index_predicates(root, compressed_rel);
 		create_index_paths(root, compressed_rel);
 	}
 }
@@ -1023,9 +1023,9 @@ decompress_chunk_make_rte(Oid compressed_relid, LOCKMODE lockmode)
 	rte->rtekind = RTE_RELATION;
 	rte->relid = compressed_relid;
 	rte->relkind = r->rd_rel->relkind;
-#if PG12_GE
-	rte->rellockmode = lockmode;
-#endif
+//#if PG12_GE
+//	rte->rellockmode = lockmode;
+//#endif
 	rte->eref = makeAlias(RelationGetRelationName(r), NULL);
 
 	/*
@@ -1086,7 +1086,7 @@ get_column_compressioninfo(List *hypertable_compression_info, char *column_name)
 	}
 	elog(ERROR, "No compression information for column \"%s\" found.", column_name);
 
-	pg_unreachable();
+	//pg_unreachable();
 }
 
 /*
@@ -1187,7 +1187,11 @@ build_sortinfo(RelOptInfo *chunk_rel, CompressionInfo *info, List *pathkeys)
 	char *column_name;
 	FormData_hypertable_compression *ci;
 	ListCell *lc = list_head(pathkeys);
-	SortInfo sort_info = { .can_pushdown_sort = false, .needs_sequence_num = false };
+	SortInfo sort_info = {
+		.compressed_pathkeys = NULL,
+		.needs_sequence_num = false,
+		.can_pushdown_sort = false,
+	};
 
 	if (pathkeys == NIL)
 		return sort_info;

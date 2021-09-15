@@ -9,7 +9,7 @@
 #include <catalog/pg_namespace.h>
 #include <catalog/pg_operator.h>
 #include <nodes/bitmapset.h>
-#include <nodes/extensible.h>
+//#include <nodes/extensible.h>
 #include <nodes/makefuncs.h>
 #include <nodes/nodeFuncs.h>
 #include <optimizer/paths.h>
@@ -20,7 +20,7 @@
 #include <utils/typcache.h>
 
 #include "compat.h"
-#if PG12_LT
+//#if PG12_LT
 #include <optimizer/clauses.h>
 #include <optimizer/pathnode.h>
 #include <optimizer/placeholder.h>
@@ -28,9 +28,9 @@
 #include <optimizer/prep.h>
 #include <optimizer/subselect.h>
 #include <optimizer/var.h>
-#else
-#include <optimizer/optimizer.h>
-#endif
+//#else
+//#include <optimizer/optimizer.h>
+//#endif
 
 #include "compression/compression.h"
 #include "compression/create.h"
@@ -41,25 +41,25 @@
 #include "guc.h"
 #include "custom_type_cache.h"
 
-static CustomScanMethods decompress_chunk_plan_methods = {
-	.CustomName = "DecompressChunk",
-	.CreateCustomScanState = decompress_chunk_state_create,
-};
+//static CustomScanMethods decompress_chunk_plan_methods = {
+//	.CustomName = "DecompressChunk",
+//	.CreateCustomScanState = decompress_chunk_state_create,
+//};
 
-void
-_decompress_chunk_init(void)
-{
-	/*
-	 * Because we reinitialize the tsl stuff when the license
-	 * changes the init function may be called multiple times
-	 * per session so we check if ChunkDecompress node has been
-	 * registered already here to prevent registering it twice.
-	 */
-	if (GetCustomScanMethods("DecompressChunk", true) == NULL)
-	{
-		RegisterCustomScanMethods(&decompress_chunk_plan_methods);
-	}
-}
+//void
+//_decompress_chunk_init(void)
+//{
+//	/*
+//	 * Because we reinitialize the tsl stuff when the license
+//	 * changes the init function may be called multiple times
+//	 * per session so we check if ChunkDecompress node has been
+//	 * registered already here to prevent registering it twice.
+//	 */
+//	if (GetCustomScanMethods("DecompressChunk", true) == NULL)
+//	{
+//		RegisterCustomScanMethods(&decompress_chunk_plan_methods);
+//	}
+//}
 
 static TargetEntry *
 make_compressed_scan_meta_targetentry(DecompressChunkPath *path, char *column_name, int id,
@@ -320,118 +320,118 @@ clause_has_compressed_attrs(Node *node, void *context)
 	return expression_tree_walker(node, clause_has_compressed_attrs, context);
 }
 
-Plan *
-decompress_chunk_plan_create(PlannerInfo *root, RelOptInfo *rel, CustomPath *path, List *tlist,
-							 List *clauses, List *custom_plans)
-{
-	DecompressChunkPath *dcpath = (DecompressChunkPath *) path;
-	CustomScan *cscan = makeNode(CustomScan);
-	Scan *compressed_scan = linitial(custom_plans);
-	Path *compressed_path = linitial(path->custom_paths);
-	List *settings;
-
-	Assert(list_length(custom_plans) == 1);
-	Assert(list_length(path->custom_paths) == 1);
-
-	cscan->flags = path->flags;
-	cscan->methods = &decompress_chunk_plan_methods;
-	cscan->scan.scanrelid = dcpath->info->chunk_rel->relid;
-
-	/* output target list */
-	cscan->scan.plan.targetlist = tlist;
-	/* input target list */
-	cscan->custom_scan_tlist = NIL;
-
-	if (IsA(compressed_path, IndexPath))
-	{
-		/* from create_indexscan_plan() */
-		IndexPath *ipath = castNode(IndexPath, compressed_path);
-		ListCell *lc;
-		List *indexqual = NIL;
-		Plan *indexplan;
-		foreach (lc, clauses)
-		{
-			RestrictInfo *rinfo = lfirst_node(RestrictInfo, lc);
-			if (is_redundant_derived_clause(rinfo, ipath->indexclauses))
-				continue; /* dup or derived from same EquivalenceClass */
-			cscan->scan.plan.qual = lappend(cscan->scan.plan.qual, rinfo->clause);
-		}
-		/* joininfo clauses on the compressed chunk rel have to
-		 * contain clauses on both compressed and
-		 * decompressed attnos. joininfo clauses get translated into
-		 * ParamPathInfo for the indexpath. But the index scans can't
-		 * handle compressed attributes, so remove them from the
-		 * indexscans here. (these are included in the `clauses` passed in
-		 * to the function and so were added as filters
-		 * for cscan->scan.plan.qual in the loop above. )
-		 */
-		indexplan = linitial(custom_plans);
-		Assert(IsA(indexplan, IndexScan) || IsA(indexplan, IndexOnlyScan));
-		foreach (lc, indexplan->qual)
-		{
-			Node *expr = (Node *) lfirst(lc);
-			CompressedAttnoContext cxt;
-			Index compress_relid = dcpath->info->compressed_rel->relid;
-			cxt.compress_relid = compress_relid;
-			cxt.compressed_attnos = dcpath->info->compressed_chunk_compressed_attnos;
-			if (!clause_has_compressed_attrs((Node *) expr, &cxt))
-
-				indexqual = lappend(indexqual, expr);
-		}
-		indexplan->qual = indexqual;
-	}
-	else if (IsA(compressed_path, BitmapHeapPath))
-	{
-		// TODO we should remove quals that are redunant with the Bitmap scan
-		/* from create_bitmap_scan_plan */
-		// BitmapHeapPath *bpath = castNode(BitmapHeapPath, compressed_path);
-		// ListCell *l;
-		// foreach(l, clauses)
-		// {
-		// 	RestrictInfo *rinfo = lfirst_node(RestrictInfo, l);
-		// 	Node       *clause = (Node *) rinfo->clause;
-
-		// 	if (rinfo->pseudoconstant)
-		// 		continue;           /* we may drop pseudoconstants here */
-		// 	if (list_member(indexquals, clause))
-		// 		continue;           /* simple duplicate */
-		// 	if (rinfo->parent_ec && list_member_ptr(indexECs, rinfo->parent_ec))
-		// 		continue;           /* derived from same EquivalenceClass */
-		// 	if (!contain_mutable_functions(clause) &&
-		// 		predicate_implied_by(list_make1(clause), indexquals, false))
-		// 		continue;           /* provably implied by indexquals */
-		// 	qpqual = lappend(qpqual, rinfo);
-		// }
-		cscan->scan.plan.qual = get_actual_clauses(clauses);
-	}
-	else
-	{
-		cscan->scan.plan.qual = get_actual_clauses(clauses);
-	}
-
-	cscan->scan.plan.qual =
-		(List *) replace_compressed_vars((Node *) cscan->scan.plan.qual, dcpath->info);
-
-	compressed_scan->plan.targetlist = build_scan_tlist(dcpath);
-	if (!pathkeys_contained_in(dcpath->compressed_pathkeys, compressed_path->pathkeys))
-	{
-		List *compressed_pks = dcpath->compressed_pathkeys;
-		Sort *sort = ts_make_sort_from_pathkeys((Plan *) compressed_scan,
-												compressed_pks,
-												bms_make_singleton(compressed_scan->scanrelid));
-		cscan->custom_plans = list_make1(sort);
-	}
-	else
-	{
-		cscan->custom_plans = custom_plans;
-	}
-
-	Assert(list_length(custom_plans) == 1);
-
-	settings = list_make3_int(dcpath->info->hypertable_id,
-							  dcpath->info->chunk_rte->relid,
-							  dcpath->reverse);
-	cscan->custom_private = list_make2(settings, dcpath->varattno_map);
-
-	return &cscan->scan.plan;
-}
+//Plan *
+//decompress_chunk_plan_create(PlannerInfo *root, RelOptInfo *rel, CustomPath *path, List *tlist,
+//							 List *clauses, List *custom_plans)
+//{
+//	DecompressChunkPath *dcpath = (DecompressChunkPath *) path;
+//	CustomScan *cscan = makeNode(CustomScan);
+//	Scan *compressed_scan = linitial(custom_plans);
+//	Path *compressed_path = linitial(path->custom_paths);
+//	List *settings;
+//
+//	Assert(list_length(custom_plans) == 1);
+//	Assert(list_length(path->custom_paths) == 1);
+//
+//	cscan->flags = path->flags;
+//	cscan->methods = &decompress_chunk_plan_methods;
+//	cscan->scan.scanrelid = dcpath->info->chunk_rel->relid;
+//
+//	/* output target list */
+//	cscan->scan.plan.targetlist = tlist;
+//	/* input target list */
+//	cscan->custom_scan_tlist = NIL;
+//
+//	if (IsA(compressed_path, IndexPath))
+//	{
+//		/* from create_indexscan_plan() */
+//		IndexPath *ipath = castNode(IndexPath, compressed_path);
+//		ListCell *lc;
+//		List *indexqual = NIL;
+//		Plan *indexplan;
+//		foreach (lc, clauses)
+//		{
+//			RestrictInfo *rinfo = lfirst_node(RestrictInfo, lc);
+//			if (is_redundant_derived_clause(rinfo, ipath->indexclauses))
+//				continue; /* dup or derived from same EquivalenceClass */
+//			cscan->scan.plan.qual = lappend(cscan->scan.plan.qual, rinfo->clause);
+//		}
+//		/* joininfo clauses on the compressed chunk rel have to
+//		 * contain clauses on both compressed and
+//		 * decompressed attnos. joininfo clauses get translated into
+//		 * ParamPathInfo for the indexpath. But the index scans can't
+//		 * handle compressed attributes, so remove them from the
+//		 * indexscans here. (these are included in the `clauses` passed in
+//		 * to the function and so were added as filters
+//		 * for cscan->scan.plan.qual in the loop above. )
+//		 */
+//		indexplan = linitial(custom_plans);
+//		Assert(IsA(indexplan, IndexScan) || IsA(indexplan, IndexOnlyScan));
+//		foreach (lc, indexplan->qual)
+//		{
+//			Node *expr = (Node *) lfirst(lc);
+//			CompressedAttnoContext cxt;
+//			Index compress_relid = dcpath->info->compressed_rel->relid;
+//			cxt.compress_relid = compress_relid;
+//			cxt.compressed_attnos = dcpath->info->compressed_chunk_compressed_attnos;
+//			if (!clause_has_compressed_attrs((Node *) expr, &cxt))
+//
+//				indexqual = lappend(indexqual, expr);
+//		}
+//		indexplan->qual = indexqual;
+//	}
+//	else if (IsA(compressed_path, BitmapHeapPath))
+//	{
+//		// TODO we should remove quals that are redunant with the Bitmap scan
+//		/* from create_bitmap_scan_plan */
+//		// BitmapHeapPath *bpath = castNode(BitmapHeapPath, compressed_path);
+//		// ListCell *l;
+//		// foreach(l, clauses)
+//		// {
+//		// 	RestrictInfo *rinfo = lfirst_node(RestrictInfo, l);
+//		// 	Node       *clause = (Node *) rinfo->clause;
+//
+//		// 	if (rinfo->pseudoconstant)
+//		// 		continue;           /* we may drop pseudoconstants here */
+//		// 	if (list_member(indexquals, clause))
+//		// 		continue;           /* simple duplicate */
+//		// 	if (rinfo->parent_ec && list_member_ptr(indexECs, rinfo->parent_ec))
+//		// 		continue;           /* derived from same EquivalenceClass */
+//		// 	if (!contain_mutable_functions(clause) &&
+//		// 		predicate_implied_by(list_make1(clause), indexquals, false))
+//		// 		continue;           /* provably implied by indexquals */
+//		// 	qpqual = lappend(qpqual, rinfo);
+//		// }
+//		cscan->scan.plan.qual = get_actual_clauses(clauses);
+//	}
+//	else
+//	{
+//		cscan->scan.plan.qual = get_actual_clauses(clauses);
+//	}
+//
+//	cscan->scan.plan.qual =
+//		(List *) replace_compressed_vars((Node *) cscan->scan.plan.qual, dcpath->info);
+//
+//	compressed_scan->plan.targetlist = build_scan_tlist(dcpath);
+//	if (!pathkeys_contained_in(dcpath->compressed_pathkeys, compressed_path->pathkeys))
+//	{
+//		List *compressed_pks = dcpath->compressed_pathkeys;
+//		Sort *sort = ts_make_sort_from_pathkeys((Plan *) compressed_scan,
+//												compressed_pks,
+//												bms_make_singleton(compressed_scan->scanrelid));
+//		cscan->custom_plans = list_make1(sort);
+//	}
+//	else
+//	{
+//		cscan->custom_plans = custom_plans;
+//	}
+//
+//	Assert(list_length(custom_plans) == 1);
+//
+//	settings = list_make3_int(dcpath->info->hypertable_id,
+//							  dcpath->info->chunk_rte->relid,
+//							  dcpath->reverse);
+//	cscan->custom_private = list_make2(settings, dcpath->varattno_map);
+//
+//	return &cscan->scan.plan;
+//}
